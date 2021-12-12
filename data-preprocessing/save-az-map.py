@@ -1,5 +1,6 @@
-import boto3
 import time
+import boto3
+import pandas as pd
 
 session = boto3.session.Session(profile_name='sungjae')
 
@@ -25,6 +26,7 @@ for region in region_list_default:
 ec2 = session.client('ec2', region_name='eu-west-1')
 response = ec2.describe_availability_zones()
 eu_west_1_map = [[x['RegionName'], x['ZoneName'], x['ZoneId']] for x in response['AvailabilityZones']]
+print('eu-west-1')
 
 az_map_df = pd.DataFrame(az_map + eu_west_1_map, columns=['region', 'az-name', 'az-id'])
 pickle.dump(az_map_df, open('./az_map.pkl', 'wb'))

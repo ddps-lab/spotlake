@@ -70,3 +70,6 @@ all_result_list = [v for k, v in score_query_dict.items()]
 all_result_list = ['_'.join(x) for sublist in all_result_list for x in sublist]
 print(len(all_result_list))
 print(len(set(all_result_list)))
+
+# save query file
+pickle.dump(score_query_dict, open('./score_query.pkl', 'wb'))

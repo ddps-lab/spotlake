@@ -30,3 +30,6 @@ for spotinfo_filename, spotinfo_datetime in tqdm(spotinfo_objects):
     spotinfo_df['TimeStamp'] = spotinfo_datetime
     spotinfo_df = spotinfo_df.sort_values(by=['InstanceType', 'Region'], ignore_index=True)
     spotinfo_df_list.append(spotinfo_df)
+    
+spotinfo_df = pd.concat(spotinfo_df_list)
+pickle.dump(spotinfo_df, open('./spotinfo_df.pkl', 'wb'))

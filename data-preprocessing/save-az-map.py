@@ -30,4 +30,9 @@ eu_west_1_map = [[x['RegionName'], x['ZoneName'], x['ZoneId']] for x in response
 print('eu-west-1 Done!')
 
 az_map_df = pd.DataFrame(az_map + eu_west_1_map, columns=['region', 'az-name', 'az-id'])
-pickle.dump(az_map_df, open('./az_map.pkl', 'wb'))
+pickle.dump(az_map_df, open('./az_map_df.pkl', 'wb'))
+
+az_map_new = {}
+for idx, row in az_map_df.iterrows():
+    az_map_new[(row['region'], row['az-id'])] = row['az-name']
+pickle.dump(az_map_new, open('./az_map_dict.pkl', 'wb'))

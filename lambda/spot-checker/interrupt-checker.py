@@ -1,3 +1,4 @@
+import pytz
 import time
 import boto3
 import pickle
@@ -35,8 +36,8 @@ response = ec2.request_spot_instances(
     InstanceCount=1,
     LaunchSpecification=launch_spec,
 #     SpotPrice=spot_price, # default value for on-demand price
-    ValidFrom=launch_time,
-    ValidUntil=stop_time,
+    ValidFrom=launch_time.astimezone(pytz.UTC),
+    ValidUntil=stop_time.astimezone(pytz.UTC),
     Type='persistent' # not 'one-time', persistent request
 )
 
@@ -69,12 +70,5 @@ while True:
     # if status is "fulfilled", cancel and break
     if status == 'fulfilled':
         print("Instance Fulfilled!")
-#         instance_id = describe['SpotInstanceRequests'][0]['InstanceId']
-#         print("Terminate Spot Instance")
-#         terminate_status = ec2.terminate_instances(InstanceIds=[instance_id])
-#         print(terminate_status)
-#         print("Cancel Spot Request")
-#         cancel_state = ec2.cancel_spot_instance_requests(SpotInstanceRequestIds=[request_id])
-#         print(cancel_state)
         break
     time.sleep(0.5)

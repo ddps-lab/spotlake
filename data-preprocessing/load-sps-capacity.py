@@ -27,4 +27,4 @@ for sps_filename, sps_datetime in tqdm(sps_objects):
 sps_capacity_df = pd.DataFrame(sps_list, columns=['InstanceType', 'Region', 'AvailabilityZoneId', 'Score', 'Capacity', 'TimeStamp'])
 sps_capacity_df = sps_df.sort_values(by=['TimeStamp', 'InstanceType', 'Region', 'AvailabilityZoneId', 'Capacity'], ignore_index=True)
 
-pickle.dump(sps_df, open('./sps_capacity_df.pkl', 'wb'))
+pickle.dump(sps_capacity_df, open('./sps_capacity_df.pkl', 'wb'))

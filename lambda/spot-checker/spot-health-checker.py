@@ -3,6 +3,7 @@ import time
 import boto3
 import pickle
 import datetime
+import pandas as pd
 
 region_ami = pickle.load(open('./region_ami_dict.pkl', 'rb')) # {x86/arm: {region: (ami-id, ami-info), ...}}
 az_map_dict = pickle.load(open('./az_map_dict.pkl', 'rb')) # {(region, az-id): az-name, ...}
@@ -89,21 +90,32 @@ time.sleep(1)
 # get spot request status
 request_describe = ec2.describe_spot_instance_requests(SpotInstanceRequestIds=[request_id])
 request_status = describe['SpotInstanceRequests'][0]['Status']['Code']
+instance_describe = ''
 print(request_status)
 
 # Status Checker
-# 1. 현재 request 상태를 받기
-# 2. 만약 instance 가 run 중이라면, instance 상태도 받기
+time_list = []
+request_describe_list = []
+instance_describe_list = []
+
+instance_on = False
+
 while True:
     current_time = datetime.datetime.now()
     request_describe = ec2.describe_spot_instance_requests(SpotInstanceRequestIds=[request_id])
     request_status = request_describe['SpotInstanceRequests'][0]['Status']['Code']
     print(f"{request_status} / {current_time}")
+    time_list.append(current_time)
+    request_describe_list.append(request_describe)
+    instance_describe_list.append(instance_describe)
 
-    if request_status == 'fulfilled':
+    if request_status == 'fulfilled':                
         instance_id = request_describe['SpotInstanceRequests'][0]['InstanceId']
+        if instance_on == False:
+            instance_on = True
+            ec2.create_tags(Resources=[instance_id], Tags=[{'Key':'Name', 'Value':'sungjae-spot-test'}])
+        
         instance_describe = ec2.describe_instance_status(InstanceIds=[instance_id])
-        ec2.create_tags(Resources=[instance_id], Tags=[{'Key':'Name', 'Value':'sungjae-spot-test'}])
         instance_status = instance_describe['InstanceStatuses']
         print(f"{instance_status} / {current_time}")
     
@@ -116,6 +128,18 @@ while True:
             print("Terminate Spot Instance")
             terminate_status = ec2.terminate_instances(InstanceIds=[instance_id])
             print(terminate_status)
-#             cancel_state = ec2.cancel_spot_instance_requests(SpotInstanceRequestIds=[request_id])
+            
+            current_time = datetime.datetime.now()
+            instance_describe = ec2.describe_instance_status(InstanceIds=[instance_id])
+            request_describe = ec2.describe_spot_instance_requests(SpotInstanceRequestIds=[request_id])
+            
+            time_list.append(current_time)
+            request_describe_list.append(request_describe)
+            instance_describe_list.append(instance_describe)
+            
         break
     time.sleep(5)
+    
+health_log_df = pd.DataFrame({'time': time_list, 'request': request_describe_list, 'instance': instance_describe_list})
+filename = 'workload-name.pkl'
+pickle.dump(health_log_df, open(filename, 'wb))

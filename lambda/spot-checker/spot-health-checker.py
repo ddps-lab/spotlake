@@ -3,143 +3,126 @@ import time
 import boto3
 import pickle
 import datetime
+import argparse
 import pandas as pd
 
+
+### Spot Checker Mapping Data
 region_ami = pickle.load(open('./region_ami_dict.pkl', 'rb')) # {x86/arm: {region: (ami-id, ami-info), ...}}
 az_map_dict = pickle.load(open('./az_map_dict.pkl', 'rb')) # {(region, az-id): az-name, ...}
 arm64_family = ['a1', 't4g', 'c6g', 'c6gd', 'c6gn', 'im4gn', 'is4gen', 'm6g', 'm6gd', 'r6g', 'r6gd', 'x2gd']
 
-workload_list = [
-    {'instance_type': 't4g.nano',
-     'region': 'eu-west-1',
-     'az_id': 'euw1-az1'},
-    {'instance_type': 'm3.medium',
-     'region': 'eu-central-1',
-     'az_id': 'euc1-az3'},
-    {'instance_type': 'c6gd.medium',
-     'region': 'us-west-2',
-     'az_id': 'usw2-az1'},
-    {'instance_type': 't3.nano',
-     'region': 'eu-west-3',
-     'az_id': 'euw3-az3'},
-    {'instance_type': 'm1.small',
-     'region': 'ap-southeast-2',
-     'az_id': 'apse2-az3'},
-    {'instance_type': 'a1.medium',
-     'region': 'ap-northeast-1',
-     'az_id': 'apne1-az2'},
-    {'instance_type': 't2.large',
-     'region': 'ap-southeast-2',
-     'az_id': 'apse2-az2'},
-    {'instance_type': 'r5dn.large',
-     'region': 'eu-west-1',
-     'az_id': 'euw1-az3'},
-    {'instance_type': 'c5ad.2xlarge',
-     'region': 'us-east-2',
-     'az_id': 'use2-az2'},
-    {'instance_type': 't1.micro',
-     'region': 'ap-southeast-2',
-     'az_id': 'apse2-az1'},
-    {'instance_type': 'c1.medium',
-     'region': 'us-west-2',
-     'az_id': 'usw2-az1'},
-    {'instance_type': 'inf1.xlarge',
-     'region': 'us-east-2',
-     'az_id': 'use2-az2'}
-]
 
-workload = workload_list[6] # t2.large / ap-southeast-2 (sydney)
-workload
+### Spot Checker Arguments
+parser = argparse.ArgumentParser(description='Spot Checker Workload Information')
+parser.add_argument('--instance_type', type=str, default='t2.large')
+parser.add_argument('--region', type=str, default='ap-southeast-2')
+parser.add_argument('--az_id', type=str, default='apse2-az2')
+parser.add_argument('--wait', type=str, default='1', help='wait before request, minutes')
+parser.add_argument('--time_minutes', type=str, default='5', help='how long check spot instance, hours')
+parser.add_argument('--time_hours', type=str, default='0', help='how long check spot instance, hours')
+args = parser.parse_args()
 
-instance_type = workload['instance_type']
+
+### Spot Checker Arguments Parsing
+instance_type = args['instance_type']
 instance_family = instance_type.split('.')[0]
 instance_arch = 'arm' if (instance_family in arm64_family) else 'x86'
-region = workload['region']
-az_id = workload['az_id']
+region = args['region']
+az_id = args['az_id']
 az_name = az_map_dict[(region, az_id)]
 ami_id = region_ami[instance_arch][region][0]
+launch_time = datetime.datetime.now() + datetime.timedelta(minutes=args['wait'])
+launch_time = launch_time.astimezone(pytz.UTC)
+stop_time = datetime.datetime.now() + datetime.timedelta(hours=args['time'], minutes=(args['time'] + args['wait']))
+stop_time = stop_time.astimezone(pytz.UTC)
+spot_data_dict = {}
 
+
+### Spot Launch Specifications
 launch_spec = {
     'ImageId': ami_id,
     'InstanceType': instance_type,
     'Placement': {'AvailabilityZone': az_name}
 }
-
+launch_info = [instance_type, instance_family, instance_arch, region, az_id, az_name, ami_id]
 print(f"""Instance Type: {instance_type}\nInstance Family: {instance_family}\nInstance Arhictecture: {instance_arch}
 Region: {region}\nAZ-ID: {az_id}\nAZ-Name:{az_name}\nAMI ID: {ami_id}""")
+spot_data_dict['launch_spec'] = launch_spec
+spot_data_dict['launch_info'] = launch_info
+spot_data_dict['start_time'] = launch_time
+spot_data_dict['end_time'] = stop_time
 
-launch_time = datetime.datetime.now() + datetime.timedelta(minutes=1)
-stop_time = datetime.datetime.now() + datetime.timedelta(minutes=6)
 
+### Start Spot Checker
 session = boto3.session.Session(profile_name='sungjae')
 ec2 = session.client('ec2', region_name=region)
 
-response = ec2.request_spot_instances(
+create_request_response = ec2.request_spot_instances(
     InstanceCount=1,
     LaunchSpecification=launch_spec,
 #     SpotPrice=spot_price, # default value for on-demand price
-    ValidFrom=launch_time.astimezone(pytz.UTC),
-    ValidUntil=stop_time.astimezone(pytz.UTC),
+    ValidFrom=launch_time,
+    ValidUntil=stop_time,
     Type='persistent' # not 'one-time', persistent request
 )
-
-# get spot request id
-request_id = response['SpotInstanceRequests'][0]['SpotInstanceRequestId']
+spot_data_dict['create_request'] = create_request_response
+request_id = create_request_response['SpotInstanceRequests'][0]['SpotInstanceRequestId']
 time.sleep(1)
 
-# get spot request status
+
+### Status Log Variables
+log_list = []
+instance_tag = False
+
+
+### First Log
+current_time = datetime.datetime.now()
+current_time = current_time.astimezone(pytz.UTC)
 request_describe = ec2.describe_spot_instance_requests(SpotInstanceRequestIds=[request_id])
 request_status = describe['SpotInstanceRequests'][0]['Status']['Code']
 instance_describe = ''
-print(request_status)
+timestamps.append(current_time)
+request_describes.append(request_describe)
+instance_describes.append(instance_describe)
 
-# Status Checker
-time_list = []
-request_describe_list = []
-instance_describe_list = []
 
-instance_on = False
-
+### Loop Log
 while True:
     current_time = datetime.datetime.now()
+    current_time = current_time.astimezone(pytz.UTC)
     request_describe = ec2.describe_spot_instance_requests(SpotInstanceRequestIds=[request_id])
-    request_status = request_describe['SpotInstanceRequests'][0]['Status']['Code']
-    print(f"{request_status} / {current_time}")
-    time_list.append(current_time)
-    request_describe_list.append(request_describe)
-    instance_describe_list.append(instance_describe)
-
-    if request_status == 'fulfilled':                
+    request_status = describe['SpotInstanceRequests'][0]['Status']['Code']
+    log_list.append((current_time, request_describe, instance_describe))
+    
+    if request_status == 'fulfilled':
         instance_id = request_describe['SpotInstanceRequests'][0]['InstanceId']
-        if instance_on == False:
-            instance_on = True
-            ec2.create_tags(Resources=[instance_id], Tags=[{'Key':'Name', 'Value':'sungjae-spot-test'}])
+        if instance_tag == False:
+            instance_tag = True
+            ec2.create_tags(Resources=[instance_id], Tags=[{'Key':'Name', 'Value':'spot-checker-target'}])
         
         instance_describe = ec2.describe_instance_status(InstanceIds=[instance_id])
         instance_status = instance_describe['InstanceStatuses']
-        print(f"{instance_status} / {current_time}")
-    
+        print("Fulfilled")
+        
     if request_status == 'capacity-not-available':
         print("Capacity Not Available")
-        
+            
     if current_time > stop_time:
-        print("Stop Loop")
+        print("Stop Loop Logging")
         if status == 'fulfilled':
             print("Terminate Spot Instance")
-            terminate_status = ec2.terminate_instances(InstanceIds=[instance_id])
-            print(terminate_status)
+            terminate_response = ec2.terminate_instances(InstanceIds=[instance_id])
+            spot_data_dict['terminate_response'] = terminate_response
             
             current_time = datetime.datetime.now()
-            instance_describe = ec2.describe_instance_status(InstanceIds=[instance_id])
+            current_time = current_time.astimezone(pytz.UTC)
             request_describe = ec2.describe_spot_instance_requests(SpotInstanceRequestIds=[request_id])
-            
-            time_list.append(current_time)
-            request_describe_list.append(request_describe)
-            instance_describe_list.append(instance_describe)
-            
+            instance_describe = ec2.describe_instance_status(InstanceIds=[instance_id])
+            log_list.append((current_time, request_describe, instance_describe))
         break
     time.sleep(5)
     
-health_log_df = pd.DataFrame({'time': time_list, 'request': request_describe_list, 'instance': instance_describe_list})
-filename = 'workload-name.pkl'
-pickle.dump(health_log_df, open(filename, 'wb))
+spot_data_dict['logs'] = log_list
+filename = f"{instance_type}_{region}_{az_id}_{launch_time}"
+pickle.dump(spot_data_dict, open(filename, 'wb'))

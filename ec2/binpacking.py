@@ -3,8 +3,6 @@ from ortools.linear_solver import pywraplp
 import time
 from main_num_az import collect_num_az
 import urllib.request, urllib.parse, json
-from datetime import datetime, timedelta
-import operator
 
 def create_data_model(weights, capacity):
     """Create the data for the example."""
@@ -113,7 +111,7 @@ if __name__ == "__main__":
     pickle.dump(user_cred, open('/home/ec2-user/SpotInfo/pkls/user_cred_df.pkl', 'wb'))
 
     url = "https://hooks.slack.com/services/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"
-    message = "Account: spotrank@kookmin.ac.kr\nNeed credentials : {len(workload_result)}"
+    message = f"Spot Placement Score Monitoring - the number of necessary accounts to fetch all scores {len(workload_result)}"
     data = generate_curl_message(message)
     response = post_message(url, data)
     print(response.status)

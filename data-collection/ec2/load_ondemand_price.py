@@ -1,6 +1,7 @@
 import boto3
 import json
 from pkg_resources import resource_filename
+import csv
 
 def get_region_names():
     endpoint_file = resource_filename('botocore', 'data/endpoints.json') # get data file from botocore module
@@ -39,13 +40,36 @@ for region in region_names:
 
     # TODO NextToken 이용해서 response 모두 받아오기
     response = pricing_client.get_products(ServiceCode='AmazonEC2', Filters=filters) 
-    response_dict[region] = response
+    response_dict[region] = response['PriceList']
     
-for price_info in response_dict['US East (N. Virginia)']['PriceList']:
-    try: #TODO instance가 없어서 price가 0.0인 경우 처리
-        instance_type = json.loads(price_info)['product']['attributes']['instanceType']
-        instance_price = float(list(list(json.loads(price_info)['terms']['OnDemand'].values())[0]['priceDimensions'].values())[0]['pricePerUnit']['USD'])
+    while "NextToken" in response:
+        
+        response = pricing_client.get_products(ServiceCode='AmazonEC2', Filters=filters, NextToken=response["NextToken"]) 
+        response_dict[region].extend(response['PriceList'])
+        
+        try:
+            print(json.loads(response['PriceList'][0])['product']['attributes']['instanceType'])
+        except:
+            print("no instance")
 
-        print(f"{instance_type} \t {instance_price}")
-    except:
-        print(price_info)
+#TODO instance가 없어서 price가 0.0인 경우 처리
+with open('./region-instance-price.csv', 'w', newline='') as f: 
+    wr = csv.writer(f)
+    wr.writerow(['Region Code', 'Instance Type', 'Price'])
+    
+    for i in range(len(region_names)):
+        region_name = region_names[i]
+        region_code = region_codes[i]
+
+        for price_info in response_dict[region_name]: # 이거 그냥 위에 포문에 붙여도 될듯
+            try:
+                instance_type = json.loads(price_info)['product']['attributes']['instanceType']
+                instance_price = float(list(list(json.loads(price_info)['terms']['OnDemand'].values())[0]['priceDimensions'].values())[0]['pricePerUnit']['USD'])
+
+                if instance_price == 0.0:
+                    continue
+
+                wr.writerow([region_code, instance_type, instance_price])
+            except:
+                print("no instance in ", region_name, ", attributes: ", json.loads(price_info)['product']['attribute
+

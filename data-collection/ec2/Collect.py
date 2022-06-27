@@ -526,8 +526,11 @@ def upload_to_timestream(data):
 
 def update_latest(data):
     data_to_json = "["
-    id_count = 1
+    id_count = 0
     for idx, row in data.iterrows():
+        if id_count % 100 == 0:
+            print(id_count)
+        id_count += 1
         data_to_json += '{'
         data_to_json += '\"id\":\"'+str(id_count)+'\",'
         data_to_json += '\"SpotPrice\":\"'+str(row['SpotPrice'])+'\",'
@@ -538,19 +541,19 @@ def update_latest(data):
         data_to_json += '\"InstanceType\":\"'+str(row['InstanceType'])+'\",'
         save_latest_if = 0
         if row['IF'] == '<5%':
-            save_latest_if = 1
+            save_latest_if = 3
         elif row['IF'] == '5-10%':
-            save_latest_if = 1.5
+            save_latest_if = 2.5
         elif row['IF'] == '10-15%':
             save_latest_if = 2
         elif row['IF'] == '15-20%':
-            save_latest_if = 2.5
+            save_latest_if = 1.5
         else:
-            save_latest_if = 3
+            save_latest_if = 1
         data_to_json += '\"IF\":\"'+str(save_latest_if)+'\",'
         data_to_json += '\"time\":\"'+str(row['TimeStamp_spotinfo'].split('+')[0])+'\"}'
         data_to_json += ','
-        id_count += 1
+
     if data_to_json[-1] == ',':
         data_to_json = data_to_json[:len(data_to_json)-1] + ']'
     elif data_to_json[-1] == '[':
@@ -560,7 +563,8 @@ def update_latest(data):
     s3_path = f'latest_data/{filename}'
     s3.Object(SAVE_BUCKET_NAME, s3_path).put(Body=result)
     object_acl = s3.ObjectAcl(SAVE_BUCKET_NAME, s3_path)
-    responese = object_acl.put(ACL='public-read')
+    response = object_acl.put(ACL='public-read')
+    print(response)
 
 if __name__ == "__main__":
     start = time.time()

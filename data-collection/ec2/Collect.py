@@ -536,9 +536,21 @@ def update_latest(data):
         data_to_json += '\"AZ\":\"'+str(row['AvailabilityZoneId'])+'\",'
         data_to_json += '\"Region\":\"'+str(row['Region'])+'\",'
         data_to_json += '\"InstanceType\":\"'+str(row['InstanceType'])+'\",'
-        data_to_json += '\"IF\":\"'+str(row['IF'])+'\",'
+        save_latest_if = 0
+        if row['IF'] == '<5%':
+            save_latest_if = 1
+        elif row['IF'] == '5-10%':
+            save_latest_if = 1.5
+        elif row['IF'] == '10-15%':
+            save_latest_if = 2
+        elif row['IF'] == '15-20%':
+            save_latest_if = 2.5
+        else:
+            save_latest_if = 3
+        data_to_json += '\"IF\":\"'+str(save_latest_if)+'\",'
         data_to_json += '\"time\":\"'+str(row['TimeStamp_spotinfo'].split('+')[0])+'\"}'
         data_to_json += ','
+        id_count += 1
     if data_to_json[-1] == ',':
         data_to_json = data_to_json[:len(data_to_json)-1] + ']'
     elif data_to_json[-1] == '[':

@@ -27,7 +27,12 @@ def get_ec2_info(region_names, pricing_client):
 
     for region in region_names:
         filters = [
-          {'Type': 'TERM_MATCH', 'Field': 'location', 'Value': region},
+        {'Type': 'TERM_MATCH', 'Field': 'capacitystatus', 'Value': 'Used'},
+        {'Type': 'TERM_MATCH', 'Field': 'location', 'Value': region},
+        {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
+        {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
+        {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
+        {'Type': 'TERM_MATCH', 'Field': 'licenseModel', 'Value': 'No License required'}
         ]
 
         response = pricing_client.get_products(ServiceCode='AmazonEC2', Filters=filters) 
@@ -51,7 +56,6 @@ def info_to_json(response_dict, region_names, region_codes):
 
     data = []
 
-    id_count = 1
     for i in range(len(region_names)):
         region_name = region_names[i]
         region_code = region_codes[i]
@@ -65,14 +69,11 @@ def info_to_json(response_dict, region_names, region_codes):
                 if instance_price == 0.0:
                     continue
 
-                ondemandinfo_dict['id'] = str(id_count)
                 ondemandinfo_dict['Region'] = region_code
                 ondemandinfo_dict['InstanceType'] = instance_type
                 ondemandinfo_dict['OndemandPrice'] = instance_price
 
                 data.append(ondemandinfo_dict)
-
-                id_count += 1
 
             except:
                 print("no instance in ", region_name, ", attributes: ", json.loads(price_info)['product']['attributes'])

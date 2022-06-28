@@ -534,7 +534,7 @@ def update_latest(data):
         data_to_json += '\"SpotPrice\":\"'+str(row['SpotPrice'])+'\",'
         data_to_json += '\"Savings\":\"'+str(row['Savings'])+'\",'
         data_to_json += '\"SPS\":\"'+str(row['SPS'])+'\",'
-        data_to_json += '\"AZ\":\"'+str(row['AvailabilityZoneId'])+'\",'
+        data_to_json += '\"AZ\":\"'+str(row['AvailabilityZoneId'].split('-az')[1])+'\",'
         data_to_json += '\"Region\":\"'+str(row['Region'])+'\",'
         data_to_json += '\"InstanceType\":\"'+str(row['InstanceType'])+'\",'
         save_latest_if = 0

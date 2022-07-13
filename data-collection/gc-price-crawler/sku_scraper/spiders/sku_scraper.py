@@ -12,7 +12,7 @@ class SkuScraperSpider(scrapy.Spider):
     start_urls = ['http://lepton.appspot.com/']
 
     def start_requests(self):
-        while(self.offset <= 1600):
+        while(True):
             url = self.start_urls[0] + 'skus?format=skuPage&currency=USD&filter={}&offset={}&limit={}'.format(
                 self.search, self.offset, self.limit)
             yield scrapy.Request(url=url, callback=self.parse)

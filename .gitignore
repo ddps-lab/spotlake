@@ -1,0 +1,3 @@
+## ignore data-collection/gc-price-crawler pychache dir
+/data-collection/gc-price-crawler/sku_scraper/__pycache__
+/data-collection/gc-price-crawler/sku_scraper/spiders/__pycache__

@@ -1,14 +1,13 @@
-from asyncore import write
 import scrapy
 from scrapy.exceptions import CloseSpider
 
 
-class DataScraperSpider(scrapy.Spider):
+class SkuScraperSpider(scrapy.Spider):
     search = 'preemptible'
     offset = 0
     limit = 100
 
-    name = 'data_scraper'
+    name = 'sku_scraper'
     allowed_domains = ['lepton.appspot.com']
     start_urls = ['http://lepton.appspot.com/']
 
@@ -31,7 +30,7 @@ class DataScraperSpider(scrapy.Spider):
             raise CloseSpider('Response is finished!')
 
         # write raw data
-        with open('./raw_data/{}.txt'.format(self.search), 'a') as f:
+        with open('../../raw_data/{}.txt'.format(self.search), 'a') as f:
             f.write(data_string)
 
         self.log('Filename : {}, Write New Request for offset {}'.format(

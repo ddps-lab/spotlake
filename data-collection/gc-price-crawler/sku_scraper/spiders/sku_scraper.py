@@ -1,9 +1,12 @@
 import scrapy
 from scrapy.exceptions import CloseSpider
+from datetime import datetime
+import os
 
 
 class SkuScraperSpider(scrapy.Spider):
     search = 'preemptible'
+    date_time = datetime.now()
     offset = 0
     limit = 100
 
@@ -30,7 +33,11 @@ class SkuScraperSpider(scrapy.Spider):
             raise CloseSpider('Response is finished!')
 
         # write raw data
-        with open('../../raw_data/{}.txt'.format(self.search), 'a') as f:
+        # firstable, make directory
+        make_path = '../../../../../gcp_raw_data'
+        if os.path.isdir(make_path) == False:
+            os.mkdir(make_path)
+        with open('{}/{}_{}_{}.txt'.format(make_path, self.search, self.date_time.date(), self.date_time.time().strftime('%H-%M-%S')), 'a') as f:
             f.write(data_string)
 
         self.log('Filename : {}, Write New Request for offset {}'.format(

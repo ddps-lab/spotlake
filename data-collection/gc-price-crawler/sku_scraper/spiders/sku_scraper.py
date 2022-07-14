@@ -28,17 +28,28 @@ class SkuScraperSpider(scrapy.Spider):
 
         self.log(len(skus))
 
-        # when skus is empty => finish
-        if len(skus) <= 0:
-            raise CloseSpider('Response is finished!')
-
         # write raw data
         # firstable, make directory
         make_path = '../../../../../gcp_raw_data'
         if os.path.isdir(make_path) == False:
             os.mkdir(make_path)
-        with open('{}/{}_{}_{}.txt'.format(make_path, self.search, self.date_time.date(), self.date_time.time().strftime('%H-%M-%S')), 'a') as f:
-            f.write(data_string)
+
+        # when skus is empty => finish
+        if len(skus) <= 0:
+            # trim to json format
+            with open('{}/{}_{}_{}.json'.format(make_path, self.search, self.date_time.date(), self.date_time.time().strftime('%H-%M-%S')), 'r+') as f:
+                temp_data = f.read()
+                temp_data = temp_data.rstrip(',')
+                final_json_data = '[' + temp_data + ']'
+                f.truncate(0)
+                f.seek(0)
+                f.write(final_json_data)
+            raise CloseSpider('Response is finished!')
+
+        with open('{}/{}_{}_{}.json'.format(make_path, self.search, self.date_time.date(), self.date_time.time().strftime('%H-%M-%S')), 'a') as f:
+            trim_data = data_string.lstrip(")]}'\n")
+            trim_data += ','
+            f.write(trim_data)
 
         self.log('Filename : {}, Write New Request for offset {}'.format(
             self.search, self.offset))

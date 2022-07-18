@@ -63,7 +63,6 @@ def CBC(query, capacity):
     return to_return
 
 if __name__ == "__main__":
-    
     collect_num_az()
 
     region_cnt = pickle.load(open('/home/ec2-user/WorkloadCreator/base.pickle', 'rb'))
@@ -89,6 +88,10 @@ if __name__ == "__main__":
             if len(f_query) == 50:
                 workload_result.append(f_query)
                 f_query = []
+
+    if len(f_query) != 0:
+        workload_result.append(f_query)
+        f_query = []
 
     end_time = time.time()
     

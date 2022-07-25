@@ -77,7 +77,6 @@ def load_spot_price():
     # filter to change az name to id
     az_map = dict()
     for region in regions:
-        print(region)
         ec2 = session.client('ec2', region_name=region)
         response = ec2.describe_availability_zones()
 

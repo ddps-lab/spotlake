@@ -2,6 +2,8 @@ import boto3
 import pandas
 import pickle
 
+
+# get spot placement score
 def get_sps():
     # need to change file location
     credentials = pickle.load(open('./user_cred_df.pkl', 'rb'))

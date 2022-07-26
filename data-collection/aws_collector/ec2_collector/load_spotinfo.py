@@ -46,3 +46,4 @@ def get_spotinfo():
     spotinfo_df = pd.DataFrame(spotinfo_dict)
 
     return spotinfo_df
+    

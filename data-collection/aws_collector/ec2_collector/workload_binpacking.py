@@ -3,7 +3,7 @@
 
 import pickle
 from ortools.linear_solver import pywraplp
-import load_metadata
+from load_metadata import num_az_by_region
 
 
 # create object of bin packing input data
@@ -72,7 +72,7 @@ def workload_bin_packing(query, capacity, algorithm):
 
 if __name__ == "__main__":
     # need to change file location
-    workloads = load_metadata.num_az_by_region()
+    workloads = num_az_by_region()
 
     result_binpacked = {}
     

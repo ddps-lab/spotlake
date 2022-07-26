@@ -1,7 +1,9 @@
 from google.cloud import billing_v1
 from google.protobuf.json_format import MessageToDict
+import proto.marshal.collections.repeated as pr
 import pandas as pd
-from IPython.display import display
+from datetime import datetime
+import pickle
 
 
 def get_service_list():
@@ -13,7 +15,7 @@ def get_service_list():
     return client.list_services(request=service_request)
 
 
-def get_skus_list():
+def get_skus_list(service_name):
     # get sku list by using google cloud billing catalog API
     # input : service_name(str)
     # output : list
@@ -32,32 +34,42 @@ def get_skus_list():
     return page_result_list
 
 
-def make_dataframe(value_list, content_list):
+def make_dataframe(value_list, content_list, date_time):
     # make dataframe from list of service or sku
-    # input : value_list(list), content_list(list)
+    # input : value_list(list), content_list(list), date_time(str)
     # output : Dataframe
 
     for value in value_list:
         globals()['{}_list'.format(value)] = []
 
+    timestamp_list = []
+
     for content in content_list:
         for value in value_list:
             try:
-                globals()['{}_list'.format(value)].append(
-                    getattr(content, value))
+                put_value = getattr(content, value)
+                if type(put_value) in (pr.Repeated, pr.RepeatedComposite):
+                    put_value = list(put_value)
+
+                globals()['{}_list'.format(value)].append(put_value)
+
             except:
                 if hasattr(content, 'category') == True:
                     globals()['{}_list'.format(value)].append(
                         getattr(getattr(content, 'category'), value))
+        timestamp_list.append(date_time)
 
     new_df = pd.DataFrame()
     for value in value_list:
         new_df[value] = globals()['{}_list'.format(value)]
+    new_df['timestamp'] = timestamp_list
 
     return new_df
 
 
 if __name__ == '__main__':
+    date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     global client
     client = billing_v1.CloudCatalogClient()
 
@@ -67,7 +79,7 @@ if __name__ == '__main__':
         'name', 'service_id',
         'display_name', 'business_entity_name'
     ]
-    df_service = make_dataframe(service_value_list, service_list)
+    df_service = make_dataframe(service_value_list, service_list, date_time)
 
     # extract service to query skus
     query_service_list = []
@@ -92,4 +104,7 @@ if __name__ == '__main__':
         'usage_type', 'service_regions',
         'pricing_info', 'service_provider_name'
     ]
-    df_sku = make_dataframe(sku_value_list, sku_list)
+    df_sku = make_dataframe(sku_value_list, sku_list, date_time)
+
+    with open('C:/Users/wynter/Desktop/DDPS/gcp_price_data/gcp_price.pkl', 'wb') as f:
+        pickle.dump(df_sku, f)

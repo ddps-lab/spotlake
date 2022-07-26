@@ -32,19 +32,20 @@ def get_sps():
             results = ({'user_num': user_num}, query[0], query[1], scores)
             sps_list.append(results)
 
-    sps_info = {'InstanceType' : [],
-            'Region' : [],
-            'AvailabilityZoneId': [],
-            'SPS' : [],
-            'TimeStamp' : []}
+    sps_dict = {'InstanceType' : [],
+                'Region' : [],
+                'AvailabilityZoneId': [],
+                'SPS' : [],
+                'TimeStamp' : []}
+
     for sps in sps_list:
         for info in sps[3]:
-            sps_info['TimeStamp'].append(now_time)
-            sps_info['InstanceType'].append(sps[1])
-            sps_info['Region'].append(info['Region'])
-            sps_info['AvailabilityZoneId'].append(info['AvailabilityZoneId'])
-            sps_info['SPS'].append(info['Score'])
+            sps_dict['TimeStamp'].append(now_time)
+            sps_dict['InstanceType'].append(sps[1])
+            sps_dict['Region'].append(info['Region'])
+            sps_dict['AvailabilityZoneId'].append(info['AvailabilityZoneId'])
+            sps_dict['SPS'].append(info['Score'])
 
-    sps_info = pd.DataFrame(sps_info)
+    sps_df = pd.DataFrame(sps_dict)
 
     return sps_df

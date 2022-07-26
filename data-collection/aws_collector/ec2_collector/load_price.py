@@ -53,7 +53,7 @@ def get_spot_price():
             spotprice_dict["SpotPrice"].append(price)
             spotprice_dict["TimeStamp"].append(timestamp)
     
-    spotprice_df = pd.DataFrame(spotprice_dict)
+    spot_price_df = pd.DataFrame(spotprice_dict)
 
     # filter to change az-name to az-id
     az_map = dict()
@@ -64,9 +64,9 @@ def get_spot_price():
         for val in response['AvailabilityZones']:
             az_map[val['ZoneName']] = val['ZoneId']
     
-    spotprice_df = spotprice_df.replace({"AZ":az_map})
+    spot_price_df = spot_price_df.replace({"AZ":az_map})
     
-    return spotprice_df
+    return spot_price_df
 
 
 # get ondemand price by all instance type in single region
@@ -117,6 +117,6 @@ def get_ondemand_price():
             ondemand_dict['InstanceType'].append(instance_type)
             ondemand_dict['OndemandPrice'].append(instance_price)
     
-    ondemand_price = pd.DataFrame(ondemand_dict)
-                
-    return ondemand_price
+    ondemand_price_df = pd.DataFrame(ondemand_dict)
+    
+    return ondemand_price_df

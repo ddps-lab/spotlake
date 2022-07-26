@@ -1,1 +1,0 @@
-# SpotLake Data Collector

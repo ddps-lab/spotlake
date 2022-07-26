@@ -1,13 +1,11 @@
-# reference
-# https://developers.google.com/optimization/bin/bin_packing
-
 import pickle
 from ortools.linear_solver import pywraplp
-import load_metadata
+import time
+from main_num_az import collect_num_az
+import urllib.request, urllib.parse, json
 
-
-# create object of bin packing input data
 def create_data_model(weights, capacity):
+    """Create the data for the example."""
     data = {}
     data['weights'] = weights
     data['items'] = list(range(len(weights)))
@@ -15,13 +13,10 @@ def create_data_model(weights, capacity):
     data['bin_capacity'] = capacity
     return data
 
-
-# run bin packing with algorithm name
 def bin_packing(weights, capacity, algorithm):
     bin_index_list = []
     data = create_data_model(weights, capacity)
     solver = pywraplp.Solver.CreateSolver(algorithm)
-
     x = {}
     for i in data['items']:
         for j in data['bins']:
@@ -56,51 +51,55 @@ def bin_packing(weights, capacity, algorithm):
     else:
         print('The problem does not have an optimal solution.')
 
-
-# run bin packing algorithm to instance-region workloads
-def workload_bin_packing(query, capacity, algorithm):
+def CBC(query, capacity):
     weights = [weight for instance, weight in query]
-    bin_index_list = bin_packing(weights, 10, algorithm)
+    bin_index_list = bin_packing(weights, 10, 'CBC')
     
-    binpacked = []
+    to_return = []
     
     for bin_index, bin_weight in bin_index_list:
-        binpacked.append([(query[x][0], query[x][1]) for x in bin_index])
+        to_return.append([(query[x][0], query[x][1]) for x in bin_index])
     
-    return binpacked
-
+    return to_return
 
 if __name__ == "__main__":
-    # need to change file location
-    workloads = load_metadata.num_az_by_region()
+    collect_num_az()
+
+    region_cnt = pickle.load(open('/home/ec2-user/WorkloadCreator/base.pickle', 'rb'))
 
     result_binpacked = {}
+    nums = 0
     
-    for instance, query in workloads.items():
-        result_binpacked[instance] = workload_bin_packing(query, 10, 'CBC')
+    start_time = time.time()
     
-    user_queries_list = []
-    user_queries = []
+    for instance, query in region_cnt.items():
+        result_binpacked[instance] = CBC(query, 10)
+        nums += len(result_binpacked[instance])
+    
+    workload_result = []
+    f_query = []
     for instance, queries in result_binpacked.items():
         for query in queries:
             new_query = [instance, [], 0]
             for tup in query:
                 new_query[1].append(tup[0])
                 new_query[2] += tup[1]
-            user_queries.append(new_query)
-            if len(user_queries) == 50:
-                user_queries_list.append(user_queries)
-                user_queries = []
+            f_query.append(new_query)
+            if len(f_query) == 50:
+                workload_result.append(f_query)
+                f_query = []
 
-    if len(user_queries) != 0:
-        user_queries_list.append(user_queries)
-        user_queries = []
+    if len(f_query) != 0:
+        workload_result.append(f_query)
+        f_query = []
+
+    end_time = time.time()
     
+    print(end_time - start_time)
+    
+    pickle.dump(workload_result, open('/home/ec2-user/SpotInfo/pkls/bin_packed_workload.pickle', 'wb'))
+    print(nums)
 
-    # need to change file location
-    pickle.dump(user_queries_list, open('./bin_packed_workloads.pkl', 'wb'))
-
-    # reverse order of credential data
-    user_cred = pickle.load(open('./user_cred_df.pkl', 'rb'))
+    user_cred = pickle.load(open('/home/ec2-user/SpotInfo/pkls/user_cred_df.pkl', 'rb'))
     user_cred = user_cred[::-1]
-    pickle.dump(user_cred, open('./user_cred_df.pkl', 'wb'))
+    pickle.dump(user_cred, open('/home/ec2-user/SpotInfo/pkls/user_cred_df.pkl', 'wb'))

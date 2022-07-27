@@ -79,9 +79,6 @@ if __name__ == '__main__':
         for page in pages_list:
             executor.submit(get_data, page)
     
-    spot_data = list(spot_data)
-    ondemand_data = list(ondemand_data)
-    
     azure_spot_table = pd.DataFrame(spot_data)
     azure_ondemand_table = pd.DataFrame(ondemand_data)
     

@@ -22,7 +22,7 @@ def get_region_instances(session: boto3.session.Session, region: str):
     while True:
         response = client.describe_instance_type_offerings(**describe_args)
         for obj in response['InstanceTypeOfferings']:
-            az, it, os, price, timestamp = obj.values()
+            it, _, az = obj.values()
             region_instances.append((region, it))
         if 'NextToken' not in response:
             break

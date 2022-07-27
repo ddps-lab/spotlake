@@ -4,7 +4,7 @@ from collections import Counter
 
 
 # get all available regions
-def get_regions(session: Session, region='us-east-1') -> list:
+def get_regions(session: boto3.session.Session, region='us-east-1') -> list:
     client = session.client('ec2', region_name=region)
     describe_args = {
         'AllRegions': False
@@ -13,7 +13,7 @@ def get_regions(session: Session, region='us-east-1') -> list:
 
 
 # get instance-az information by region
-def get_region_instances(session: Session, region: str):
+def get_region_instances(session: boto3.session.Session, region: str):
     client = session.client('ec2', region_name=region)
     describe_args = {
         'LocationType': 'availability-zone',

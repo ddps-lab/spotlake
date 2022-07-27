@@ -75,10 +75,9 @@ if __name__ == '__main__':
     for i in range(1380): 
         pages_list.append(page + str(i*100))  
 
-    threads = []
     with ThreadPoolExecutor(max_workers=16) as executor:
         for page in pages_list:
-            threads.append(executor.submit(get_data, page))
+            executor.submit(get_data, page)
     
     spot_data = list(spot_data)
     ondemand_data = list(ondemand_data)

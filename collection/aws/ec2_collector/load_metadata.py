@@ -45,7 +45,7 @@ def num_az_by_region():
         total_counter += region_counter
     
     workloads = dict()
-    for key, cnt in counter.items():
+    for key, cnt in total_counter.items():
         region, it = key
         if it not in workloads:
             workloads[it] = []

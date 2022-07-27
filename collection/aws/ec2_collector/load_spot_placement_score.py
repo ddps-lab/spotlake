@@ -35,12 +35,10 @@ def get_sps():
     sps_dict = {'InstanceType' : [],
                 'Region' : [],
                 'AvailabilityZoneId': [],
-                'SPS' : [],
-                'TimeStamp' : []}
+                'SPS' : []}
 
     for sps in sps_list:
         for info in sps[3]:
-            sps_dict['TimeStamp'].append(now_time)
             sps_dict['InstanceType'].append(sps[1])
             sps_dict['Region'].append(info['Region'])
             sps_dict['AvailabilityZoneId'].append(info['AvailabilityZoneId'])

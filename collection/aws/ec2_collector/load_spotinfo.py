@@ -29,12 +29,10 @@ def get_spotinfo():
                      'Memory GiB' : [],
                      'Savings' : [],
                      'IF' : [],
-                     'SpotPrice' : [],
-                     'TimeStamp' : []}
+                     'SpotPrice' : []}
     
     # remove column name from data using indexing
     for spotinfo in spotinfo_list[2:-1]:
-        spotinfo_dict['TimeStamp'].append(now_time)
         spotinfo_dict['Region'].append(spotinfo[0])
         spotinfo_dict['InstanceType'].append(spotinfo[1])
         spotinfo_dict['vCPU'].append(spotinfo[2])

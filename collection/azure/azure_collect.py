@@ -5,7 +5,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 
-def get_data(page_link):   
+# Get data from API and store necessary fields.
+def get_price(page_link):   
     response = requests.get(page_link)  
 
     json_data = list(response.json()['Items'])
@@ -37,17 +38,14 @@ def get_data(page_link):
             ondemand_data.append(ondemand_dict)
             
     return 
-
-
-def store_df_to_pickle(table, file_path):
-    table.to_pickle(file_path)
         
         
-def calculate_savings(savings_table):
-    savings_table['savings'] = 0.0
-    no_savings_rows = savings_table['ondemandPrice'].isnull() | savings_table['spotPrice'].isnull()
+# Calcuate the savings if a row has both ondemandPrice and spotPrice.
+def calculate_savings(savings_df):
+    savings_df['savings'] = 0.0
+    no_savings_rows = savings_df['ondemandPrice'].isnull() | savings_df['spotPrice'].isnull()
 
-    for index, row in savings_table.iterrows():
+    for index, row in savings_df.iterrows():
         if no_savings_rows[index] == False:
             ondemand_price = row[3]
             spot_price = row[6]
@@ -55,11 +53,11 @@ def calculate_savings(savings_table):
                 savings = (ondemand_price - spot_price) / ondemand_price * 100
             except ZeroDivisionError:
                 savings = None
-            savings_table['savings'][index] = savings
+            savings_df['savings'][index] = savings
         else:
-            savings_table['savings'][index] = None
+            savings_df['savings'][index] = None
     
-    return savings_table
+    return savings_df
 
 
 if __name__ == '__main__':
@@ -77,19 +75,20 @@ if __name__ == '__main__':
 
     with ThreadPoolExecutor(max_workers=16) as executor:
         for page in pages_list:
-            executor.submit(get_data, page)
+            executor.submit(get_price, page)
     
-    azure_spot_table = pd.DataFrame(spot_data)
-    azure_ondemand_table = pd.DataFrame(ondemand_data)
+    azure_spot_df = pd.DataFrame(spot_data)
+    azure_ondemand_df = pd.DataFrame(ondemand_data)
     
-    drop_idx = azure_ondemand_table.loc[(azure_ondemand_table['location'] == '')].index 
-    azure_ondemand_table.drop(drop_idx, inplace=True)
+    drop_idx = azure_ondemand_df.loc[(azure_ondemand_df['location'] == '')].index 
+    azure_ondemand_df.drop(drop_idx, inplace=True)
 
-    savings_table = pd.merge(azure_ondemand_table, azure_spot_table, left_on=['location', 'armRegionName', 'armSkuName', 'meterName'], right_on=['location', 'armRegionName', 'armSkuName', 'meterName'], how='outer') 
-    savings_table = savings_table.rename(columns = {'effectiveStartDate_x': 'ondemandEffectiveStartDate', 'effectiveStartDate_y': 'spotEffectiveStartDate'})
+    savings_df = pd.merge(azure_ondemand_df, azure_spot_df, left_on=['location', 'armRegionName', 'armSkuName', 'meterName'], right_on=['location', 'armRegionName', 'armSkuName', 'meterName'], how='outer') 
+    savings_df = savings_df.rename(columns = {'effectiveStartDate_x': 'ondemandEffectiveStartDate', 'effectiveStartDate_y': 'spotEffectiveStartDate'})
 
-    savings_table = calculate_savings(savings_table)
+    savings_df = calculate_savings(savings_df)
     
-    savings_table = savings_table.reindex(columns=['location', 'armRegionName', 'armSkuName', 'meterName', 'ondemandPrice', 'spotPrice', 'savings', 'ondemandEffectiveStartDate', 'spotEffectiveStartDate'])
+    savings_df = savings_df.reindex(columns=['location', 'armRegionName', 'armSkuName', 'meterName', 'ondemandPrice', 'spotPrice', 'savings', 'ondemandEffectiveStartDate', 'spotEffectiveStartDate'])
 
-    store_df_to_pickle(savings_table, pickle_file_path)
+    savings_df.to_pickle(pickle_file_path)
+    

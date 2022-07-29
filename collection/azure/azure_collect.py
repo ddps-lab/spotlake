@@ -75,7 +75,7 @@ if __name__ == '__main__':
     
     page = 'https://prices.azure.com:443/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27%20and%20priceType%20eq%20%27Consumption%27%20and%20unitOfMeasure%20eq%20%271%20Hour%27&$skip='
     pages_list = []
-    for i in range(1380): 
+    for i in range(2000): 
         pages_list.append(page + str(i*100))  
 
     executor = ThreadPoolExecutor(max_workers=32) 

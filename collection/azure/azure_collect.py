@@ -3,6 +3,7 @@ import pandas as pd
 import pickle
 import time
 from concurrent.futures import ThreadPoolExecutor
+from threading import current_thread
 
 
 # Get data from API and store necessary fields.
@@ -12,6 +13,7 @@ def get_price(page_link):
     json_data = list(response.json()['Items'])
     if not json_data:
         print("No such pages:", page_link)
+        ended_threads[current_thread()] = 1
         return
     
     for j in json_data:
@@ -36,7 +38,8 @@ def get_price(page_link):
             ondemand_dict["meterName"] = j["meterName"]
             ondemand_dict["effectiveStartDate"] = j["effectiveStartDate"]
             ondemand_data.append(ondemand_dict)
-            
+    
+    ended_threads[current_thread()] = 0
     return 
         
         
@@ -63,8 +66,10 @@ def calculate_savings(savings_df):
 if __name__ == '__main__':
     global ondemand_data
     global spot_data
+    global ended_threads
     ondemand_data = []
     spot_data = []
+    ended_threads = dict()
     
     pickle_file_path = './Azure-savings-fast.pkl'
     
@@ -73,9 +78,16 @@ if __name__ == '__main__':
     for i in range(1380): 
         pages_list.append(page + str(i*100))  
 
-    with ThreadPoolExecutor(max_workers=16) as executor:
-        for page in pages_list:
-            executor.submit(get_price, page)
+    executor = ThreadPoolExecutor(max_workers=32) 
+
+    for page in pages_list:
+        executor.submit(get_price, page)
+        
+    time.sleep(1)
+    while True:
+        if min(list(ended_threads.values())) == 1:
+            executor.shutdown(wait=False, cancel_futures=True)
+            break
     
     azure_spot_df = pd.DataFrame(spot_data)
     azure_ondemand_df = pd.DataFrame(ondemand_data)

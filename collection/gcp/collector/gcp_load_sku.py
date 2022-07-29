@@ -1,9 +1,9 @@
 from google.cloud import billing_v1
 from google.protobuf.json_format import MessageToDict
-import proto.marshal.collections.repeated as pr
 import pandas as pd
 from datetime import datetime
 import pickle
+import os
 
 
 def get_service_list():
@@ -174,5 +174,9 @@ if __name__ == '__main__':
     df_sku['timestamp'] = date_time
 
     # save as pickle
-    with open('C:/Users/wynter/Desktop/DDPS/gcp_price_data/gcp_price.pkl', 'wb') as f:
+    save_path = '../../../../gcp_price_data'
+    if os.path.isdir(save_path) == False:
+        os.mkdir(save_path)
+
+    with open(save_path + '/gcp_price.pkl', 'wb') as f:
         pickle.dump(df_sku, f)

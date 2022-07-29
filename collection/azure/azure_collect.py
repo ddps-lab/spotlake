@@ -86,7 +86,7 @@ if __name__ == '__main__':
     time.sleep(1)
     while True:
         if min(list(ended_threads.values())) == 1:
-            executor.shutdown(wait=False, cancel_futures=True)
+            executor.shutdown(wait=False)
             break
     
     azure_spot_df = pd.DataFrame(spot_data)

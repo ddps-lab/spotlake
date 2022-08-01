@@ -14,3 +14,4 @@ def compare(pervious_df, current_df):
             changed_list.append(dict(row))
     changed_df = pd.DataFrame(changed_list)
     return changed_df
+    

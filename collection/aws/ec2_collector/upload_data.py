@@ -8,8 +8,8 @@ from botocore.exceptions import ClientError
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
-DATABASE_NAME = 'spotlake-timestream'
-TABLE_NAME = 'aws-table'
+DATABASE_NAME = 'spotlake'
+TABLE_NAME = 'aws'
 
 
 # Submit Batch To Timestream

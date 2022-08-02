@@ -1,9 +1,9 @@
 from google.cloud import billing_v1
 from google.protobuf.json_format import MessageToDict
-import proto.marshal.collections.repeated as pr
 import pandas as pd
 from datetime import datetime
 import pickle
+import os
 
 
 def get_service_list():
@@ -34,37 +34,32 @@ def get_skus_list(service_name):
     return page_result_list
 
 
-def make_dataframe(value_list, content_list, date_time):
-    # make dataframe from list of service or sku
-    # input : value_list(list), content_list(list), date_time(str)
-    # output : Dataframe
+def make_information_dict(key_list, content_list):
+    # make information dictionary to put in dataframe
+    # input: value_list(key list of new dict), content_list(value list of new dict)
+    # output: dictionary
 
-    for value in value_list:
-        globals()['{}_list'.format(value)] = []
+    info_dictionary = dict()
 
-    timestamp_list = []
+    for key in key_list:
+        info_dictionary[key] = []
 
     for content in content_list:
-        for value in value_list:
-            try:
-                put_value = getattr(content, value)
-                if type(put_value) in (pr.Repeated, pr.RepeatedComposite):
-                    put_value = list(put_value)
+        for key in key_list:
+            info_dictionary[key].append(getattr(content, key))
 
-                globals()['{}_list'.format(value)].append(put_value)
+    return info_dictionary
 
-            except:
-                if hasattr(content, 'category') == True:
-                    globals()['{}_list'.format(value)].append(
-                        getattr(getattr(content, 'category'), value))
-        timestamp_list.append(date_time)
 
-    new_df = pd.DataFrame()
-    for value in value_list:
-        new_df[value] = globals()['{}_list'.format(value)]
-    new_df['timestamp'] = timestamp_list
+def make_dataframe(dataframe, info_dictionary):
+    # make dataframe with information dictionaries
+    # input : dataframe(service or sku), info_dictionary(each value type is list)
+    # output : result dataframe
 
-    return new_df
+    for key in info_dictionary.keys():
+        dataframe[key] = info_dictionary[key]
+
+    return dataframe
 
 
 if __name__ == '__main__':
@@ -73,20 +68,24 @@ if __name__ == '__main__':
     global client
     client = billing_v1.CloudCatalogClient()
 
-    # get service list and make dataframe
+    # get service list and make dictionary to store service information
     service_list = get_service_list()
-    service_value_list = [
+    service_keys = [
         'name', 'service_id',
         'display_name', 'business_entity_name'
     ]
-    df_service = make_dataframe(service_value_list, service_list, date_time)
+    service_info_dict = make_information_dict(service_keys, service_list)
 
-    # extract service to query skus
+    # make service dataframe
+    df_service = pd.DataFrame()
+    df_service = make_dataframe(df_service, service_info_dict)
+
+    # extract service to get sku list
     query_service_list = []
     query_service_list.append(
         df_service.loc[df_service['display_name'] == 'Compute Engine'])
 
-    # get sku list and make dataframe
+    # get sku list
     sku_page_result = []
     for service in query_service_list:
         sku_page_result.append(get_skus_list(service['name'].values[0]))
@@ -97,14 +96,87 @@ if __name__ == '__main__':
             for sku in page:
                 sku_list.append(sku)
 
-    sku_value_list = [
-        'service_display_name',
-        'name', 'sku_id', 'description',
-        'resource_family', 'resource_group',
-        'usage_type', 'service_regions',
-        'pricing_info', 'service_provider_name'
+    # make dictionaries to store sku information
+    sku_keys = [
+        'category', 'name', 'sku_id', 'description',
+        'service_regions', 'pricing_info', 'service_provider_name'
     ]
-    df_sku = make_dataframe(sku_value_list, sku_list, date_time)
+    sku_info_dict = make_information_dict(sku_keys, sku_list)
 
-    with open('C:/Users/wynter/Desktop/DDPS/gcp_price_data/gcp_price.pkl', 'wb') as f:
+    # category
+    category_keys = [
+        'service_display_name', 'resource_family',
+        'resource_group', 'usage_type'
+    ]
+    sku_category_dict = make_information_dict(
+        category_keys, sku_info_dict['category'])
+    del sku_info_dict['category']
+
+    # pricing_info
+    new_pricing_info_list = []
+    for pricing_info in sku_info_dict['pricing_info']:
+        tmp_price = list(pricing_info)[0]
+        new_pricing_info_list.append(tmp_price)
+    sku_info_dict['pricing_info'] = new_pricing_info_list
+
+    pricing_info_keys = [
+        'effective_time', 'pricing_expression',
+        'aggregation_info', 'currency_conversion_rate'
+    ]
+    sku_pricing_info_dict = make_information_dict(
+        pricing_info_keys, sku_info_dict['pricing_info'])
+    del sku_info_dict['pricing_info']
+
+    # pricing_expression
+    pricing_exp_keys = [
+        'usage_unit', 'usage_unit_description',
+        'base_unit', 'base_unit_description',
+        'base_unit_conversion_factor', 'display_quantity', 'tiered_rates'
+    ]
+    sku_pricing_exp_dict = make_information_dict(
+        pricing_exp_keys, sku_pricing_info_dict['pricing_expression'])
+    del sku_pricing_info_dict['pricing_expression']
+
+    # aggregation_info
+    aggregation_keys = [
+        'aggregation_level',
+        'aggregation_interval',
+        'aggregation_count'
+    ]
+    sku_aggr_info_dict = make_information_dict(
+        aggregation_keys, sku_pricing_info_dict['aggregation_info'])
+    del sku_pricing_info_dict['aggregation_info']
+
+    # service_regions : change Repeated type into list type
+    new_region_list = []
+    for service_regions in sku_info_dict['service_regions']:
+        tmp_region_list = list(service_regions)
+        new_region_list.append(tmp_region_list)
+    sku_info_dict['service_regions'] = new_region_list
+
+    # change tiered rates into list
+    new_tiered_rates_list = []
+    for rates in sku_pricing_exp_dict['tiered_rates']:
+        new_tiered_rates_list.append(list(rates))
+    sku_pricing_exp_dict['tiered_rates'] = new_tiered_rates_list
+
+    # make sku dataframe
+    df_sku = pd.DataFrame()
+    dictionary_list = [
+        sku_category_dict,
+        sku_info_dict,
+        sku_pricing_info_dict,
+        sku_pricing_exp_dict,
+        sku_aggr_info_dict
+    ]
+    for dictionary in dictionary_list:
+        df_sku = make_dataframe(df_sku, dictionary)
+    df_sku['timestamp'] = date_time
+
+    # save as pickle
+    save_path = '../../../../gcp_price_data'
+    if os.path.isdir(save_path) == False:
+        os.mkdir(save_path)
+
+    with open(save_path + '/gcp_price.pkl', 'wb') as f:
         pickle.dump(df_sku, f)

@@ -75,7 +75,7 @@ if __name__ == "__main__":
     s3 = boto3.resource('s3')
     # need to change file location
     workloads = pickle.load(open("./workloads.pkl", "rb"))
-    s3.Object("spotlake", "monitoring/workloads.pkl").put(Body=result)
+    s3.Object("spotlake", "monitoring/workloads.pkl").put(Body=workloads)
 
     workloads = num_az_by_region()
     pickle.dump(workloads, open("./workloads", "wb"))

@@ -1,6 +1,7 @@
 import os
 import time
 import tsquery
+import pandas as pd
 
 BUCKET_NAME = 'spotlake'
 

@@ -45,28 +45,13 @@ def get_price(skip):
                 ondemand_dict["effectiveStartDate"] = j["effectiveStartDate"]
                 ondemand_data.append(ondemand_dict)
 
-    else:
-        return
-
     return
 
 
 # Calcuate the savings if a row has both ondemandPrice and spotPrice.
 def calculate_savings(savings_df):
-    savings_df['savings'] = 0.0
-    no_savings_rows = savings_df['ondemandPrice'].isnull() | savings_df['spotPrice'].isnull()
-
-    for index, row in savings_df.iterrows():
-        if no_savings_rows[index] == False:
-            ondemand_price = row[3]
-            spot_price = row[6]
-            try:
-                savings = (ondemand_price - spot_price) / ondemand_price * 100
-            except ZeroDivisionError:
-                savings = None
-            savings_df['savings'][index] = savings
-        else:
-            savings_df['savings'][index] = None
+    savings_df.loc[3, 0] = None
+    savings_df['savings'] = (savings_df['ondemandPrice'] - savings_df['spotPrice']) / savings_df['ondemandPrice'] * 100
 
     return savings_df
 

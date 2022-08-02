@@ -2,11 +2,17 @@ import os
 import time
 import tsquery
 
+BUCKET_NAME = 'spotlake'
+
 # compress data as gzip file, save to local file system, upload file to s3
-def save_gz_s3(data):
-    # compress to gz
-    # save to local file system
-    # upload to s3
+def save_gz_s3(df, filename):
+    # compress and save to LFS
+    df.to_csv(filename, index=False, compression="gzip")
+    
+    # upload compressed file to S3
+    s3 = boto3.client('s3')
+    with open(filename, 'rb') as f:
+        s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/{filename}")
 
 # compare previous_df and current_df for changed row detection
 def compare(previous_df, current_df):
@@ -31,21 +37,21 @@ def write_timestream(data):
     # write
 
 if __name__ == "__main__":
-    # get every unique timestamp information as a list, elapsed time: 10s for 7months
+    # get every unique timestamp information as a list
     start_date = '2022-01-01'
     end_date = '2022-08-01'
     timestamp_list = tsquery.get_timestamps(start_date, end_date)
-    
-    # query for single timestamp data, elapsed time: 12s
+
     for timestamp in timestamp_list:
         timestamp = 'T'.join(timestamp.split())
-        current_df = tsquery.get_timestream(timestamp, timestamp)    
-        
+        print(timestamp)
+        current_df = tsquery.get_timestream(timestamp, timestamp)
+
         if 'latest_df.pkl' not in os.listdir('./'):
-            save_gz_s3(current_data)
-            write_timestream(changed_df)
+            save_gz_s3(current_df, 'latest.csv.gz')
+            write_timestream(current_df)
         else:    
-            previous_df = pickle.load(open('./latest_df.pkl', 'rb'))
-            save_gz_s3(current_data)
+            previous_df = pd.read_csv('latest.csv.gz', compression='gzip', header=0, sep=',', quotechar='"', error_bad_lines=False)
+            save_gz_s3(current_df, 'latest.csv.gz')
             changed_df = compare(previous_df, current_df)
             write_timestream(changed_df)

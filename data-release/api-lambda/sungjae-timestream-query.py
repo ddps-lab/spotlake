@@ -1,9 +1,11 @@
 import json
 import boto3
+from datetime import timedelta, date
 
 DATABASE_NAME = 'spotrank-timestream'
 TABLE_NAME = 'spot-table'
 result = ""
+id = 1
 
 
 def run_query(instance_type, region, az, start, end):
@@ -72,7 +74,7 @@ def _parse_query_result(query_result):
     global result
     print("Metadata: %s" % column_info)
     print("Data: ")
-    id = 1
+    global id
     for row in query_result['Rows']:
         tmp = _parse_row(column_info, row)
         tmp = tmp[:1] + '"id":"' + str(id) + '",' + tmp[1:]
@@ -115,15 +117,17 @@ def _parse_datum(info, datum):
         return _parse_column_name(info) + datum['ScalarValue'].split("-az")[-1] + '"'
     elif 'Name' in info and info['Name'] == 'IF':
         if datum['ScalarValue'] == '<5%':
-            return _parse_column_name(info) + "1" + '"'
+            return _parse_column_name(info) + "3" + '"'
         elif datum['ScalarValue'] == '5-10%':
-            return _parse_column_name(info) + "1.5" + '"'
+            return _parse_column_name(info) + "2.5" + '"'
         elif datum['ScalarValue'] == '10-15%':
             return _parse_column_name(info) + "2" + '"'
         elif datum['ScalarValue'] == '15-20%':
-            return _parse_column_name(info) + "2.5" + '"'
+            return _parse_column_name(info) + "1.5" + '"'
+        elif datum['ScalarValue'] == '>20%:
+            return _parse_column_name(info) + "1" + '"'
         else:
-            return _parse_column_name(info) + "3" + '"'
+            return _parse_column_name(info) + datum['ScalarValue'] + '"'
     # The others
     else:
         return _parse_column_name(info) + datum['ScalarValue'] + '"'
@@ -171,7 +175,17 @@ def lambda_handler(event, context):
             'statusCode': 200,
             'headers': {
                 'Access-Control-Allow-Headers': '*',
-                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Origin': 'https://spotlake.github.io',
+                'Access-Control-Allow-Methods': 'OPTIONS,GET'
+            },
+            'body': json.dumps("[]")
+        }
+    if (not 'origin' in event['headers']) or event['headers']['origin'] != 'https://spotlake.github.io':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Origin': 'https://spotlake.github.io',
                 'Access-Control-Allow-Methods': 'OPTIONS,GET'
             },
             'body': json.dumps("[]")
@@ -182,6 +196,7 @@ def lambda_handler(event, context):
     az = info['AZ']
     start = info['Start']
     end = info['End']
+    end = (date.fromisoformat(end) + timedelta(days=1)).isoformat()
     
     run_query(instance_type, region, az, start, end)
     global result
@@ -189,7 +204,7 @@ def lambda_handler(event, context):
         'statusCode': 200,
         'headers': {
             'Access-Control-Allow-Headers': '*',
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': 'https://spotlake.github.io',
             'Access-Control-Allow-Methods': 'OPTIONS,GET'
         },
         'body': json.dumps(result)

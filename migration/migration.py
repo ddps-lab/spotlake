@@ -31,12 +31,14 @@ def write_timestream(data):
     # write
 
 if __name__ == "__main__":
-    # get every unique timestamp information as a list
+    # get every unique timestamp information as a list, elapsed time: 10s for 7months
     start_date = '2022-01-01'
     end_date = '2022-08-01'
     timestamp_list = tsquery.get_timestamps(start_date, end_date)
     
+    # query for single timestamp data, elapsed time: 12s
     for timestamp in timestamp_list:
+        timestamp = 'T'.join(timestamp.split())
         current_df = tsquery.get_timestream(timestamp, timestamp)    
         
         if 'latest_df.pkl' not in os.listdir('./'):

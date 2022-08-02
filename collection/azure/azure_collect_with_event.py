@@ -89,7 +89,7 @@ if __name__ == '__main__':
             future = executor.submit(get_price, skip)
         event.wait()
 
-        executor.shutdown(wait=False, cancel_futures=True)
+        executor.shutdown(wait=True, cancel_futures=True)
 
     azure_spot_df = pd.DataFrame(spot_data)
     azure_ondemand_df = pd.DataFrame(ondemand_data)

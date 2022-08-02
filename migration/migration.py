@@ -1,5 +1,6 @@
 import os
 import time
+import boto3
 import tsquery
 import pandas as pd
 

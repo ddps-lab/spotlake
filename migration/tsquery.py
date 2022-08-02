@@ -110,3 +110,10 @@ def get_timestream(start_date, end_date):
     timestream_df = pd.DataFrame(timestream_data)
     timestream_df.drop_duplicates(inplace=True)
     return timestream_df
+
+def get_timestamps(start_date, end_date):
+    print(f"Start query ({start_date}~{end_date})")
+    query_string = f"""SELECT DISTINCT time FROM "spotrank-timestream"."spot-table" WHERE time between from_iso8601_date('{start_date}') and from_iso8601_date('{end_date}') ORDER BY time"""
+    run_query(query_string)
+    print(start_date + "~" + end_date + " is end")
+    return timestream_data['time']

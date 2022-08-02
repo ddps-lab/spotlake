@@ -1,7 +1,6 @@
 import os
 import time
 import tsquery
-import tsquery_timestamp
 
 # compress data as gzip file, save to local file system, upload file to s3
 def save_gz_s3(data):
@@ -35,7 +34,7 @@ if __name__ == "__main__":
     # get every unique timestamp information as a list
     start_date = '2022-01-01'
     end_date = '2022-08-01'
-    timestamp_list = tsquery_timestamp.get_timestream(start_date, end_date)
+    timestamp_list = tsquery.get_timestamps(start_date, end_date)
     
     for timestamp in timestamp_list:
         current_df = tsquery.get_timestream(timestamp, timestamp)    

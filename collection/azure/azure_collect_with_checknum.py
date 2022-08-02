@@ -50,7 +50,7 @@ def get_price(skip):
 
 # Calcuate the savings if a row has both ondemandPrice and spotPrice.
 def calculate_savings(savings_df):
-    savings_df = savings_df.replace({'ondemandPrice': 0}, None)
+    savings_df.loc[savings_df['ondemandPrice'] == 0, 'ondemandPrice'] = None
     savings_df['savings'] = (savings_df['ondemandPrice'] - savings_df['spotPrice']) / savings_df['ondemandPrice'] * 100
 
     return savings_df

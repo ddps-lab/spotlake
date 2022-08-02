@@ -1,10 +1,6 @@
 import requests
 import pandas as pd
-import pickle
-import time
 from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import thread
-from threading import get_ident
 import threading
 
 
@@ -78,8 +74,6 @@ if __name__ == '__main__':
     event = threading.Event()
     max_skip = 2000
 
-    thread_name = dict()
-
     pickle_file_path = './Azure-savings-fast.pkl'
 
     skip_list = [i*100 for i in range(max_skip)]
@@ -105,4 +99,3 @@ if __name__ == '__main__':
     savings_df = savings_df.reindex(columns=['location', 'armRegionName', 'armSkuName', 'meterName', 'ondemandPrice', 'spotPrice', 'savings', 'ondemandEffectiveStartDate', 'spotEffectiveStartDate'])
 
     savings_df.to_pickle(pickle_file_path)
-    print(savings_df.count())

@@ -8,7 +8,7 @@ import threading
 def get_price(skip):
     global ondemand_data
     global spot_data
-    global evnet
+    global event
 
     page_link = 'https://prices.azure.com:443/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27%20and%20priceType%20eq%20%27Consumption%27%20and%20unitOfMeasure%20eq%20%271%20Hour%27&$skip=' + str(skip)
 
@@ -49,20 +49,8 @@ def get_price(skip):
 
 # Calcuate the savings if a row has both ondemandPrice and spotPrice.
 def calculate_savings(savings_df):
-    savings_df['savings'] = 0.0
-    no_savings_rows = savings_df['ondemandPrice'].isnull() | savings_df['spotPrice'].isnull()
-
-    for index, row in savings_df.iterrows():
-        if no_savings_rows[index] == False:
-            ondemand_price = row[3]
-            spot_price = row[6]
-            try:
-                savings = (ondemand_price - spot_price) / ondemand_price * 100
-            except ZeroDivisionError:
-                savings = None
-            savings_df['savings'][index] = savings
-        else:
-            savings_df['savings'][index] = None
+    savings_df.loc[3, 0] = None
+    savings_df['savings'] = (savings_df['ondemandPrice'] - savings_df['spotPrice']) / savings_df['ondemandPrice'] * 100
 
     return savings_df
 

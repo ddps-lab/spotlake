@@ -1,6 +1,7 @@
 # reference
 # https://developers.google.com/optimization/bin/bin_packing
 
+import boto3
 import pickle
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
@@ -71,8 +72,13 @@ def workload_bin_packing(query, capacity, algorithm):
 
 
 if __name__ == "__main__":
+    s3 = boto3.resource('s3')
     # need to change file location
+    workloads = pickle.load(open("./workloads.pkl", "rb"))
+    s3.Object("spotlake", "monitoring/workloads.pkl").put(Body=result)
+
     workloads = num_az_by_region()
+    pickle.dump(workloads, open("./workloads", "wb"))
 
     result_binpacked = {}
     

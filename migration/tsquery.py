@@ -5,8 +5,6 @@ import pandas as pd
 profile_name = "default"
 region_name = "us-west-2"
 
-timestream_data = {"SpotPrice" : [], "Savings" : [], "SPS" : [], "AZ" : [], "Region" : [], "InstanceType" : [], "IF" : [], "time" : []}
-
 def run_query(query_string):
     try:
         session = boto3.Session(profile_name=profile_name, region_name=region_name)
@@ -103,6 +101,9 @@ def _parse_column_name(info):
         return ""
 
 def get_timestream(start_date, end_date):
+    global timestream_data
+    timestream_data = {"SpotPrice" : [], "Savings" : [], "SPS" : [], "AZ" : [], "Region" : [], "InstanceType" : [], "IF" : [], "time" : []}
+    
     print(f"Start query ({start_date}~{end_date})")
     query_string = f"""SELECT * FROM "spotrank-timestream"."spot-table" WHERE time between from_iso8601_timestamp('{start_date}') and from_iso8601_timestamp('{end_date}') ORDER BY time"""
     run_query(query_string)
@@ -112,6 +113,9 @@ def get_timestream(start_date, end_date):
     return timestream_df
 
 def get_timestamps(start_date, end_date):
+    global timestream_data
+    timestream_data = {"SpotPrice" : [], "Savings" : [], "SPS" : [], "AZ" : [], "Region" : [], "InstanceType" : [], "IF" : [], "time" : []}
+
     print(f"Start query ({start_date}~{end_date})")
     query_string = f"""SELECT DISTINCT time FROM "spotrank-timestream"."spot-table" WHERE time between from_iso8601_date('{start_date}') and from_iso8601_date('{end_date}') ORDER BY time"""
     run_query(query_string)

@@ -51,7 +51,7 @@ if __name__ == "__main__":
     # get every unique timestamp information as a list
     timestamp_list = tsquery.get_timestamps(START_DATE, END_DATE)
 
-    for timestamp in timestamp_list[:10]:
+    for timestamp in timestamp_list:
         timestamp = 'T'.join(timestamp.split())
         current_df = tsquery.get_timestream(timestamp, timestamp)
 

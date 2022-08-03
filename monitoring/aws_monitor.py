@@ -22,8 +22,8 @@ def run_query():
         query_string = f"""SELECT count(*) FROM "spotrank-timestream"."spot-table" WHERE time between timestamp '{start_date}' and timestamp '{end_date}' """
         response = client.query(QueryString=query_string)
         daily_count = response['Rows'][0]['Data'][0]['ScalarValue']
-        num_of_azs = get_azs()
-        send_message(daily_count, num_of_azs)
+        num_of_ReItAz = get_workload_num()
+        send_message(daily_count, num_of_ReItAz)
     except Exception as err:
         print("Exception while running query:", err)
 
@@ -32,13 +32,15 @@ def run_query():
 def send_message(count, num_of_azs):
     global result_msg
     url = ''  # slackurl
-    result_msg = """<%s monitoring> \n- number of data ingested : %s\n- number of data must be ingested : %d""" % (datetime.today().date(), count, num_of_azs * 144)
+    result_msg = """<%s spotlake_workload_monitoring> \n- The number of ingested records. : %s\n- The number of records that must be ingested. : %d""" % (datetime.today().date(), count, num_of_azs * 144)
     data = {'text': result_msg}
     resp = requests.post(url=url, json=data)
     return resp
 
 # get number of all Region-InstanceType-AvailabilityZone from s3 pkl file
-def get_azs():
+# get the instancetype and pair of region-az_num from the pickle file, assign the num of AZ in azs, and return it.
+# The workload is a combine of Region-InstanceType-AvailabilityZone
+def get_workload_num():
     try:
         obj = s3.get_object(Bucket=bucket_name, Key='base.pickle')
         datas = pickle.load(io.BytesIO(obj["Body"].read()))
@@ -49,7 +51,6 @@ def get_azs():
         return azs
     except Exception as e:
         print(e)
-
 
 def lambda_handler(event, context):
     global result_msg

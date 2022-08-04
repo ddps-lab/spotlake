@@ -3,6 +3,7 @@
 
 import boto3
 import pickle
+from datetime import date
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 
@@ -73,12 +74,11 @@ def workload_bin_packing(query, capacity, algorithm):
 
 if __name__ == "__main__":
     s3 = boto3.resource('s3')
-    # need to change file location
-    workloads = pickle.load(open("./workloads.pkl", "rb"))
-    s3.Object("spotlake", "monitoring/workloads.pkl").put(Body=workloads)
 
     workloads = num_az_by_region()
-    pickle.dump(workloads, open("./workloads", "wb"))
+    today = "/".join(date.today().isoformat().split("-"))
+    # need to change file location
+    s3.Object("spotlake", f"monitoring/{today}/workloads.pkl").put(Body=pickle.dumps(workloads))
 
     result_binpacked = {}
     

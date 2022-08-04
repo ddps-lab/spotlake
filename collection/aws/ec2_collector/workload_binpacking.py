@@ -78,7 +78,7 @@ if __name__ == "__main__":
     workloads = num_az_by_region()
     today = "/".join(date.today().isoformat().split("-"))
     # need to change file location
-    s3.Object("spotlake", f"monitoring/{today}/workloads.pkl").put(Body=workloads)
+    s3.Object("spotlake", f"monitoring/{today}/workloads.pkl").put(Body=pickle.dumps(workloads))
 
     result_binpacked = {}
     

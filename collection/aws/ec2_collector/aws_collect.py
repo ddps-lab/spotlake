@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from load_price import get_spot_price, get_ondemand_price
 from load_spot_placement_score import get_sps
 from load_spotinfo import get_spotinfo
+from compare_data import compare
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()

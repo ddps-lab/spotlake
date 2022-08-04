@@ -1,13 +1,14 @@
 import boto3
 import pandas as pd
 
-# boto3 setting
-profile_name = "default"
-region_name = "us-west-2"
+
+PROFILE_NAME = "default"
+REGION_NAME = "us-west-2"
+
 
 def run_query(query_string):
     try:
-        session = boto3.Session(profile_name=profile_name, region_name=region_name)
+        session = boto3.Session(profile_name=PROFILE_NAME, region_name=REGION_NAME)
         query_client = session.client('timestream-query')
         paginator = query_client.get_paginator('query')
         page_iterator = paginator.paginate(QueryString=query_string)
@@ -16,13 +17,14 @@ def run_query(query_string):
     except Exception as err:
         print("Exception while running query:", err)
 
+        
 def _parse_query_result(query_result):
     query_status = query_result["QueryStatus"]
-
     column_info = query_result['ColumnInfo']
     for row in query_result['Rows']:
         _parse_row(column_info, row)
 
+        
 def _parse_row(column_info, row):
     data = row['Data']
     row_output = []
@@ -30,13 +32,13 @@ def _parse_row(column_info, row):
         info = column_info[j]
         datum = data[j]
         row_output.append(_parse_datum(info, datum))
-
     return "{%s}" % str(row_output)
+
 
 def _parse_datum(info, datum):
     if datum.get('NullValue', False):
         return "%s=NULL" % info['Name'],
-
+    
     column_type = info['Type']
 
     # If the column is of TimeSeries Type
@@ -63,6 +65,7 @@ def _parse_datum(info, datum):
             timestream_data[info['Name']].append(datum['ScalarValue'])
         return _parse_column_name(info) + datum['ScalarValue']
 
+    
 def _parse_time_series(info, datum):
     time_series_output = []
     for data_point in datum['TimeSeriesValue']:
@@ -72,6 +75,7 @@ def _parse_time_series(info, datum):
                                                         data_point['Value'])))
     return "[%s]" % str(time_series_output)
 
+
 def _parse_array(array_column_info, array_values):
     array_output = []
     for datum in array_values:
@@ -79,20 +83,6 @@ def _parse_array(array_column_info, array_values):
 
     return "[%s]" % str(array_output)
 
-def run_query_with_multiple_pages(limit):
-    query_with_limit = SELECT_ALL + " LIMIT " + str(limit)
-    print("Starting query with multiple pages : " + query_with_limit)
-    run_query(query_with_limit)
-
-def cancel_query():
-    print("Starting query: " + SELECT_ALL)
-    result = client.query(QueryString=SELECT_ALL)
-    print("Cancelling query: " + SELECT_ALL)
-    try:
-        client.cancel_query(QueryId=result['QueryId'])
-        print("Query has been successfully cancelled")
-    except Exception as err:
-        print("Cancelling query failed:", err)
 
 def _parse_column_name(info):
     if 'Name' in info:
@@ -100,6 +90,7 @@ def _parse_column_name(info):
     else:
         return ""
 
+    
 def get_timestream(start_date, end_date):
     global timestream_data
     timestream_data = {"SpotPrice" : [], "Savings" : [], "SPS" : [], "AZ" : [], "Region" : [], "InstanceType" : [], "IF" : [], "time" : []}
@@ -112,9 +103,10 @@ def get_timestream(start_date, end_date):
     timestream_df.drop_duplicates(inplace=True)
     return timestream_df
 
+
 def get_timestamps(start_date, end_date):
     global timestream_data
-    timestream_data = {"SpotPrice" : [], "Savings" : [], "SPS" : [], "AZ" : [], "Region" : [], "InstanceType" : [], "IF" : [], "time" : []}
+    timestream_data = {"time" : []}
 
     print(f"Start query ({start_date}~{end_date})")
     query_string = f"""SELECT DISTINCT time FROM "spotrank-timestream"."spot-table" WHERE time between from_iso8601_date('{start_date}') and from_iso8601_date('{end_date}') ORDER BY time"""

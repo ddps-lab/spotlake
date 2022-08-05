@@ -2,33 +2,85 @@ import boto3
 import pickle
 import pandas as pd
 import argparse
+import os
+import time
 from datetime import datetime, timedelta
+from multiprocessing import Pool
 
-from load_price import get_spot_price, get_ondemand_price
+from load_price import get_spot_price, get_ondemand_price, get_regions
 from load_spot_placement_score import get_sps
 from load_spotinfo import get_spotinfo
 from compare_data import compare
+from upload_data import upload_timestream, update_latest, save_raw
+from join_data import build_join_df
+
+NUM_CPU = 2
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
 parser.add_argument('--timestamp', dest='timestamp', action='store')
 args = parser.parse_args()
-timestamp = datetime.strptime(args.timestamp, "%Y-%m-%d %H:%M")
+timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 
-spot_price_df = get_spot_price()
+# need to change file location
+credentials = pickle.load(open('./aws/ec2_collector/user_cred_df_100_199.pkl', 'rb'))
+workload = pickle.load(open('./aws/ec2_collector/bin_packed_workloads.pkl', 'rb'))
+
+mp_workload = []
+for i in range(len(workload)):
+    mp_workload.append((credentials.index[i], credentials.iloc[i], workload[i]))
+
+perf_start_time = time.time()
+session = boto3.session.Session()
+regions = get_regions(session)
+spot_price_df_list = []
+with Pool(NUM_CPU) as p:
+    spot_price_df_list = p.map(get_spot_price, regions)
+spot_price_df = pd.concat(spot_price_df_list).reset_index(drop=True)
+perf_checkpoint_1 = time.time()
+print(f"get spotprice time : {perf_checkpoint_1 - perf_start_time}")
 ondemand_price_df = get_ondemand_price()
+perf_checkpoint_2 = time.time()
+print(f"get ondemand price time : {perf_checkpoint_2 - perf_checkpoint_1}")
 spotinfo_df = get_spotinfo()
-sps_df = get_sps()
+perf_checkpoint_3 = time.time()
+print(f"get spotinfo time : {perf_checkpoint_3 - perf_checkpoint_2}")
+sps_df_list = []
+with Pool(NUM_CPU) as p:
+    sps_df_list = p.map(get_sps, mp_workload)
+sps_df = pd.concat(sps_df_list).reset_index(drop=True)
+perf_checkpoint_4 = time.time()
+print(f"get sps time : {perf_checkpoint_4 - perf_checkpoint_3}")
 
-# current_df = JOIN(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
-# previous_df = pickle.load(open("./latest_df.pkl", "rb")) # load previous data from local file system
-# pickle.dump(current_df, open("./latest_df.pkl", "wb")) # write current data to local file system
+current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
+perf_checkpoint_5 = time.time()
+print(f"join data time : {perf_checkpoint_5 - perf_checkpoint_4}")
 
-# update_latest(current_df, timestamp) # upload current data to S3
+if 'latest_df.pkl' not in os.listdir('./aws/ec2_collector/'):
+    update_latest(current_df)
+    save_raw(current_df, timestamp)
+    upload_timestream(current_df, timestamp)
+    exit()
 
-workload_cols = ['InstanceType', 'Region', 'AZ']
-feature_cols = ['SPS', 'IF', 'Savings']
+previous_df = pickle.load(open("./aws/ec2_collector/latest_df.pkl", "rb")) # load previous data from local file system
+pickle.dump(current_df, open("./aws/ec2_collector/latest_df.pkl", "wb")) # write current data to local file system
 
-# changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
+update_latest(current_df) # upload current data to S3
+save_raw(current_df, timestamp)
 
-# upload_timestream(changed_df, timestamp)
+workload_cols = ['InstanceType', 'Region', 'AvailabilityZoneId']
+feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']
+
+perf_checkpoint_6 = time.time()
+
+changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
+
+perf_checkpoint_7 = time.time()
+print(f"compare time : {perf_checkpoint_7 - perf_checkpoint_6}")
+
+upload_timestream(changed_df, timestamp)
+
+perf_end_time = time.time()
+print(f"upload time : {perf_end_time - perf_checkpoint_7}")
+
+print(f"total performance time : {perf_end_time - perf_start_time}")

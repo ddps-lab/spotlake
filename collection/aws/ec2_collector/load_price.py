@@ -36,35 +36,30 @@ def get_spot_price_region(session: boto3.session.Session, region: str, start=Non
 
 
 # get all spot price with regions
-def get_spot_price():
+def get_spot_price(region):
     session = boto3.session.Session()
-    
-    regions = get_regions(session)
     
     end_date = datetime.utcnow().replace(microsecond=0)
     start_date = end_date - timedelta(microseconds=1)
 
-    spotprice_dict = {"InstanceType": [], "AvailabilityZoneId": [], "SpotPrice": [], "TimeStamp": []}
-
-    for region in regions:
-        for it, az, price, timestamp in get_spot_price_region(session, region, start_date, end_date):
-            spotprice_dict["InstanceType"].append(it)
-            spotprice_dict["AvailabilityZoneId"].append(az)
-            spotprice_dict["SpotPrice"].append(price)
-            spotprice_dict["TimeStamp"].append(timestamp)
+    spotprice_dict = {"InstanceType": [], "AvailabilityZoneId": [], "SpotPrice": []}
+    
+    for it, az, price, timestamp in get_spot_price_region(session, region, start_date, end_date):
+        spotprice_dict["InstanceType"].append(it)
+        spotprice_dict["AvailabilityZoneId"].append(az)
+        spotprice_dict["SpotPrice"].append(price)
     
     spot_price_df = pd.DataFrame(spotprice_dict)
 
     # filter to change az-name to az-id
     az_map = dict()
-    for region in regions:
-        ec2 = session.client('ec2', region_name=region)
-        response = ec2.describe_availability_zones()
+    ec2 = session.client('ec2', region_name=region)
+    response = ec2.describe_availability_zones()
 
-        for val in response['AvailabilityZones']:
-            az_map[val['ZoneName']] = val['ZoneId']
+    for val in response['AvailabilityZones']:
+        az_map[val['ZoneName']] = val['ZoneId']
     
-    spot_price_df = spot_price_df.replace({"AZ":az_map})
+    spot_price_df = spot_price_df.replace({"AvailabilityZoneId":az_map})
     
     return spot_price_df
 

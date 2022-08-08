@@ -14,6 +14,12 @@ def get_price(skip):
 
     response = requests.get(page_link)
 
+    for _ in range(5):
+        if response.status_code == 200:
+            break
+        else:
+            response = requests.get(page_link)
+
     json_data = list(response.json()['Items'])
 
     if not json_data:
@@ -56,11 +62,10 @@ def calculate_savings(savings_df):
 
 
 if __name__ == '__main__':
-
     ondemand_data = []
     spot_data = []
-    event = threading.Event()
     max_skip = 2000
+    event = threading.Event()
 
     pickle_file_path = './Azure-savings-fast.pkl'
 

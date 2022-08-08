@@ -1,6 +1,7 @@
 import boto3
 import time
 import pandas as pd
+import pickle
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
@@ -8,8 +9,9 @@ from botocore.exceptions import ClientError
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
-DATABASE_NAME = 'spotlake'
-TABLE_NAME = 'aws'
+BUCKET_NAME = 'spotlake-test'
+DATABASE_NAME = 'spotlake-timestream'
+TABLE_NAME = 'aws-table'
 
 
 # Submit Batch To Timestream
@@ -28,20 +30,20 @@ def submit_batch(records, counter, recursive):
 
 
 # Check Database And Table Are Exist and Upload Data to Timestream
-def upload_timestream(data):
-    data = data[['InstanceType', 'Region', 'AvailabilityZoneId', 'SPS', 'IF', 'SpotPrice', 'Savings', 'TimeStamp_spotinfo']]
-    data = data.rename({'AvailabilityZoneId': 'AZ', 'TimeStamp_spotinfo': 'TimeStamp'}, axis=1)
+def upload_timestream(data, timestamp):
+    data = data[['InstanceType', 'Region', 'AvailabilityZoneId', 'SPS', 'IF', 'SpotPrice', 'OndemandPrice']]
+    data = data.rename({'AvailabilityZoneId': 'AZ'}, axis=1)
+
+    time_value = time.strptime(timestamp.strftime("%Y-%m-%d %H:%M"), '%Y-%m-%d %H:%M')
+    time_value = time.mktime(time_value)
+    time_value = str(int(round(time_value * 1000)))
 
     records = []
     counter = 0
     for idx, row in data.iterrows():
-        time_value = str(row['TimeStamp']).split('+')[0]
-        time_value = time.strptime(time_value, '%Y-%m-%d %H:%M:%S')
-        time_value = time.mktime(time_value)
-        time_value = str(int(round(time_value * 1000)))
 
         dimensions = []
-        for column in ['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'Savings']:
+        for column in ['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'OndemandPrice']:
             dimensions.append({'Name':column, 'Value': str(row[column])})
 
         submit_data = {
@@ -62,40 +64,22 @@ def upload_timestream(data):
 
 
 def update_latest(data):
-    data_to_json = "["
-    id_count = 0
-    for idx, row in data.iterrows():
-        id_count += 1
-        data_to_json += '{'
-        data_to_json += '\"id\":\"'+str(id_count)+'\",'
-        data_to_json += '\"SpotPrice\":\"'+str(row['SpotPrice'])+'\",'
-        data_to_json += '\"Savings\":\"'+str(row['Savings'])+'\",'
-        data_to_json += '\"SPS\":\"'+str(row['SPS'])+'\",'
-        data_to_json += '\"AZ\":\"'+str(row['AvailabilityZoneId'].split('-az')[1])+'\",'
-        data_to_json += '\"Region\":\"'+str(row['Region'])+'\",'
-        data_to_json += '\"InstanceType\":\"'+str(row['InstanceType'])+'\",'
-        save_latest_if = 0
-        if row['IF'] == '<5%':
-            save_latest_if = 3.0
-        elif row['IF'] == '5-10%':
-            save_latest_if = 2.5
-        elif row['IF'] == '10-15%':
-            save_latest_if = 2.0
-        elif row['IF'] == '15-20%':
-            save_latest_if = 1.5
-        else:
-            save_latest_if = 1.0
-        data_to_json += '\"IF\":\"'+str(save_latest_if)+'\",'
-        data_to_json += '\"time\":\"'+str(row['TimeStamp_spotinfo'].split('+')[0])+'\"}'
-        data_to_json += ','
-
-    if data_to_json[-1] == ',':
-        data_to_json = data_to_json[:len(data_to_json)-1] + ']'
-    elif data_to_json[-1] == '[':
-        data_to_json += ']'
-    result = json.dumps(data_to_json)
     filename = 'latest_spot_data.json'
+    result = data.to_json(filename)
     s3_path = f'latest_data/{filename}'
-    s3.Object(SAVE_BUCKET_NAME, s3_path).put(Body=result)
-    object_acl = s3.ObjectAcl(SAVE_BUCKET_NAME, s3_path)
-    response = object_acl.put(ACL='public-read')
+    session = boto3.Session()
+    s3 = session.client('s3')
+    with open(filename, 'rb') as f:
+        s3.upload_fileobj(f, BUCKET_NAME, s3_path)
+    pickle.dump(data, open("./aws/ec2_collector/latest_df.pkl", "wb"))
+
+def save_raw(data, timestamp):
+    SAVE_FILENAME = "spotlake_"+"timestamp"
+    data.to_csv(SAVE_FILENAME, index=False, compression="gzip")
+    session = boto3.Session()
+    s3 = session.client('s3')
+    s3_dir_name = timestamp.strftime("%Y/%m/%d")
+    s3_obj_name = timestamp.strftime("%H:%M:%S")
+
+    with open(SAVE_FILENAME, 'rb') as f:
+        s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz")

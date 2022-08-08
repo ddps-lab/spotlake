@@ -1,12 +1,14 @@
-import boto3
 import time
+import boto3
 import pandas as pd
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
 
-DATABASE_NAME = 'spotlake'
-TABLE_NAME = 'aws'
+PROFILE_NAME = 'default'
+REGION_NAME = 'us-east-2'
+DATABASE_NAME = 'dbname'
+TABLE_NAME = 'tablename'
 
 
 # Submit Batch To Timestream
@@ -25,8 +27,8 @@ def submit_batch(records, counter, recursive, write_client):
 
 
 # Check Database And Table Are Exist and Upload Data to Timestream
-def upload_timestream(data, profile_name):
-    session = boto3.Session(profile_name=profile_name, region_name='us-west-2')
+def upload_timestream(data):
+    session = boto3.Session(profile_name=PROFILE_NAME, region_name=REGION_NAME)
     write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
     data = data[['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'Savings', 'time']]

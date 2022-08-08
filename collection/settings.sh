@@ -1,0 +1,1 @@
+pip -r install ./aws/ec2_collector/requirements.txt

@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import time 
 
 
 # Get data from API and store necessary fields.
@@ -18,6 +19,7 @@ def get_price(skip):
         if response.status_code == 200:
             break
         else:
+            time.sleep(0.5)
             response = requests.get(page_link)
 
     json_data = list(response.json()['Items'])

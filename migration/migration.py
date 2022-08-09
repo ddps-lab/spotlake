@@ -21,17 +21,13 @@ if 24 % NUM_CPUS != 0:
     raise Exception('use only 1, 2, 3, 4, 6, 8, 12, 24')
 CHUNK_HOUR = 24 / NUM_CPUS
 
-
-start_date = datetime(2022, 2, 5, 0, 0, 0, 0, pytz.UTC)
+start_date = datetime(2022, 1, 1, 0, 0, 0, 0, pytz.UTC)
 end_date = datetime(2022, 8, 1, 0, 0, 0, 0, pytz.UTC)
-days = date_range(start_date, end_date)
-
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
-feature_cols = ['SPS', 'IF', 'Savings']
+feature_cols = ['SPS', 'IF', 'SpotPrice']
 
-
-tsquery.PROFILE_NAME = PROFILE_NAME
+# tsquery.PROFILE_NAME = PROFILE_NAME # tsquery.PROFILE_NAME must be credential of source database
 tsquery.REGION_NAME = REGION_NAME
 tsupload.PROFILE_NAME = PROFILE_NAME
 tsupload.REGION_NAME = REGION_NAME
@@ -122,6 +118,7 @@ def date_range(start, end):
 def time_format(timestamp):
     return 'T'.join(str(timestamp).split())
 
+days = date_range(start_date, end_date)
 
 perf_start_total = time.time()
 for idx in range(len(days)-1):
@@ -131,8 +128,8 @@ for idx in range(len(days)-1):
     
     start_end_time_process_list = []
     for i in range(NUM_CPUS):
-        start_time_process = start_date + timedelta(hours = CHUNK_HOUR*i)
-        end_time_process = start_date + timedelta(hours = CHUNK_HOUR*(i+1))
+        start_time_process = start_timestamp + timedelta(hours = CHUNK_HOUR*i)
+        end_time_process = start_timestamp + timedelta(hours = CHUNK_HOUR*(i+1))
         start_end_time_process_list.append((time_format(start_time_process), time_format(end_time_process)))
         
     with Pool(NUM_CPUS) as p:

@@ -2,7 +2,7 @@ import boto3
 import pandas as pd
 
 
-PROFILE_NAME = "default"
+PROFILE_NAME = "source-profile"
 REGION_NAME = "us-west-2"
 
 

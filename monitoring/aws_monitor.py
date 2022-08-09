@@ -22,12 +22,14 @@ def run_query():
     try:
         query_string = f"""SELECT count(*) FROM "spotrank-timestream"."spot-table" WHERE time between timestamp '{start_date}' and timestamp '{end_date}' """
         response = client.query(QueryString=query_string)
-        while response['Rows'] == [] and 'NextToken' in response:
+        result = response["Rows"]
+        while 'NextToken' in response:
             response = client.query(QueryString=query_string, NextToken=response['NextToken'])
-        if response['Rows'] == []:
+            result.extend(response["Rows"])
+        if result == []:
             daily_count = 0
         else:
-            daily_count = response['Rows'][0]['Data'][0]['ScalarValue']
+            daily_count = result[0]['Data'][0]['ScalarValue']
         num_of_workload = get_workload_num()
         send_message(daily_count, num_of_workload)
     except Exception as err:
@@ -35,10 +37,10 @@ def run_query():
 
 
 # send data count message to slack
-def send_message(count, num_of_azs):
+def send_message(count, num_of_workload):
     global result_msg
     url=''#slackurl
-    result_msg = """<%s spotlake_workload_monitoring> \n- The number of ingested records. : %s\n- The number of records that must be ingested. : %d""" % (datetime.today().date(), count, num_of_azs * 144)
+    result_msg = """<%s spotlake_workload_monitoring> \n- The number of ingested records. : %s\n- The number of records that must be ingested. : %d""" % (datetime.today().date(), count, num_of_workload * 144)
     data = {'text': result_msg}
     resp = requests.post(url=url, json=data)
     return resp

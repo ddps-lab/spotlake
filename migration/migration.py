@@ -25,7 +25,7 @@ start_date = datetime(2022, 1, 1, 0, 0, 0, 0, pytz.UTC)
 end_date = datetime(2022, 8, 1, 0, 0, 0, 0, pytz.UTC)
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
-feature_cols = ['SPS', 'IF', 'SpotPrice']
+feature_cols = ['SPS', 'IF', 'OndemandPrice', 'SpotPrice']
 
 # tsquery.PROFILE_NAME = PROFILE_NAME # tsquery.PROFILE_NAME must be credential of source database
 tsquery.REGION_NAME = REGION_NAME

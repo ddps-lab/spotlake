@@ -9,7 +9,6 @@ PROFILE_NAME = 'default'
 REGION_NAME = 'us-east-2'
 DATABASE_NAME = 'dbname'
 TABLE_NAME = 'tablename'
-DF_COLUMNS = ['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'OndemandPrice', 'SpotPrice', 'Savings', 'time']
 
 
 # Submit Batch To Timestream
@@ -32,7 +31,7 @@ def upload_timestream(data):
     session = boto3.Session(profile_name=PROFILE_NAME, region_name=REGION_NAME)
     write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
-    data = data[DF_COLUMNS]
+    data = data[['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'Savings', 'time']]
 
     records = []
     counter = 0
@@ -43,8 +42,7 @@ def upload_timestream(data):
         time_value = str(int(round(time_value * 1000)))
 
         dimensions = []
-        DF_COLUMNS.remove('time')
-        for column in DF_COLUMNS:
+        for column in ['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'Savings']:
             dimensions.append({'Name':column, 'Value': str(row[column])})
 
         submit_data = {

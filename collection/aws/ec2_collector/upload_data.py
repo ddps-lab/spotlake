@@ -21,11 +21,14 @@ def submit_batch(records, counter, recursive):
     try:
         result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName = TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
+        print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
             re_records.append(records[rr["RecordIndex"]])
         submit_batch(re_records, counter, recursive + 1)
+        exit()
     except Exception as err:
+        print(err)
         exit()
 
 
@@ -43,16 +46,18 @@ def upload_timestream(data, timestamp):
     for idx, row in data.iterrows():
 
         dimensions = []
-        for column in ['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'OndemandPrice']:
+        for column in ['InstanceType', 'Region', 'AZ']:
             dimensions.append({'Name':column, 'Value': str(row[column])})
 
         submit_data = {
                 'Dimensions': dimensions,
-                'MeasureName': 'SpotPrice',
-                'MeasureValue': str(row['SpotPrice']),
-                'MeasureValueType': 'DOUBLE',
+                'MeasureName': 'spotinfo',
+                'MeasureValues': [],
+                'MeasureValueType': 'MULTI',
                 'Time': time_value
         }
+        for column, types in [('SPS', 'BIGINT'), ('IF', 'VARCHAR'), ('SpotPrice', 'DOUBLE'), ('OndemandPrice', 'DOUBLE')]:
+            submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type' : types})
         records.append(submit_data)
         counter += 1
         if len(records) == 100:

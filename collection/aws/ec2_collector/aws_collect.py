@@ -77,5 +77,3 @@ perf_checkpoint_6 = time.time()
 changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
 
 upload_timestream(changed_df, timestamp)
-
-print("end")

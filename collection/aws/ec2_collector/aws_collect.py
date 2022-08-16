@@ -15,6 +15,7 @@ from upload_data import upload_timestream, update_latest, save_raw
 from join_data import build_join_df
 
 NUM_CPU = 2
+DIRLIST = os.listdir('./aws/ec2_collector/')
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
@@ -37,7 +38,15 @@ with Pool(NUM_CPU) as p:
     spot_price_df_list = p.map(get_spot_price, regions)
 spot_price_df = pd.concat(spot_price_df_list).reset_index(drop=True)
 
-ondemand_price_df = get_ondemand_price()
+ondemand_price_df = pd.DataFrame()
+if f"{args.timestamp}_ondemand_price_df.pkl" in DIRLIST:
+    ondemand_price_df = pickle.load(open(f"./aws/ec2_collector/{args.timestamp}_ondemand_price_df.pkl", 'rb'))
+else:
+    ondemand_price_df = get_ondemand_price()
+    for filename in DIRLIST:
+        if "ondemand_price_df.pkl" in filename:
+            os.remove(f"./aws/ec2_collector/{filename}")
+    pickle.dump(ondemand_price_df, open(f"./aws/ec2_collector/{args.timestamp}_ondemand_price_df.pkl", "wb"))
 
 spotinfo_df = get_spotinfo()
 
@@ -48,7 +57,7 @@ sps_df = pd.concat(sps_df_list).reset_index(drop=True)
 
 current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
 
-if 'latest_df.pkl' not in os.listdir('./aws/ec2_collector/'):
+if 'latest_df.pkl' not in DIRLIST:
     update_latest(current_df)
     save_raw(current_df, timestamp)
     upload_timestream(current_df, timestamp)
@@ -68,3 +77,5 @@ perf_checkpoint_6 = time.time()
 changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
 
 upload_timestream(changed_df, timestamp)
+
+print("end")

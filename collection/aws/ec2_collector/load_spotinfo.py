@@ -43,5 +43,8 @@ def get_spotinfo():
     
     spotinfo_df = pd.DataFrame(spotinfo_dict)
 
+    frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
+    spotinfo_df = spotinfo_df.replace({'IF': frequency_map})
+
     return spotinfo_df
     

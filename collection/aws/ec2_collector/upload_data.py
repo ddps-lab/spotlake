@@ -26,6 +26,7 @@ def submit_batch(records, counter, recursive):
             re_records.append(records[rr["RecordIndex"]])
         submit_batch(re_records, counter, recursive + 1)
     except Exception as err:
+        print(err)
         exit()
 
 
@@ -43,16 +44,18 @@ def upload_timestream(data, timestamp):
     for idx, row in data.iterrows():
 
         dimensions = []
-        for column in ['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'OndemandPrice']:
+        for column in ['InstanceType', 'Region', 'AZ']:
             dimensions.append({'Name':column, 'Value': str(row[column])})
 
         submit_data = {
                 'Dimensions': dimensions,
-                'MeasureName': 'SpotPrice',
-                'MeasureValue': str(row['SpotPrice']),
-                'MeasureValueType': 'DOUBLE',
+                'MeasureName': 'aws_values',
+                'MeasureValues': [],
+                'MeasureValueType': 'MULTI',
                 'Time': time_value
         }
+        for column, types in [('SPS', 'BIGINT'), ('IF', 'DOUBLE'), ('SpotPrice', 'DOUBLE'), ('OndemandPrice', 'DOUBLE')]:
+            submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type' : types})
         records.append(submit_data)
         counter += 1
         if len(records) == 100:

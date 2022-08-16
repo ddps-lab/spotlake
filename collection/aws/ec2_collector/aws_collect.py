@@ -15,6 +15,7 @@ from upload_data import upload_timestream, update_latest, save_raw
 from join_data import build_join_df
 
 NUM_CPU = 2
+DIRLIST = os.listdir('./aws/ec2_collector/')
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
@@ -37,7 +38,8 @@ with Pool(NUM_CPU) as p:
     spot_price_df_list = p.map(get_spot_price, regions)
 spot_price_df = pd.concat(spot_price_df_list).reset_index(drop=True)
 
-ondemand_price_df = get_ondemand_price()
+ondemand_date = args.timestamp.split("T")[0]
+ondemand_price_df = get_ondemand_price(ondemand_date)
 
 spotinfo_df = get_spotinfo()
 
@@ -48,7 +50,7 @@ sps_df = pd.concat(sps_df_list).reset_index(drop=True)
 
 current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
 
-if 'latest_df.pkl' not in os.listdir('./aws/ec2_collector/'):
+if 'latest_df.pkl' not in DIRLIST:
     update_latest(current_df)
     save_raw(current_df, timestamp)
     upload_timestream(current_df, timestamp)

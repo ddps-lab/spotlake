@@ -51,12 +51,12 @@ def upload_timestream(data, timestamp):
 
         submit_data = {
                 'Dimensions': dimensions,
-                'MeasureName': 'spotinfo',
+                'MeasureName': 'aws_values',
                 'MeasureValues': [],
                 'MeasureValueType': 'MULTI',
                 'Time': time_value
         }
-        for column, types in [('SPS', 'BIGINT'), ('IF', 'VARCHAR'), ('SpotPrice', 'DOUBLE'), ('OndemandPrice', 'DOUBLE')]:
+        for column, types in [('SPS', 'BIGINT'), ('IF', 'DOUBLE'), ('SpotPrice', 'DOUBLE'), ('OndemandPrice', 'DOUBLE')]:
             submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type' : types})
         records.append(submit_data)
         counter += 1

@@ -3,6 +3,7 @@
 
 import boto3
 import pickle
+import os
 from datetime import date
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
@@ -72,7 +73,16 @@ def workload_bin_packing(query, capacity, algorithm):
     return binpacked
 
 
-if __name__ == "__main__":
+def get_binpacked_workload(filedate):
+    DIRLIST = os.listdir('./aws/ec2_collector/')
+    if f"{filedate}_binpacked_workload.pkl" in DIRLIST:
+        ondemand_price_df = pickle.load(open(f"./aws/ec2_collector/{filedate}_binpacked_workload.pkl", 'rb'))
+        return ondemand_price_df
+    else:
+        for filename in DIRLIST:
+            if "binpacked_workload.pkl" in filename:
+                os.remove(f"./aws/ec2_collector/{filename}")
+    
     s3 = boto3.resource('s3')
 
     workloads = num_az_by_region()
@@ -100,13 +110,14 @@ if __name__ == "__main__":
 
     if len(user_queries) != 0:
         user_queries_list.append(user_queries)
-        user_queries = []
-    
+        user_queries = []    
 
     # need to change file location
-    pickle.dump(user_queries_list, open('./bin_packed_workloads.pkl', 'wb'))
+    pickle.dump(user_queries_list, open(f"./{filedate}_binpacked_workloads.pkl", 'wb'))
 
     # reverse order of credential data
     user_cred = pickle.load(open('./user_cred_df.pkl', 'rb'))
     user_cred = user_cred[::-1]
     pickle.dump(user_cred, open('./user_cred_df.pkl', 'wb'))
+
+    return user_queries_list

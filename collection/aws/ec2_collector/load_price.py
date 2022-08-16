@@ -1,5 +1,7 @@
 import boto3
 import json
+import pickle
+import os
 import pandas as pd
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -90,7 +92,16 @@ def get_ondemand_price_region(region, pricing_client):
 
 
 # get all ondemand price with regions
-def get_ondemand_price():
+def get_ondemand_price(date):
+    DIRLIST = os.listdir('./aws/ec2_collector/')
+    if f"{date}_ondemand_price_df.pkl" in DIRLIST:
+        ondemand_price_df = pickle.load(open(f"./aws/ec2_collector/{date}_ondemand_price_df.pkl", 'rb'))
+        return ondemand_price_df
+    else:
+        for filename in DIRLIST:
+            if "ondemand_price_df.pkl" in filename:
+                os.remove(f"./aws/ec2_collector/{filename}")
+    
     session = boto3.session.Session()
     regions = get_regions(session)
     
@@ -113,5 +124,7 @@ def get_ondemand_price():
             ondemand_dict['OndemandPrice'].append(instance_price)
     
     ondemand_price_df = pd.DataFrame(ondemand_dict)
+
+    pickle.dump(ondemand_price_df, open(f"./aws/ec2_collector/{date}_ondemand_price_df.pkl", "wb"))
     
     return ondemand_price_df

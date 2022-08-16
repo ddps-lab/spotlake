@@ -38,15 +38,8 @@ with Pool(NUM_CPU) as p:
     spot_price_df_list = p.map(get_spot_price, regions)
 spot_price_df = pd.concat(spot_price_df_list).reset_index(drop=True)
 
-ondemand_price_df = pd.DataFrame()
-if f"{args.timestamp}_ondemand_price_df.pkl" in DIRLIST:
-    ondemand_price_df = pickle.load(open(f"./aws/ec2_collector/{args.timestamp}_ondemand_price_df.pkl", 'rb'))
-else:
-    ondemand_price_df = get_ondemand_price()
-    for filename in DIRLIST:
-        if "ondemand_price_df.pkl" in filename:
-            os.remove(f"./aws/ec2_collector/{filename}")
-    pickle.dump(ondemand_price_df, open(f"./aws/ec2_collector/{args.timestamp}_ondemand_price_df.pkl", "wb"))
+ondemand_date = args.timestamp.split("T")[0]
+ondemand_price_df = get_ondemand_price(ondemand_date)
 
 spotinfo_df = get_spotinfo()
 

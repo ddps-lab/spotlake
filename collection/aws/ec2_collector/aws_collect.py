@@ -30,31 +30,23 @@ mp_workload = []
 for i in range(len(workload)):
     mp_workload.append((credentials.index[i], credentials.iloc[i], workload[i]))
 
-perf_start_time = time.time()
 session = boto3.session.Session()
 regions = get_regions(session)
 spot_price_df_list = []
 with Pool(NUM_CPU) as p:
     spot_price_df_list = p.map(get_spot_price, regions)
 spot_price_df = pd.concat(spot_price_df_list).reset_index(drop=True)
-perf_checkpoint_1 = time.time()
-print(f"get spotprice time : {perf_checkpoint_1 - perf_start_time}")
+
 ondemand_price_df = get_ondemand_price()
-perf_checkpoint_2 = time.time()
-print(f"get ondemand price time : {perf_checkpoint_2 - perf_checkpoint_1}")
+
 spotinfo_df = get_spotinfo()
-perf_checkpoint_3 = time.time()
-print(f"get spotinfo time : {perf_checkpoint_3 - perf_checkpoint_2}")
+
 sps_df_list = []
 with Pool(NUM_CPU) as p:
     sps_df_list = p.map(get_sps, mp_workload)
 sps_df = pd.concat(sps_df_list).reset_index(drop=True)
-perf_checkpoint_4 = time.time()
-print(f"get sps time : {perf_checkpoint_4 - perf_checkpoint_3}")
 
 current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
-perf_checkpoint_5 = time.time()
-print(f"join data time : {perf_checkpoint_5 - perf_checkpoint_4}")
 
 if 'latest_df.pkl' not in os.listdir('./aws/ec2_collector/'):
     update_latest(current_df)
@@ -75,12 +67,4 @@ perf_checkpoint_6 = time.time()
 
 changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
 
-perf_checkpoint_7 = time.time()
-print(f"compare time : {perf_checkpoint_7 - perf_checkpoint_6}")
-
 upload_timestream(changed_df, timestamp)
-
-perf_end_time = time.time()
-print(f"upload time : {perf_end_time - perf_checkpoint_7}")
-
-print(f"total performance time : {perf_end_time - perf_start_time}")

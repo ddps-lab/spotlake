@@ -31,8 +31,6 @@ def upload_timestream(data):
     session = boto3.Session(profile_name=PROFILE_NAME, region_name=REGION_NAME)
     write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
-    data = data[['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'Savings', 'time']]
-
     records = []
     counter = 0
     for idx, row in data.iterrows():
@@ -42,7 +40,9 @@ def upload_timestream(data):
         time_value = str(int(round(time_value * 1000)))
 
         dimensions = []
-        for column in ['InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'SpotPrice', 'Savings']:
+        for column in data.columns:
+            if column == 'time':
+                continue
             dimensions.append({'Name':column, 'Value': str(row[column])})
 
         submit_data = {

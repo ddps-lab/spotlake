@@ -7,6 +7,7 @@ import time
 from datetime import datetime, timedelta
 from multiprocessing import Pool
 
+from workload_binpacking import get_binpacked_workload
 from load_price import get_spot_price, get_ondemand_price, get_regions
 from load_spot_placement_score import get_sps
 from load_spotinfo import get_spotinfo
@@ -22,10 +23,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--timestamp', dest='timestamp', action='store')
 args = parser.parse_args()
 timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+date = args.timestamp.split("T")[0]
 
 # need to change file location
 credentials = pickle.load(open('./aws/ec2_collector/user_cred_df_100_199.pkl', 'rb'))
-workload = pickle.load(open('./aws/ec2_collector/bin_packed_workloads.pkl', 'rb'))
+workload = get_binpacked_workload(date)
 
 mp_workload = []
 for i in range(len(workload)):
@@ -38,8 +40,7 @@ with Pool(NUM_CPU) as p:
     spot_price_df_list = p.map(get_spot_price, regions)
 spot_price_df = pd.concat(spot_price_df_list).reset_index(drop=True)
 
-ondemand_date = args.timestamp.split("T")[0]
-ondemand_price_df = get_ondemand_price(ondemand_date)
+ondemand_price_df = get_ondemand_price(date)
 
 spotinfo_df = get_spotinfo()
 

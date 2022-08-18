@@ -25,21 +25,13 @@ def get_spotinfo():
 
     spotinfo_dict = {'Region' : [],
                      'InstanceType' : [],
-                     'vCPU' : [],
-                     'Memory GiB' : [],
-                     'Savings' : [],
-                     'IF' : [],
-                     'SpotPrice' : []}
+                     'IF' : []}
     
     # remove column name from data using indexing
     for spotinfo in spotinfo_list[2:-1]:
         spotinfo_dict['Region'].append(spotinfo[0])
         spotinfo_dict['InstanceType'].append(spotinfo[1])
-        spotinfo_dict['vCPU'].append(spotinfo[2])
-        spotinfo_dict['Memory GiB'].append(spotinfo[3])
-        spotinfo_dict['Savings'].append(spotinfo[4])
         spotinfo_dict['IF'].append(spotinfo[5])
-        spotinfo_dict['SpotPrice'].append(spotinfo[6])
     
     spotinfo_df = pd.DataFrame(spotinfo_dict)
 

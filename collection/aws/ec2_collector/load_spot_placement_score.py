@@ -25,7 +25,7 @@ def get_sps(workload):
                 SingleAvailabilityZone=True,
                 RegionNames=query[1])
         scores = response['SpotPlacementScores']
-        results = ({'user_num': user_num}, query[0], query[1], scores)
+        results = (query[0], scores)
         sps_list.append(results)
 
     sps_dict = {'InstanceType' : [],
@@ -34,8 +34,8 @@ def get_sps(workload):
                 'SPS' : []}
 
     for sps in sps_list:
-        for info in sps[3]:
-            sps_dict['InstanceType'].append(sps[1])
+        for info in sps[1]:
+            sps_dict['InstanceType'].append(sps[0])
             sps_dict['Region'].append(info['Region'])
             sps_dict['AvailabilityZoneId'].append(info['AvailabilityZoneId'])
             sps_dict['SPS'].append(info['Score'])

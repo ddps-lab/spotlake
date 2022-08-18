@@ -7,12 +7,12 @@ def build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df):
     spot_price_df = spot_price_df[['InstanceType', 'AvailabilityZoneId', 'SpotPrice']]
 
     # need to change to outer join
-    join_df = pd.merge(sps_df, spotinfo_df, how="inner")
+    join_df = pd.merge(spot_price_df, sps_df, how="left")
 
-    sps_spotinfo_outer_df = pd.merge(sps_df, spotinfo_df, how="outer")
+    join_df = pd.merge(join_df, ondemand_price_df, how="left")
 
-    join_df = pd.merge(join_df, ondemand_price_df, how="inner")
+    join_df = pd.merge(join_df, spotinfo_df, how="left")
 
-    join_df = pd.merge(join_df, spot_price_df, how="inner")
+    join_df['Savings'] = int(100.0 - float(join_df['SpotPrice']) * 100 / float(join_df['OndemandPrice']))
 
     return join_df

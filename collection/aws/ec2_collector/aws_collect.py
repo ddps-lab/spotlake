@@ -26,8 +26,8 @@ timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 date = args.timestamp.split("T")[0]
 
 # need to change file location
-credentials = pickle.load(open('./aws/ec2_collector/user_cred_df_100_199.pkl', 'rb'))
 workload = get_binpacked_workload(date)
+credentials = pickle.load(open('./aws/ec2_collector/user_cred_df_100_199.pkl', 'rb'))
 
 mp_workload = []
 for i in range(len(workload)):
@@ -51,23 +51,21 @@ sps_df = pd.concat(sps_df_list).reset_index(drop=True)
 
 current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
 
+update_latest(current_df) # upload current data to S3
+save_raw(current_df, timestamp)
+
 if 'latest_df.pkl' not in DIRLIST:
-    update_latest(current_df)
-    save_raw(current_df, timestamp)
     upload_timestream(current_df, timestamp)
     exit()
 
 previous_df = pickle.load(open("./aws/ec2_collector/latest_df.pkl", "rb")) # load previous data from local file system
 pickle.dump(current_df, open("./aws/ec2_collector/latest_df.pkl", "wb")) # write current data to local file system
 
-update_latest(current_df) # upload current data to S3
-save_raw(current_df, timestamp)
-
 workload_cols = ['InstanceType', 'Region', 'AvailabilityZoneId']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']
-
-perf_checkpoint_6 = time.time()
 
 changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
 
 upload_timestream(changed_df, timestamp)
+
+print("end")

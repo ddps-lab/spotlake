@@ -1,4 +1,5 @@
 # to form dataframe and find price of workloads
+# https://cloud.google.com/compute/docs/general-purpose-machines
 machine_type_list = [
     'n1-standard-1', 'n1-standard-2', 'n1-standard-4', 'n1-standard-8', 'n1-standard-16', 'n1-standard-32', 'n1-standard-64', 'n1-standard-96',
     'n1-highmem-2', 'n1-highmem-4', 'n1-highmem-8', 'n1-highmem-16', 'n1-highmem-32', 'n1-highmem-64', 'n1-highmem-96',
@@ -23,6 +24,7 @@ machine_type_list = [
     'a2-highgpu-1g', 'a2-highgpu-2g', 'a2-highgpu-4g', 'a2-highgpu-8g', 'a2-megagpu-16g'
 ]
 
+# https://cloud.google.com/compute/docs/regions-zones
 region_list = [
     'us', 'us-central1', 'us-east1', 'us-east4', 'us-east5', 'us-west4', 'us-west1', 'us-west2', 'us-west3', 'us-south1',
     'europe', 'europe-central2', 'europe-west1', 'europe-west2', 'europe-west3', 'europe-west4',
@@ -34,6 +36,7 @@ region_list = [
 ]
 
 # to parse regional price from vm instance pricing
+# https://cloud.google.com/compute/vm-instance-pricing
 region_mapping = {
     'io': 'us-central1', 'ore': 'us-west1', 'la': 'us-west2',
     'slc': 'us-west3', 'lv': 'us-west4', 'sc': 'us-east1',
@@ -50,6 +53,7 @@ region_mapping = {
 }
 
 # to calculate price from pricelist
+# https://cloud.google.com/compute/docs/general-purpose-machines
 n1 = {
     'n1-standard-1': {'cpu': 1, 'ram': 3.75},
     'n1-standard-2': {'cpu': 2, 'ram': 7.5},
@@ -220,6 +224,7 @@ a2 = {
 }
 
 # to get request to crawl vm instance pricing
+# https://cloud.google.com/compute/vm-instance-pricing
 url_list = ['/compute/vm-instance-pricing_51451955a829ab2ddc64343b76c5b2d0c97dfb7a49aa90e84a52feaeb0b64878.frame',
             '/compute/vm-instance-pricing_b747f67ec6a2894db18cecac56d4cab10ac63b92334739181e291040a6fa8cf1.frame',
             '/compute/vm-instance-pricing_e3d59378fc9e1288c9dd07863eae5f82ee1d6f31755b3066ddb1fa6bb8e5e2e1.frame',

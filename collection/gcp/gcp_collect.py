@@ -3,8 +3,8 @@ import pandas as pd
 
 from load_pricelist import get_price
 from load_vminstance_pricing import get_tbody, extract_price
-from data_defenition import url_list
-from data_defenition import machine_type_list, region_list
+from gcp_metadata import url_list
+from gcp_metadata import machine_type_list, region_list
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 
@@ -47,8 +47,8 @@ for tbody in tbody_list:
 # -> 3rd or 4th?
 
 # make final dataframe
-df_pricelist = pd.DataFrame(output_pricelist)
-df_pricelist.to_pickle('./pricelist.pkl')
+# df_pricelist = pd.DataFrame(output_pricelist)
+# df_pricelist.to_pickle('./pricelist.pkl')
 
-df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
-df_vminstance_pricing.to_pickle('./vminstance_pricing.pkl')
+# df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
+# df_vminstance_pricing.to_pickle('./vminstance_pricing.pkl')

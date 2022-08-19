@@ -79,7 +79,7 @@ def workload_bin_packing(query, capacity, algorithm):
 
 def get_binpacked_workload(filedate):
     DIRLIST = os.listdir('./aws/ec2_collector/')
-    if f"{filedate}_binpacked_workload.pkl" in DIRLIST:
+    if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:
         binpacked_workload = pickle.load(open(f"./aws/ec2_collector/{filedate}_binpacked_workload.pkl", 'rb'))
         return binpacked_workload
     else:

@@ -32,7 +32,7 @@ def submit_batch(records, counter, recursive):
 
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, timestamp):
-    data = data[['InstanceType', 'Region', 'AvailabilityZoneId', 'SPS', 'IF', 'SpotPrice', 'OndemandPrice']]
+    data = data[['InstanceType', 'Region', 'AvailabilityZoneId', 'SPS', 'IF', 'SpotPrice', 'Savings', 'OndemandPrice']]
     data = data.rename({'AvailabilityZoneId': 'AZ'}, axis=1)
 
     time_value = time.strptime(timestamp.strftime("%Y-%m-%d %H:%M"), '%Y-%m-%d %H:%M')

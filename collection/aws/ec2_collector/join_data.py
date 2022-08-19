@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 def build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df):
     sps_df = sps_df[['InstanceType', 'Region', 'AvailabilityZoneId', 'SPS']]
@@ -13,6 +14,11 @@ def build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df):
 
     join_df = pd.merge(join_df, spotinfo_df, how="left")
 
-    join_df['Savings'] = int(100.0 - float(join_df['SpotPrice']) * 100 / float(join_df['OndemandPrice']))
+    join_df['SpotPrice'] = join_df['SpotPrice'].astype('float')
+    join_df['OndemandPrice'].fillna(join_df['SpotPrice'])
+    join_df['Savings'] = 100.0 - (join_df['SpotPrice'] * 100 / join_df['OndemandPrice'])
+    join_df['Savings'] = join_df['Savings'].fillna(0)
+
+    join_df['Savings'] = join_df['Savings'].astype('int')
 
     return join_df

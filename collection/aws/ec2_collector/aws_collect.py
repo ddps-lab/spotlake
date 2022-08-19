@@ -64,8 +64,7 @@ pickle.dump(current_df, open("./aws/ec2_collector/latest_df.pkl", "wb")) # write
 workload_cols = ['InstanceType', 'Region', 'AvailabilityZoneId']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']
 
-changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
+changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
 
 upload_timestream(changed_df, timestamp)
-
-print("end")
+upload_timestream(removed_df, timestamp)

@@ -24,7 +24,7 @@ def get_spot_price_region(session: boto3.session.Session, region: str, start=Non
             # get only Linux price
             if os != 'Linux/UNIX':
                 continue
-            yield it, az, Decimal(price), timestamp
+            yield it, az, float(price), timestamp
         if not response['NextToken']:
             break
         describe_args['NextToken'] = response['NextToken']

@@ -1,6 +1,4 @@
-import pandas as pd
-
-from data_defenition import region_list, machine_type_list, n1, e2, n2, n2d, t2d, c2, c2d, m1, a2
+from gcp_metadata import region_list, machine_type_list, n1, e2, n2, n2d, t2d, c2, c2d, m1, a2
 
 
 def extract_price(machine_type, price_data, price_type):

@@ -1,9 +1,8 @@
 import logging
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 
-from data_defenition import region_mapping
+from gcp_metadata import region_mapping
 
 
 def get_tbody(url):
@@ -18,7 +17,7 @@ def get_tbody(url):
         tbody = soup.select_one('tbody')
         return tbody
     else:
-        logging(response.status_code)
+        logging.error(response.status_code)
 
 
 def extract_price(tbody, output):
@@ -62,6 +61,6 @@ def extract_price(tbody, output):
             pass
 
         except Exception as e:
-            logging(e)
+            logging.error(e)
 
     return output

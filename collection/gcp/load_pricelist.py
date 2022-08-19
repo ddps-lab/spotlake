@@ -1,5 +1,7 @@
 from gcp_metadata import region_list, machine_type_list, n1, e2, n2, n2d, t2d, c2, c2d, m1, a2
 
+# This code is referenced from "https://github.com/doitintl/gcpinstances.info/blob/master/scraper.py"
+
 
 def extract_price(machine_type, price_data, price_type):
     # get price from pricelist and put into output data (for N1 : f1-micro, g1-small)

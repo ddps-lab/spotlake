@@ -25,7 +25,7 @@ start_date = datetime(2022, 1, 1, 0, 0, 0, 0, pytz.UTC)
 end_date = datetime(2022, 8, 1, 0, 0, 0, 0, pytz.UTC)
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
-feature_cols = ['SPS', 'IF', 'OndemandPrice', 'SpotPrice']
+feature_cols = ['SPS', 'IF', 'SpotPrice']
 
 # tsquery.PROFILE_NAME = PROFILE_NAME # tsquery.PROFILE_NAME must be credential of source database
 tsquery.REGION_NAME = REGION_NAME
@@ -148,7 +148,7 @@ for idx in range(len(days)-1):
         
     day_df = pd.concat(process_df_list, axis=0, ignore_index=True)
     print(f"elapsed time - single day query: {time.time() - perf_start}")
-    day_df['OndemandPrice'] = (100 * day_df['SpotPrice']) / (100 - day_df['Savings'])
+    # day_df['OndemandPrice'] = (100 * day_df['SpotPrice']) / (100 - day_df['Savings'])
     
     day_timestamps = sorted(list(day_df['time'].unique()))
     for timestamp in day_timestamps:

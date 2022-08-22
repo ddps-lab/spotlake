@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 
 from load_pricelist import get_price
-from load_vminstance_pricing import get_tbody, extract_price
+from load_vminstance_pricing import get_table, extract_price
 from gcp_metadata import url_list
 from gcp_metadata import machine_type_list, region_list
 
@@ -26,12 +26,12 @@ for machine_type in machine_type_list:
         output_vminstance_pricing[machine_type][region]['ondemand'] = None
         output_vminstance_pricing[machine_type][region]['preemptible'] = None
 
-tbody_list = []
+table_list = []
 for url in url_list:
-    tbody_list.append(get_tbody(url))
+    table_list.append(get_table(url))
 
-for tbody in tbody_list:
-    output_vminstance_pricing = extract_price(tbody, output_vminstance_pricing)
+for table in table_list:
+    output_vminstance_pricing = extract_price(table, output_vminstance_pricing)
 
 
 # preprocessing

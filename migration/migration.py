@@ -22,7 +22,7 @@ if 24 % NUM_CPUS != 0:
 CHUNK_HOUR = 24 / NUM_CPUS
 
 start_date = datetime(2022, 1, 1, 0, 0, 0, 0, pytz.UTC)
-end_date = datetime(2022, 8, 1, 0, 0, 0, 0, pytz.UTC)
+end_date = datetime(2022, 4, 13, 0, 0, 0, 0, pytz.UTC)
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice']

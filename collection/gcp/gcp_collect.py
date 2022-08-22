@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 
-from load_pricelist import get_price
+from load_pricelist import get_price, preprocessing_price
 from load_vminstance_pricing import get_table, extract_price
 from gcp_metadata import url_list
 from gcp_metadata import machine_type_list, region_list
@@ -16,6 +16,8 @@ pricelist = data['gcp_price_list']
 
 # get price from pricelist
 output_pricelist = get_price(pricelist)
+df_pricelist = pd.DataFrame(output_pricelist)
+
 
 # get price from vm instance pricing page (crawling)
 output_vminstance_pricing = {}
@@ -29,26 +31,22 @@ for machine_type in machine_type_list:
 table_list = []
 for url in url_list:
     table_list.append(get_table(url))
-
 for table in table_list:
     output_vminstance_pricing = extract_price(table, output_vminstance_pricing)
 
+df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
+
 
 # preprocessing
+df_pricelist = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
+    'Vendor', 'InstanceType', 'Region', 'Pricelist_OndemandPrice', 'Pricelist_PreemptiblePrice', 'Pricelist_Savings'])
+df_vminstance_pricing = pd.DataFrame(preprocessing_price(df_vminstance_pricing), columns=[
+    'Vendor', 'InstanceType', 'Region', 'VminstancePricing_OndemandPrice', 'VminstancePricing_PreemptiblePrice', 'VminstancePricing_Savings'])
 
-# Issue : contain data of {'us', 'asia', 'australia', 'europe', 'asia-east', 'asia-southeast', 'asia-northeast'} regions or not? (only in pricelist)
-# https://github.com/ddps-lab/spot-score/issues/115#issuecomment-1204745251
-
-# filter N/A workload in pricelist
-# -> get N/A workload from vm instance pricing data
-# -> filtering in pricelist
-
-# round matter
-# -> 3rd or 4th?
 
 # make final dataframe
-# df_pricelist = pd.DataFrame(output_pricelist)
-# df_pricelist.to_pickle('./pricelist.pkl')
+df_current = pd.merge(df_pricelist, df_vminstance_pricing)
+# need to add timestamp -> argparse
 
-# df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
-# df_vminstance_pricing.to_pickle('./vminstance_pricing.pkl')
+
+# compare and save

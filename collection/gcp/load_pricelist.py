@@ -180,3 +180,25 @@ def get_price(pricelist):
                                 cpu_price + ram_quantity*ram_price + gpu_quantity*gpu_price
 
     return output
+
+
+def preprocessing_price(df):
+    # make list to struct final dataframe
+    # input : dataframe 
+    # output : list having Vendor, Instance type, Region, Ondemand price, Preemptible price, Savings
+    
+    new_list = []
+    for machine_type, info in df.items():
+        for region, price in info.items():
+            ondemand = price['ondemand']
+            preemptible = price['preemptible']
+            savings = None
+
+            if ondemand != None and preemptible != None:
+                ondemand = round(ondemand, 4)
+                preemptible = round(preemptible, 4)
+                savings = int(round((ondemand - preemptible) / ondemand * 100))
+
+            new_list.append(
+                ['Google', machine_type, region, ondemand, preemptible, savings])
+    return new_list

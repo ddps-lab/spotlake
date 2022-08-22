@@ -147,6 +147,11 @@ for idx in range(len(days)-1):
         process_df_list = p.starmap(tsquery.get_timestream, start_end_time_process_list)
         
     day_df = pd.concat(process_df_list, axis=0, ignore_index=True)
+    frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
+    day_df = day_df.replace({'IF': frequency_map})
+    day_df['SPS'] = day_df['SPS'].astype(int)
+    day_df['SpotPrice'] = day_df['SpotPrice'].astype(float)
+    
     print(f"elapsed time - single day query: {time.time() - perf_start}")
     # day_df['OndemandPrice'] = (100 * day_df['SpotPrice']) / (100 - day_df['Savings'])
     

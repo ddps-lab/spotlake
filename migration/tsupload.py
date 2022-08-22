@@ -53,7 +53,7 @@ def upload_timestream(data):
         submit_data = {
                 'Dimensions': dimensions,
                 'MeasureName': 'aws_values',
-                'MeasureValue': measures,
+                'MeasureValues': measures,
                 'MeasureValueType': 'MULTI',
                 'Time': time_value
         }

@@ -1,17 +1,12 @@
 import boto3
 import json
+import pickle
+import os
 import pandas as pd
 from decimal import Decimal
 from datetime import datetime, timedelta
 
-
-# get all regions(region code) in aws
-def get_regions(session: boto3.session.Session, region='us-east-1') -> list:
-    client = session.client('ec2', region_name=region)
-    describe_args = {
-        'AllRegions': False
-    }
-    return [region['RegionName'] for region in client.describe_regions(**describe_args)['Regions']]
+from load_metadata import get_regions
 
 
 # get spot price by all availability zone in single region
@@ -36,35 +31,30 @@ def get_spot_price_region(session: boto3.session.Session, region: str, start=Non
 
 
 # get all spot price with regions
-def get_spot_price():
+def get_spot_price(region):
     session = boto3.session.Session()
-    
-    regions = get_regions(session)
     
     end_date = datetime.utcnow().replace(microsecond=0)
     start_date = end_date - timedelta(microseconds=1)
 
-    spotprice_dict = {"InstanceType": [], "AvailabilityZoneId": [], "SpotPrice": [], "TimeStamp": []}
-
-    for region in regions:
-        for it, az, price, timestamp in get_spot_price_region(session, region, start_date, end_date):
-            spotprice_dict["InstanceType"].append(it)
-            spotprice_dict["AvailabilityZoneId"].append(az)
-            spotprice_dict["SpotPrice"].append(price)
-            spotprice_dict["TimeStamp"].append(timestamp)
+    spotprice_dict = {"InstanceType": [], "AvailabilityZoneId": [], "SpotPrice": []}
+    
+    for it, az, price, timestamp in get_spot_price_region(session, region, start_date, end_date):
+        spotprice_dict["InstanceType"].append(it)
+        spotprice_dict["AvailabilityZoneId"].append(az)
+        spotprice_dict["SpotPrice"].append(price)
     
     spot_price_df = pd.DataFrame(spotprice_dict)
 
     # filter to change az-name to az-id
     az_map = dict()
-    for region in regions:
-        ec2 = session.client('ec2', region_name=region)
-        response = ec2.describe_availability_zones()
+    ec2 = session.client('ec2', region_name=region)
+    response = ec2.describe_availability_zones()
 
-        for val in response['AvailabilityZones']:
-            az_map[val['ZoneName']] = val['ZoneId']
+    for val in response['AvailabilityZones']:
+        az_map[val['ZoneName']] = val['ZoneId']
     
-    spot_price_df = spot_price_df.replace({"AZ":az_map})
+    spot_price_df = spot_price_df.replace({"AvailabilityZoneId":az_map})
     
     return spot_price_df
 
@@ -95,7 +85,16 @@ def get_ondemand_price_region(region, pricing_client):
 
 
 # get all ondemand price with regions
-def get_ondemand_price():
+def get_ondemand_price(filedate):
+    DIRLIST = os.listdir('./aws/ec2_collector/')
+    if f"{filedate}_ondemand_price_df.pkl" in DIRLIST:
+        ondemand_price_df = pickle.load(open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl", 'rb'))
+        return ondemand_price_df
+    else:
+        for filename in DIRLIST:
+            if "ondemand_price_df.pkl" in filename:
+                os.remove(f"./aws/ec2_collector/{filename}")
+    
     session = boto3.session.Session()
     regions = get_regions(session)
     
@@ -118,5 +117,10 @@ def get_ondemand_price():
             ondemand_dict['OndemandPrice'].append(instance_price)
     
     ondemand_price_df = pd.DataFrame(ondemand_dict)
+
+    pickle.dump(ondemand_price_df, open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "wb"))
+
+    gzip.open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "wb").writelines(open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "rb"))
+    s3.upload_fileobj(open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/ondemand_price/{'/'.join(filedate.split('-'))}/ondemand_price_df.pkl.gz")
     
     return ondemand_price_df

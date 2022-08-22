@@ -7,10 +7,10 @@ import subprocess
 # get info of interrupt frequency at spotinfo
 def get_spotinfo():
     # need to change file location
-    if 'spotinfo' in os.listdir('./'):
-        command = ['', '', './spotinfo --output csv --region all']
+    if 'spotinfo' in os.listdir('./aws/ec2_collector/'):
+        command = ['', '', './aws/ec2_collector/spotinfo --output csv --region all']
     else:
-        command = ['wget https://github.com/alexei-led/spotinfo/releases/download/1.0.7/spotinfo_linux_amd64 -O spotinfo', 'chmod +x spotinfo', './spotinfo --output csv --region all']
+        command = ['wget https://github.com/alexei-led/spotinfo/releases/download/1.0.7/spotinfo_linux_amd64 -O spotinfo', 'chmod +x spotinfo', './aws/ec2_collector/spotinfo --output csv --region all']
     
         process1 = subprocess.Popen(command[0].split(' '), stdout=subprocess.PIPE)
         process1.communicate()
@@ -25,23 +25,18 @@ def get_spotinfo():
 
     spotinfo_dict = {'Region' : [],
                      'InstanceType' : [],
-                     'vCPU' : [],
-                     'Memory GiB' : [],
-                     'Savings' : [],
-                     'IF' : [],
-                     'SpotPrice' : []}
+                     'IF' : []}
     
     # remove column name from data using indexing
     for spotinfo in spotinfo_list[2:-1]:
         spotinfo_dict['Region'].append(spotinfo[0])
         spotinfo_dict['InstanceType'].append(spotinfo[1])
-        spotinfo_dict['vCPU'].append(spotinfo[2])
-        spotinfo_dict['Memory GiB'].append(spotinfo[3])
-        spotinfo_dict['Savings'].append(spotinfo[4])
         spotinfo_dict['IF'].append(spotinfo[5])
-        spotinfo_dict['SpotPrice'].append(spotinfo[6])
     
     spotinfo_df = pd.DataFrame(spotinfo_dict)
+
+    frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
+    spotinfo_df = spotinfo_df.replace({'IF': frequency_map})
 
     return spotinfo_df
     

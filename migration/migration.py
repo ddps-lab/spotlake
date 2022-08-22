@@ -112,7 +112,7 @@ def compare_nparray(previous_df, current_df, workload_cols, feature_cols):
     changed_df = current_df.loc[changed_indices].drop(['Workload', 'Feature'], axis=1)
     removed_df = previous_df.loc[removed_indices].drop(['Workload', 'Feature'], axis=1)
     for col in feature_cols:
-        removed_df[col] = None
+        removed_df[col] = 0
 
     # removed_df have one more column, 'Ceased'
     removed_df['Ceased'] = True

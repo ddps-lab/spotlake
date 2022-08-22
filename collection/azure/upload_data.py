@@ -1,7 +1,7 @@
-import boto3
 import time
-import pandas as pd
+import boto3
 import pickle
+import pandas as pd
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
@@ -9,9 +9,11 @@ from botocore.exceptions import ClientError
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
-BUCKET_NAME = 'spotlake-test'
-DATABASE_NAME = 'spotlake-timestream'
-TABLE_NAME = 'aws-table'
+BUCKET_NAME = 'spotlake'
+DATABASE_NAME = 'spotlake'
+TABLE_NAME = 'azure'
+FILENAME = 'latest_azure.json'
+S3_PATH = f'latest_data/{FILENAME}'
 
 
 # Submit Batch To Timestream
@@ -21,10 +23,12 @@ def submit_batch(records, counter, recursive):
     try:
         result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName = TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
+        print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
             re_records.append(records[rr["RecordIndex"]])
         submit_batch(re_records, counter, recursive + 1)
+        exit()
     except Exception as err:
         print(err)
         exit()
@@ -32,8 +36,7 @@ def submit_batch(records, counter, recursive):
 
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, timestamp):
-    data = data[['InstanceType', 'Region', 'AvailabilityZoneId', 'SPS', 'IF', 'SpotPrice', 'OndemandPrice']]
-    data = data.rename({'AvailabilityZoneId': 'AZ'}, axis=1)
+    data = data[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice']]
 
     time_value = time.strptime(timestamp.strftime("%Y-%m-%d %H:%M"), '%Y-%m-%d %H:%M')
     time_value = time.mktime(time_value)
@@ -44,18 +47,20 @@ def upload_timestream(data, timestamp):
     for idx, row in data.iterrows():
 
         dimensions = []
-        for column in ['InstanceType', 'Region', 'AZ']:
+        for column in ['InstanceTier', 'InstanceType', 'Region']:
             dimensions.append({'Name':column, 'Value': str(row[column])})
 
         submit_data = {
                 'Dimensions': dimensions,
-                'MeasureName': 'aws_values',
+                'MeasureName': 'azure_values',
                 'MeasureValues': [],
                 'MeasureValueType': 'MULTI',
                 'Time': time_value
         }
-        for column, types in [('SPS', 'BIGINT'), ('IF', 'DOUBLE'), ('SpotPrice', 'DOUBLE'), ('OndemandPrice', 'DOUBLE')]:
+        
+        for column, types in [('OndemandPrice', 'DOUBLE'), ('SpotPrice', 'DOUBLE')]:
             submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type' : types})
+            
         records.append(submit_data)
         counter += 1
         if len(records) == 100:
@@ -67,18 +72,16 @@ def upload_timestream(data, timestamp):
 
 
 def update_latest(data):
-    filename = 'latest_spot_data.json'
-    result = data.to_json(filename)
-    s3_path = f'latest_data/{filename}'
+    result = data.to_json(FILENAME)
     session = boto3.Session()
     s3 = session.client('s3')
-    with open(filename, 'rb') as f:
-        s3.upload_fileobj(f, BUCKET_NAME, s3_path)
-    pickle.dump(data, open("./aws/ec2_collector/latest_df.pkl", "wb"))
+    with open(FILENAME, 'rb') as f:
+        s3.upload_fileobj(f, BUCKET_NAME, S3_PATH)
+    pickle.dump(data, open("./azure/latest_df.pkl", "wb"))
 
+    
 def save_raw(data, timestamp):
-    SAVE_FILENAME = "spotlake_"+"timestamp"
-    data.to_csv(SAVE_FILENAME, index=False, compression="gzip")
+    data.to_csv(f"spotlake_{timestamp}", index=False, compression="gzip")
     session = boto3.Session()
     s3 = session.client('s3')
     s3_dir_name = timestamp.strftime("%Y/%m/%d")

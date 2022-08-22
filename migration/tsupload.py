@@ -41,17 +41,21 @@ def upload_timestream(data):
 
         dimensions = []
         for column in data.columns:
-            if column == 'time':
-                continue
-            dimensions.append({'Name':column, 'Value': str(row[column])})
+            if column in ['InstanceType', 'Region', 'AZ']:
+                dimensions.append({'Name':column, 'Value': str(row[column])})
 
+        measures = []
+        for column, types in [('SPS', 'BIGINT'), ('IF', 'DOUBLE'), ('SpotPrice', 'DOUBLE')]:
+            measures.append({'Name': column, 'Value': str(row[column]), 'Type', types})
+            
         submit_data = {
                 'Dimensions': dimensions,
-                'MeasureName': 'SpotPrice',
-                'MeasureValue': str(row['SpotPrice']),
-                'MeasureValueType': 'DOUBLE',
+                'MeasureName': 'aws_values',
+                'MeasureValue': measures,
+                'MeasureValueType': 'MULTI',
                 'Time': time_value
         }
+        
         records.append(submit_data)
         counter += 1
         if len(records) == 100:

@@ -78,14 +78,14 @@ def workload_bin_packing(query, capacity, algorithm):
 
 
 def get_binpacked_workload(filedate):
-    DIRLIST = os.listdir('./aws/ec2_collector/')
+    DIRLIST = os.listdir('/home/ubuntu/spot-score/collection/aws/ec2_collector/')
     if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:
-        binpacked_workload = pickle.load(open(f"./aws/ec2_collector/{filedate}_binpacked_workload.pkl", 'rb'))
+        binpacked_workload = pickle.load(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl", 'rb'))
         return binpacked_workload
     else:
         for filename in DIRLIST:
             if "binpacked_workloads.pkl" in filename:
-                os.remove(f"./aws/ec2_collector/{filename}")
+                os.remove(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filename}")
     
     s3 = boto3.resource('s3')
 
@@ -117,13 +117,13 @@ def get_binpacked_workload(filedate):
         user_queries = []    
 
     # need to change file location
-    pickle.dump(user_queries_list, open(f"./aws/ec2_collector/{filedate}_binpacked_workloads.pkl", 'wb'))
-    gzip.open(f"./aws/ec2_collector/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"./aws/ec2_collector/{filedate}_binpacked_workloads.pkl", "rb"))
-    s3.upload_fileobj(open(f"./aws/ec2_collector/{filedate}_binpacked_workloads.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/workloads/{today}/binpacked_workloads.pkl.gz")
+    pickle.dump(user_queries_list, open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl", 'wb'))
+    gzip.open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl", "rb"))
+    s3.upload_fileobj(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/workloads/{today}/binpacked_workloads.pkl.gz")
 
     # reverse order of credential data
-    user_cred = pickle.load(open('./aws/ec2_collector/user_cred_df.pkl', 'rb'))
+    user_cred = pickle.load(open('/home/ubuntu/spot-score/collection/aws/ec2_collector/user_cred_df.pkl', 'rb'))
     user_cred = user_cred[::-1]
-    pickle.dump(user_cred, open('./aws/ec2_collector/user_cred_df.pkl', 'wb'))
+    pickle.dump(user_cred, open('/home/ubuntu/spot-score/collection/aws/ec2_collector/user_cred_df.pkl', 'wb'))
 
     return user_queries_list

@@ -21,6 +21,7 @@ def submit_batch(records, counter, recursive):
     try:
         result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName = TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
+        print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
             re_records.append(records[rr["RecordIndex"]])
@@ -67,17 +68,17 @@ def upload_timestream(data, timestamp):
 
 
 def update_latest(data):
-    filename = 'latest_spot_data.json'
+    filename = '/home/ubuntu/spot-score/collection/aws/ec2_collector/latest_spot_data.json'
     result = data.to_json(filename)
     s3_path = f'latest_data/{filename}'
     session = boto3.Session()
     s3 = session.client('s3')
     with open(filename, 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, s3_path)
-    pickle.dump(data, open("./aws/ec2_collector/latest_df.pkl", "wb"))
+    pickle.dump(data, open("/home/ubuntu/spot-score/collection/aws/ec2_collector/latest_df.pkl", "wb"))
 
 def save_raw(data, timestamp):
-    SAVE_FILENAME = "spotlake_"+"timestamp"
+    SAVE_FILENAME = "/home/ubuntu/spot-score/collection/aws/ec2_collector/spotlake_"+"timestamp"
     data.to_csv(SAVE_FILENAME, index=False, compression="gzip")
     session = boto3.Session()
     s3 = session.client('s3')

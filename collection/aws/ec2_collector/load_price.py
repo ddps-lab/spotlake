@@ -2,6 +2,7 @@ import boto3
 import json
 import pickle
 import os
+import gzip
 import pandas as pd
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -86,14 +87,14 @@ def get_ondemand_price_region(region, pricing_client):
 
 # get all ondemand price with regions
 def get_ondemand_price(filedate):
-    DIRLIST = os.listdir('./aws/ec2_collector/')
+    DIRLIST = os.listdir('/home/ubuntu/spot-score/collection/aws/ec2_collector/')
     if f"{filedate}_ondemand_price_df.pkl" in DIRLIST:
-        ondemand_price_df = pickle.load(open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl", 'rb'))
+        ondemand_price_df = pickle.load(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl", 'rb'))
         return ondemand_price_df
     else:
         for filename in DIRLIST:
             if "ondemand_price_df.pkl" in filename:
-                os.remove(f"./aws/ec2_collector/{filename}")
+                os.remove(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filename}")
     
     session = boto3.session.Session()
     regions = get_regions(session)
@@ -118,9 +119,9 @@ def get_ondemand_price(filedate):
     
     ondemand_price_df = pd.DataFrame(ondemand_dict)
 
-    pickle.dump(ondemand_price_df, open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "wb"))
+    pickle.dump(ondemand_price_df, open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "wb"))
 
-    gzip.open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "wb").writelines(open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "rb"))
-    s3.upload_fileobj(open(f"./aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/ondemand_price/{'/'.join(filedate.split('-'))}/ondemand_price_df.pkl.gz")
+    gzip.open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "wb").writelines(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "rb"))
+    s3.upload_fileobj(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/ondemand_price/{'/'.join(filedate.split('-'))}/ondemand_price_df.pkl.gz")
     
     return ondemand_price_df

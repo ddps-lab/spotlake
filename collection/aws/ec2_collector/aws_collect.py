@@ -16,7 +16,7 @@ from upload_data import upload_timestream, update_latest, save_raw
 from join_data import build_join_df
 
 NUM_CPU = 2
-DIRLIST = os.listdir('./aws/ec2_collector/')
+DIRLIST = os.listdir('/home/ubuntu/spot-score/collection/aws/ec2_collector/')
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
@@ -27,7 +27,7 @@ date = args.timestamp.split("T")[0]
 
 # need to change file location
 workload = get_binpacked_workload(date)
-credentials = pickle.load(open('./aws/ec2_collector/user_cred_df_100_199.pkl', 'rb'))
+credentials = pickle.load(open('/home/ubuntu/spot-score/collection/aws/ec2_collector/user_cred_df_100_199.pkl', 'rb'))
 
 mp_workload = []
 for i in range(len(workload)):
@@ -58,8 +58,8 @@ if 'latest_df.pkl' not in DIRLIST:
     upload_timestream(current_df, timestamp)
     exit()
 
-previous_df = pickle.load(open("./aws/ec2_collector/latest_df.pkl", "rb")) # load previous data from local file system
-pickle.dump(current_df, open("./aws/ec2_collector/latest_df.pkl", "wb")) # write current data to local file system
+previous_df = pickle.load(open("/home/ubuntu/spot-score/collection/aws/ec2_collector/latest_df.pkl", "rb")) # load previous data from local file system
+pickle.dump(current_df, open("/home/ubuntu/spot-score/collection/aws/ec2_collector/latest_df.pkl", "wb")) # write current data to local file system
 
 workload_cols = ['InstanceType', 'Region', 'AvailabilityZoneId']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']

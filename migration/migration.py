@@ -151,6 +151,7 @@ for idx in range(len(days)-1):
     day_df = day_df.replace({'IF': frequency_map})
     day_df['SPS'] = day_df['SPS'].astype(int)
     day_df['SpotPrice'] = day_df['SpotPrice'].astype(float)
+    day_df['SpotPrice'] = day_df['SpotPrice'].round(5)
     
     print(f"elapsed time - single day query: {time.time() - perf_start}")
     # day_df['OndemandPrice'] = (100 * day_df['SpotPrice']) / (100 - day_df['Savings'])

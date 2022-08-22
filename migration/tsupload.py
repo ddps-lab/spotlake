@@ -18,11 +18,13 @@ def submit_batch(records, counter, recursive, write_client):
     try:
         result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName = TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
+        print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
             re_records.append(records[rr["RecordIndex"]])
         submit_batch(re_records, counter, recursive + 1)
     except Exception as err:
+        print(err)
         exit()
 
 
@@ -46,7 +48,7 @@ def upload_timestream(data):
 
         measures = []
         for column, types in [('SPS', 'BIGINT'), ('IF', 'DOUBLE'), ('SpotPrice', 'DOUBLE')]:
-            measures.append({'Name': column, 'Value': str(row[column]), 'Type', types})
+            measures.append({'Name': column, 'Value': str(row[column]), 'Type': types})
             
         submit_data = {
                 'Dimensions': dimensions,

@@ -43,7 +43,7 @@ def upload_timestream(data):
 
         dimensions = []
         for column in data.columns:
-            if column in ['InstanceType', 'Region', 'AZ']:
+            if column in ['InstanceType', 'Region', 'AZ', 'Ceased']:
                 dimensions.append({'Name':column, 'Value': str(row[column])})
 
         measures = []

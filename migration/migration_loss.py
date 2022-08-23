@@ -12,7 +12,7 @@ PROFILE_NAME = 'default'
 BUCKET_NAME = 'spotlake'
 REGION_NAME = "us-west-2"
 DATABASE_NAME = 'spotlake'
-TABLE_NAME = 'aws-loss-test'
+TABLE_NAME = 'aws'
 
 start_date = datetime(2022, 4, 13, 0, 0, 0, 0, pytz.UTC)
 end_date = datetime(2022, 5, 1, 0, 0, 0, 0, pytz.UTC)

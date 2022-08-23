@@ -17,6 +17,9 @@ TABLE_NAME = 'aws-loss-test'
 start_date = datetime(2022, 4, 13, 0, 0, 0, 0, pytz.UTC)
 end_date = datetime(2022, 5, 1, 0, 0, 0, 0, pytz.UTC)
 
+workload_cols = ['InstanceType', 'Region', 'AZ']
+feature_cols = ['SPS', 'IF', 'SpotPrice']
+
 tsupload.PROFILE_NAME = PROFILE_NAME
 tsupload.REGION_NAME = REGION_NAME
 tsupload.DATABASE_NAME = DATABASE_NAME

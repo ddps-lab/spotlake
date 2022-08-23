@@ -10,6 +10,10 @@ from datetime import datetime, timedelta
 from load_metadata import get_regions
 
 
+BUCKET_NAME = 'spotlake'
+LOCAL_PATH = '/home/ubuntu/spot-score/collection/aws/ec2_collector'
+
+
 # get spot price by all availability zone in single region
 def get_spot_price_region(session: boto3.session.Session, region: str, start=None, end=None) -> tuple:
     client = session.client('ec2', region)
@@ -87,14 +91,14 @@ def get_ondemand_price_region(region, pricing_client):
 
 # get all ondemand price with regions
 def get_ondemand_price(filedate):
-    DIRLIST = os.listdir('/home/ubuntu/spot-score/collection/aws/ec2_collector/')
+    DIRLIST = os.listdir(f'{LOCAL_PATH}/')
     if f"{filedate}_ondemand_price_df.pkl" in DIRLIST:
-        ondemand_price_df = pickle.load(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl", 'rb'))
+        ondemand_price_df = pickle.load(open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl", 'rb'))
         return ondemand_price_df
     else:
         for filename in DIRLIST:
             if "ondemand_price_df.pkl" in filename:
-                os.remove(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filename}")
+                os.remove(f"{LOCAL_PATH}/{filename}")
     
     session = boto3.session.Session()
     regions = get_regions(session)
@@ -119,9 +123,9 @@ def get_ondemand_price(filedate):
     
     ondemand_price_df = pd.DataFrame(ondemand_dict)
 
-    pickle.dump(ondemand_price_df, open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "wb"))
-
-    gzip.open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "wb").writelines(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl", "rb"))
-    s3.upload_fileobj(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_ondemand_price_df.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/ondemand_price/{'/'.join(filedate.split('-'))}/ondemand_price_df.pkl.gz")
+    s3_client = boto3.client('s3')
+    pickle.dump(ondemand_price_df, open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl", "wb"))
+    gzip.open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl.gz", "wb").writelines(open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl", "rb"))
+    s3_client.upload_fileobj(open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/ondemand_price/{'/'.join(filedate.split('-'))}/ondemand_price_df.pkl.gz")
     
     return ondemand_price_df

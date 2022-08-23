@@ -5,12 +5,12 @@ import boto3
 import pickle
 import os
 import gzip
-from datetime import date
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 
 
-BUCKET_NAME = "spotlake-test"
+BUCKET_NAME = "spotlake"
+LOCAL_PATH = "/home/ubuntu/spot-score/collection/aws/ec2_collector"
 
 
 # create object of bin packing input data
@@ -78,21 +78,21 @@ def workload_bin_packing(query, capacity, algorithm):
 
 
 def get_binpacked_workload(filedate):
-    DIRLIST = os.listdir('/home/ubuntu/spot-score/collection/aws/ec2_collector/')
+    DIRLIST = os.listdir(f"{LOCAL_PATH}/")
     if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:
-        binpacked_workload = pickle.load(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl", 'rb'))
+        binpacked_workload = pickle.load(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'rb'))
         return binpacked_workload
     else:
         for filename in DIRLIST:
             if "binpacked_workloads.pkl" in filename:
-                os.remove(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filename}")
+                os.remove(f"{LOCAL_PATH}/{filename}")
     
-    s3 = boto3.resource('s3')
+    s3_resource = boto3.resource('s3')
 
     workloads = num_az_by_region()
-    today = "/".join(date.today().isoformat().split("-"))
+    today = "/".join(filedate.split("-"))
     # need to change file location
-    s3.Object(BUCKET_NAME, f"monitoring/{today}/workloads.pkl").put(Body=pickle.dumps(workloads))
+    s3_resource.Object(BUCKET_NAME, f"monitoring/{today}/workloads.pkl").put(Body=pickle.dumps(workloads))
 
     result_binpacked = {}
     
@@ -117,13 +117,14 @@ def get_binpacked_workload(filedate):
         user_queries = []    
 
     # need to change file location
-    pickle.dump(user_queries_list, open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl", 'wb'))
-    gzip.open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl", "rb"))
-    s3.upload_fileobj(open(f"/home/ubuntu/spot-score/collection/aws/ec2_collector/{filedate}_binpacked_workloads.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/workloads/{today}/binpacked_workloads.pkl.gz")
+    s3_client = boto3.client('s3')
+    pickle.dump(user_queries_list, open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'wb'))
+    gzip.open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", "rb"))
+    s3_client.upload_fileobj(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/workloads/{today}/binpacked_workloads.pkl.gz")
 
     # reverse order of credential data
-    user_cred = pickle.load(open('/home/ubuntu/spot-score/collection/aws/ec2_collector/user_cred_df.pkl', 'rb'))
+    user_cred = pickle.load(open(f"{LOCAL_PATH}/user_cred_df.pkl", "rb"))
     user_cred = user_cred[::-1]
-    pickle.dump(user_cred, open('/home/ubuntu/spot-score/collection/aws/ec2_collector/user_cred_df.pkl', 'wb'))
+    pickle.dump(user_cred, open(f"{LOCAL_PATH}/user_cred_df.pkl", "wb"))
 
     return user_queries_list

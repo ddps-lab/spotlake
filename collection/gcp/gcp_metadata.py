@@ -222,28 +222,3 @@ a2 = {
     'a2-highgpu-8g': {'cpu': 96, 'ram': 680, 'gpu': 8},
     'a2-megagpu-16g': {'cpu': 96, 'ram': 1360, 'gpu': 16}
 }
-
-# to get request to crawl vm instance pricing
-# https://cloud.google.com/compute/vm-instance-pricing
-url_list = ['/compute/vm-instance-pricing_51451955a829ab2ddc64343b76c5b2d0c97dfb7a49aa90e84a52feaeb0b64878.frame',
-            '/compute/vm-instance-pricing_b747f67ec6a2894db18cecac56d4cab10ac63b92334739181e291040a6fa8cf1.frame',
-            '/compute/vm-instance-pricing_e3d59378fc9e1288c9dd07863eae5f82ee1d6f31755b3066ddb1fa6bb8e5e2e1.frame',
-            '/compute/vm-instance-pricing_64d75027679ab8bb307b3512797cd5d583ce46ca175fe0bbdad6948ba4bdf882.frame',
-            '/compute/vm-instance-pricing_4153c2042be2fa683adda9191fb6ddf4fc24d750fc9b4169a9ced495fbf2d8f4.frame',
-            '/compute/vm-instance-pricing_72c59d47b0d8748e0ba888c39a1f5c56e4c5afa7401bbeb7501e988888088671.frame',
-            '/compute/vm-instance-pricing_f57299f62761215b28c8e29e41fb0648920e48bbed5362e27a7d83a9441215dc.frame',
-            '/compute/vm-instance-pricing_9f7a2ab81eac9cb257ccb80d37211dab92c96516294bc22a13bfc8cf79b02762.frame',
-            '/compute/vm-instance-pricing_9505620acf3760cc0175a6fcc1ed35b3cfe9de6ad8254980044b9a2069e82444.frame',
-            '/compute/vm-instance-pricing_a9106bdad11bb74e956a67ed7b32e4830504d41d36bc4be1b14b12c9727ae32d.frame',
-            '/compute/vm-instance-pricing_cfcd3369c8e79d6d1a11ca30eea717f33efafd2ff5b8183aeccef58e41a4943f.frame',
-            '/compute/vm-instance-pricing_36cc230d8ad39a001d34accc4205692a4299ed0c59c56f5e69e395673de3560b.frame',
-            '/compute/vm-instance-pricing_4c30e0b63d9faff404b634c2acc95ae4031c827ef09436ac83bbc24a0d911b5a.frame',
-            '/compute/vm-instance-pricing_c96b6f9f65f3362f1ec485280e8076bcb0f41cb18662dc11f18f84485c39f3fa.frame',
-            '/compute/vm-instance-pricing_051d136c200b77df58db2f1fe7b942d59cf169c7796fd1770eac552f66cc8a8c.frame',
-            '/compute/vm-instance-pricing_cf742a718c46fc7281e11ac9f820b0bb2820f3a43e5685f765eec9c4af53f3e3.frame',
-            '/compute/vm-instance-pricing_dac99e56f7402837ecdcda0c191873e158c96b7e67e4528249f0390bba978bc3.frame',
-            '/compute/vm-instance-pricing_88ee27e95a5f4a3040b31ffdc3740bd35f0fcff625a43f504a016ee345164021.frame',
-            '/compute/vm-instance-pricing_635a1b161b44c70b47f867eeac54f6f8f8cae3d4916c4892bb19915d08754c6b.frame',
-            '/compute/vm-instance-pricing_dea4e47ca3a59a3a824bd87159e2603427495911c337ee7249f9e01cb6bbbc14.frame',
-            '/compute/vm-instance-pricing_963514ca6e98c6735b95d5ef454521127019dc8f04132b79d5c2f8c1a6d5978f.frame'
-            ]

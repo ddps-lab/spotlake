@@ -39,9 +39,9 @@ df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
 
 # preprocessing
 df_pricelist = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
-    'Vendor', 'InstanceType', 'Region', 'Pricelist_OndemandPrice', 'Pricelist_PreemptiblePrice', 'Pricelist_Savings'])
+    'Vendor', 'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Caculator Savings'])
 df_vminstance_pricing = pd.DataFrame(preprocessing_price(df_vminstance_pricing), columns=[
-    'Vendor', 'InstanceType', 'Region', 'VminstancePricing_OndemandPrice', 'VminstancePricing_PreemptiblePrice', 'VminstancePricing_Savings'])
+    'Vendor', 'InstanceType', 'Region', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
 
 
 # make final dataframe

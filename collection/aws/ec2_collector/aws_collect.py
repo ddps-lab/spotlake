@@ -16,7 +16,7 @@ from upload_data import upload_timestream, update_latest, save_raw
 from join_data import build_join_df
 
 NUM_CPU = 2
-DIRLIST = os.listdir('./aws/ec2_collector/')
+LOCAL_PATH = '/home/ubuntu/spot-score/collection/aws/ec2_collector'
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
@@ -27,7 +27,7 @@ date = args.timestamp.split("T")[0]
 
 # need to change file location
 workload = get_binpacked_workload(date)
-credentials = pickle.load(open('./aws/ec2_collector/user_cred_df_100_199.pkl', 'rb'))
+credentials = pickle.load(open(f'{LOCAL_PATH}/user_cred_df_100_199.pkl', 'rb'))
 
 mp_workload = []
 for i in range(len(workload)):
@@ -54,18 +54,18 @@ current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df
 update_latest(current_df) # upload current data to S3
 save_raw(current_df, timestamp)
 
-if 'latest_df.pkl' not in DIRLIST:
+if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):
+    pickle.dump(current_df, open(f"{LOCAL_PATH}/latest_df.pkl", "wb"))
     upload_timestream(current_df, timestamp)
     exit()
 
-previous_df = pickle.load(open("./aws/ec2_collector/latest_df.pkl", "rb")) # load previous data from local file system
-pickle.dump(current_df, open("./aws/ec2_collector/latest_df.pkl", "wb")) # write current data to local file system
+previous_df = pickle.load(open(f"{LOCAL_PATH}/latest_df.pkl", "rb")) # load previous data from local file system
+pickle.dump(current_df, open(f"{LOCAL_PATH}/latest_df.pkl", "wb")) # write current data to local file system
 
-workload_cols = ['InstanceType', 'Region', 'AvailabilityZoneId']
+workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']
 
-changed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
+changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
 
 upload_timestream(changed_df, timestamp)
-
-print("end")
+upload_timestream(removed_df, timestamp)

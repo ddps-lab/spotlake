@@ -38,7 +38,7 @@ def get_sps(workload):
             sps_dict['InstanceType'].append(sps[0])
             sps_dict['Region'].append(info['Region'])
             sps_dict['AvailabilityZoneId'].append(info['AvailabilityZoneId'])
-            sps_dict['SPS'].append(info['Score'])
+            sps_dict['SPS'].append(int(info['Score']))
 
     sps_df = pd.DataFrame(sps_dict)
 

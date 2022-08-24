@@ -9,7 +9,6 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
     current_df.loc[:,'Workload'] = current_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
     current_df.loc[:,'Feature'] = current_df[feature_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
 
-
     current_indices = current_df[['Workload', 'Feature']].sort_values(by='Workload').index
     current_values = current_df[['Workload', 'Feature']].sort_values(by='Workload').values
     previous_indices = previous_df[['Workload', 'Feature']].sort_values(by='Workload').index
@@ -67,7 +66,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
     removed_df = previous_df.loc[removed_indices].drop(['Workload', 'Feature'], axis=1)
     
     for col in feature_cols:
-        removed_df[col] = None
+        removed_df[col] = 0
 
     # removed_df have one more column, 'Ceased'
     removed_df['Ceased'] = True

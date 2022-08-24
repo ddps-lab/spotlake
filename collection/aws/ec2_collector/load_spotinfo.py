@@ -4,13 +4,16 @@ import pickle
 import subprocess
 
 
+LOCAL_PATH = '/home/ubuntu/spot-score/collection/aws/ec2_collector'
+
+
 # get info of interrupt frequency at spotinfo
 def get_spotinfo():
     # need to change file location
-    if 'spotinfo' in os.listdir('./aws/ec2_collector/'):
-        command = ['', '', './aws/ec2_collector/spotinfo --output csv --region all']
+    if 'spotinfo' in os.listdir(f'{LOCAL_PATH}/'):
+        command = ['', '', f'{LOCAL_PATH}/spotinfo --output csv --region all']
     else:
-        command = ['wget https://github.com/alexei-led/spotinfo/releases/download/1.0.7/spotinfo_linux_amd64 -O spotinfo', 'chmod +x spotinfo', './aws/ec2_collector/spotinfo --output csv --region all']
+        command = [f'wget https://github.com/alexei-led/spotinfo/releases/download/1.0.7/spotinfo_linux_amd64 -O {LOCAL_PATH}/spotinfo', f'chmod +x {LOCAL_PATH}/spotinfo', f'{LOCAL_PATH}/spotinfo --output csv --region all']
     
         process1 = subprocess.Popen(command[0].split(' '), stdout=subprocess.PIPE)
         process1.communicate()

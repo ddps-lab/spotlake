@@ -15,10 +15,11 @@ def get_url_list(page_url):
     if response.status_code == 200:
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
-        iframe_list = soup.select('div.cloud-section devsite-iframe > iframe')
+        iframe_list = soup.select('devsite-iframe')
 
         for iframe in iframe_list:
-            url_list.append(iframe.get_attribute_list('src')[0])
+            url_list.append(iframe.select_one(
+                'iframe').get_attribute_list('src')[0])
     else:
         logging.error(response.status_code)
 

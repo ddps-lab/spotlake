@@ -128,7 +128,7 @@ def time_format(timestamp):
 perf_start_total = time.time()
 perf_start = time.time()
 
-day_df = tsquery.get_timestream(start_date, end_date)
+day_df = tsquery.get_timestream(time_format(start_date), time_format(end_date))
 frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
 day_df = day_df.replace({'IF': frequency_map})
 day_df['SPS'] = day_df['SPS'].astype(int)

@@ -5,8 +5,29 @@ from bs4 import BeautifulSoup
 from gcp_metadata import region_mapping
 
 
+def get_url_list(page_url):
+    # get iframe url list from VM Instance Pricing page
+    # input : VM Instance Pricing page url
+    # output : url list containing all iframe's url
+    url_list = []
+
+    response = requests.get(page_url)
+    if response.status_code == 200:
+        html = response.text
+        soup = BeautifulSoup(html, 'html.parser')
+        iframe_list = soup.select('devsite-iframe')
+
+        for iframe in iframe_list:
+            url_list.append(iframe.select_one(
+                'iframe').get_attribute_list('src')[0])
+    else:
+        logging.error(response.status_code)
+
+    return url_list
+
+
 def get_table(url):
-    # get table from html of iframe
+    # get necessary table from html of iframe
     # input : url of iframe
     # output : table
 
@@ -15,9 +36,17 @@ def get_table(url):
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.select_one('table')
-        return table
+
+        if table.select_one('thead > tr > th').get_text() == 'Machine type':
+            sample_type = table.select_one('tbody > tr > td').get_text()
+            sample_type = sample_type.split('-')[0]
+            if sample_type not in ('m2', 't2a'):
+                return table
+            else:
+                return None
     else:
         logging.error(response.status_code)
+        logging.error(url)
 
 
 def extract_price(table, output):

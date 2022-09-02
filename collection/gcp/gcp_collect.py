@@ -1,12 +1,22 @@
 import requests
 import pandas as pd
+import argparse
+from datetime import datetime
 
 from load_pricelist import get_price, preprocessing_price
 from load_vminstance_pricing import get_url_list, get_table, extract_price
+from upload_data import save_raw, update_latest
 from gcp_metadata import machine_type_list, region_list
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
+LOCAL_PATH = "/home/ubuntu/spot-score/collection/gcp"
+
+# get timestamp from argument
+parser = argparse.ArgumentParser()
+parser.add_argument('--timestamp', dest='timestamp', action='store')
+args = parser.parse_args()
+timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 
 # load pricelist
 data = requests.get(API_LINK).json()
@@ -51,7 +61,7 @@ df_vminstance_pricing = pd.DataFrame(preprocessing_price(df_vminstance_pricing),
 
 # make final dataframe
 df_current = pd.merge(df_pricelist, df_vminstance_pricing)
-# need to add timestamp -> argparse
 
-
-# compare and save
+# update current data to S3
+update_latest(df_current)
+save_raw(df_current, timestamp)

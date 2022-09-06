@@ -14,7 +14,13 @@ def get_price(skip_num):
     get_link = API_LINK + str(skip_num)
     response = requests.get(get_link)
     
-    if response.status_code != 200:
+    for i in range(5):
+        if response.status_code == 200:
+            break
+        else:
+            respose = request.get(get_link)
+            
+    if response.statuse_code != 200: 
         raise Exception(f"api response status code is {response.status_code}")
     
     price_data = list(response.json()['Items'])

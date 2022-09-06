@@ -18,7 +18,7 @@ def get_price(skip_num):
         if response.status_code == 200:
             break
         else:
-            respose = request.get(get_link)
+            response = requests.get(get_link)
             
     if response.statuse_code != 200: 
         raise Exception(f"api response status code is {response.status_code}")

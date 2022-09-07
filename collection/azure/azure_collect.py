@@ -6,23 +6,17 @@ from compare_data import compare
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 
+SAVE_DIR = '/home/ubuntu/spot-score/collection/azure/'
+SAVE_FILENAME = 'latest_azure_df.pkl'
+WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
+FEATURE_COLS = ['OndemandPrice', 'SpotPrice']
+
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
 parser.add_argument('--timestamp', dest='timestamp', action='store')
 args = parser.parse_args()
 timestamp = datetime.datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
-
-
-MAX_SKIP = 2000
-SKIP_NUM_LIST = [i*100 for i in range(MAX_SKIP)]
-
-SAVE_DIR = '/home/ubuntu/spot-score/collection/azure/'
-SAVE_FILENAME = 'latest_azure_df.pkl'
-
-WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
-FEATURE_COLS = ['OndemandPrice', 'SpotPrice']
-
 
 
 #collect azure price data with multithreading
@@ -35,7 +29,7 @@ if SAVE_FILENAME not in os.listdir(SAVE_DIR):
     save_raw(current_df, timestamp)
     upload_timestream(current_df, timestamp)
     exit()
-    
+
 
 # load previous dataframe, save current dataframe
 previous_df = pd.read_pickle(SAVE_DIR + SAVE_FILENAME)

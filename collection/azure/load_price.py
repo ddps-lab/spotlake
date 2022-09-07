@@ -58,7 +58,7 @@ def preprocessing_price(df):
                        right_on=['location', 'armRegionName', 'armSkuName', 'meterName'],
                        how='outer')
     #join으로 인해 변경된 이름을 다시 설정합니다.
-    join_df = join_df.rename(columns={'effectiveStartDate_x': 'ondemandEffectiveStartDate','effectiveStartDate_y': 'spotEffectiveStartDate'}, inplace=True)
+    join_df = join_df.rename(columns={'effectiveStartDate_x': 'ondemandEffectiveStartDate','effectiveStartDate_y': 'spotEffectiveStartDate'})
     #savings를 계산합니다.
     join_df.loc[join_df['ondemandPrice'] == 0, 'ondemandPrice'] = None
     join_df['savings'] = (join_df['ondemandPrice'] - join_df['spotPrice']) / join_df['ondemandPrice'] * 100

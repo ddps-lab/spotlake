@@ -17,7 +17,7 @@ timestamp = datetime.datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 MAX_SKIP = 2000
 SKIP_NUM_LIST = [i*100 for i in range(MAX_SKIP)]
 
-SAVE_DIR = './azure/'
+SAVE_DIR = '/home/ubuntu/spot-score/collection/azure/'
 SAVE_FILENAME = 'latest_azure_df.pkl'
 
 WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']

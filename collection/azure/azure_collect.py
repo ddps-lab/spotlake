@@ -1,10 +1,9 @@
 import argparse
-import threading
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
-
+import datetime
+import os
 from compare_data import compare
-from load_price import get_price, preprocessing_price
+from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 
 
@@ -12,7 +11,7 @@ from upload_data import upload_timestream, update_latest, save_raw
 parser = argparse.ArgumentParser()
 parser.add_argument('--timestamp', dest='timestamp', action='store')
 args = parser.parse_args()
-timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+timestamp = datetime.datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 
 
 MAX_SKIP = 2000
@@ -25,19 +24,9 @@ WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
 FEATURE_COLS = ['OndemandPrice', 'SpotPrice']
 
 
-# collect azure price with multithreading
-price_list = []
-event = threading.Event()
-with ThreadPoolExecutor(max_workers=16) as executor:
-    for skip_num in SKIP_NUM_LIST:
-        future = executor.submit(get_price, skip_num)
-    event.wait()
-    executor.shutdown(wait=True, cancel_futures=True)
 
-
-# azure price dataframe preprocesing
-current_df = pd.DataFrame(price_list)
-current_df = preprocessing_price(current_df)
+#collect azure price data with multithreading
+current_df = collect_price_with_multithreading()
 
 
 # check first execution
@@ -59,5 +48,5 @@ save_raw(current_df, timestamp)
 
 
 # compare and upload changed_df to timestream
-changed_df = compare(previous_df, current_df, workload_cols, feature_cols)
+changed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
 upload_timestream(changed_df, timestamp)

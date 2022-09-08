@@ -1,12 +1,24 @@
 import requests
 import pandas as pd
+import argparse
+import os
+from datetime import datetime
 
-from load_pricelist import get_price
-from load_vminstance_pricing import get_tbody, extract_price
-from gcp_metadata import url_list
+from load_pricelist import get_price, preprocessing_price
+from load_vminstance_pricing import get_url_list, get_table, extract_price
+from upload_data import save_raw, update_latest
+from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
+PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
+LOCAL_PATH = "/home/ubuntu/spot-score/collection/gcp"
+
+# get timestamp from argument
+parser = argparse.ArgumentParser()
+parser.add_argument('--timestamp', dest='timestamp', action='store')
+args = parser.parse_args()
+timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 
 # load pricelist
 data = requests.get(API_LINK).json()
@@ -16,6 +28,8 @@ pricelist = data['gcp_price_list']
 
 # get price from pricelist
 output_pricelist = get_price(pricelist)
+df_pricelist = pd.DataFrame(output_pricelist)
+
 
 # get price from vm instance pricing page (crawling)
 output_vminstance_pricing = {}
@@ -26,29 +40,47 @@ for machine_type in machine_type_list:
         output_vminstance_pricing[machine_type][region]['ondemand'] = None
         output_vminstance_pricing[machine_type][region]['preemptible'] = None
 
-tbody_list = []
-for url in url_list:
-    tbody_list.append(get_tbody(url))
+url_list = get_url_list(PAGE_URL)
 
-for tbody in tbody_list:
-    output_vminstance_pricing = extract_price(tbody, output_vminstance_pricing)
+table_list = []
+for url in url_list:
+    table = get_table(url)
+    if table != None:
+        table_list.append(table)
+
+for table in table_list:
+    output_vminstance_pricing = extract_price(table, output_vminstance_pricing)
+
+df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
 
 
 # preprocessing
+df_pricelist = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
+    'Vendor', 'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings'])
+df_vminstance_pricing = pd.DataFrame(preprocessing_price(df_vminstance_pricing), columns=[
+    'Vendor', 'InstanceType', 'Region', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
 
-# Issue : contain data of {'us', 'asia', 'australia', 'europe', 'asia-east', 'asia-southeast', 'asia-northeast'} regions or not? (only in pricelist)
-# https://github.com/ddps-lab/spot-score/issues/115#issuecomment-1204745251
-
-# filter N/A workload in pricelist
-# -> get N/A workload from vm instance pricing data
-# -> filtering in pricelist
-
-# round matter
-# -> 3rd or 4th?
 
 # make final dataframe
-# df_pricelist = pd.DataFrame(output_pricelist)
-# df_pricelist.to_pickle('./pricelist.pkl')
+df_current = pd.merge(df_pricelist, df_vminstance_pricing)
 
-# df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
-# df_vminstance_pricing.to_pickle('./vminstance_pricing.pkl')
+# update current data to S3
+update_latest(df_current)
+save_raw(df_current, timestamp)
+
+# compare latest and current data
+if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):
+    df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+    # upload timestream
+    exit()
+
+df_previous = pd.read_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+
+workload_cols = ['InstanceType', 'Region']
+feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price']
+
+changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
+
+# need to upload timestream
+

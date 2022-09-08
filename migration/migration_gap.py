@@ -16,13 +16,9 @@ BUCKET_NAME = 'spotlake'
 REGION_NAME = "us-west-2"
 DATABASE_NAME = 'spotlake'
 TABLE_NAME = 'aws'
-NUM_CPUS = 8
-if 24 % NUM_CPUS != 0:
-    raise Exception('use only 1, 2, 3, 4, 6, 8, 12, 24')
-CHUNK_HOUR = 24 / NUM_CPUS
 
-start_date = datetime(2022, 1, 1, 0, 0, 0, 0, pytz.UTC)
-end_date = datetime(2022, 4, 13, 0, 0, 0, 0, pytz.UTC)
+start_date = datetime(2022, 8, 23, 0, 0, 0, 0, pytz.UTC)
+end_date = datetime(2022, 8, 23, 7, 50, 0, 0, pytz.UTC)
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice']
@@ -129,52 +125,38 @@ def time_format(timestamp):
     return 'T'.join(str(timestamp).split())
 
 
-days = date_range(start_date, end_date)
-
 perf_start_total = time.time()
-for idx in range(len(days)-1):
+perf_start = time.time()
+
+day_df = tsquery.get_timestream(time_format(start_date), time_format(end_date))
+frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
+day_df = day_df.replace({'IF': frequency_map})
+day_df['SPS'] = day_df['SPS'].astype(int)
+day_df['SpotPrice'] = day_df['SpotPrice'].astype(float)
+day_df['SpotPrice'] = day_df['SpotPrice'].round(5)
+
+print(f"elapsed time - single day query: {time.time() - perf_start}")
+# day_df['OndemandPrice'] = (100 * day_df['SpotPrice']) / (100 - day_df['Savings'])
+
+day_timestamps = sorted(list(day_df['time'].unique()))
+for timestamp in day_timestamps:
     perf_start = time.time()
-    start_timestamp = days[idx]
-    end_timestamp = days[idx+1]
-    
-    start_end_time_process_list = []
-    for i in range(NUM_CPUS):
-        start_time_process = start_timestamp + timedelta(hours = CHUNK_HOUR*i)
-        end_time_process = start_timestamp + timedelta(hours = CHUNK_HOUR*(i+1))
-        start_end_time_process_list.append((time_format(start_time_process), time_format(end_time_process)))
-        
-    with Pool(NUM_CPUS) as p:
-        process_df_list = p.starmap(tsquery.get_timestream, start_end_time_process_list)
-        
-    day_df = pd.concat(process_df_list, axis=0, ignore_index=True)
-    frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
-    day_df = day_df.replace({'IF': frequency_map})
-    day_df['SPS'] = day_df['SPS'].astype(int)
-    day_df['SpotPrice'] = day_df['SpotPrice'].astype(float)
-    day_df['SpotPrice'] = day_df['SpotPrice'].round(5)
-    
-    print(f"elapsed time - single day query: {time.time() - perf_start}")
-    # day_df['OndemandPrice'] = (100 * day_df['SpotPrice']) / (100 - day_df['Savings'])
-    
-    day_timestamps = sorted(list(day_df['time'].unique()))
-    for timestamp in day_timestamps:
+    current_df = day_df[day_df['time'] == timestamp].copy()
+    print(f"elapsed time - select by time: {time.time() - perf_start}")
+    if SAVE_FILENAME not in os.listdir('./'):
+        save_gz_s3(current_df, timestamp)
+        tsupload.upload_timestream(current_df)
+    else:
         perf_start = time.time()
-        current_df = day_df[day_df['time'] == timestamp].copy()
-        print(f"elapsed time - select by time: {time.time() - perf_start}")
-        if SAVE_FILENAME not in os.listdir('./'):
-            save_gz_s3(current_df, timestamp)
-            tsupload.upload_timestream(current_df)
-        else:
-            perf_start = time.time()
-            previous_df = pd.read_csv(SAVE_FILENAME, compression='gzip', header=0, sep=',', quotechar='"')
-            save_gz_s3(current_df, timestamp)
-            print(f"elapsed time - read and save: {time.time() - perf_start}")
-            perf_start = time.time()
-            changed_df, removed_df = compare_nparray(previous_df, current_df, workload_cols, feature_cols)
-            print(f"elapsed time - compare: {time.time() - perf_start}")
-            perf_start = time.time()
-            # changed_df and removed_df have different shape, because of 'Ceased' column
-            tsupload.upload_timestream(changed_df)
-            tsupload.upload_timestream(removed_df)
-            print(f"elapsed time - upload: {time.time() - perf_start}")
+        previous_df = pd.read_csv(SAVE_FILENAME, compression='gzip', header=0, sep=',', quotechar='"')
+        save_gz_s3(current_df, timestamp)
+        print(f"elapsed time - read and save: {time.time() - perf_start}")
+        perf_start = time.time()
+        changed_df, removed_df = compare_nparray(previous_df, current_df, workload_cols, feature_cols)
+        print(f"elapsed time - compare: {time.time() - perf_start}")
+        perf_start = time.time()
+        # changed_df and removed_df have different shape, because of 'Ceased' column
+        tsupload.upload_timestream(changed_df)
+        tsupload.upload_timestream(removed_df)
+        print(f"elapsed time - upload: {time.time() - perf_start}")
 print(f"elapsed time - total single day: {time.time() - perf_start_total}")

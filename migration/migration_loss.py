@@ -1,14 +1,11 @@
 import os
 import boto3
-import tsquery
 import tsupload
 import pandas as pd
-from multiprocessing import Pool
 
 import time
 import pytz
 from datetime import datetime, timedelta
-
 
 SAVE_FILENAME = 'latest.csv.gz'
 PROFILE_NAME = 'default'
@@ -16,24 +13,17 @@ BUCKET_NAME = 'spotlake'
 REGION_NAME = "us-west-2"
 DATABASE_NAME = 'spotlake'
 TABLE_NAME = 'aws'
-NUM_CPUS = 8
-if 24 % NUM_CPUS != 0:
-    raise Exception('use only 1, 2, 3, 4, 6, 8, 12, 24')
-CHUNK_HOUR = 24 / NUM_CPUS
 
-start_date = datetime(2022, 1, 1, 0, 0, 0, 0, pytz.UTC)
-end_date = datetime(2022, 4, 13, 0, 0, 0, 0, pytz.UTC)
+start_date = datetime(2022, 4, 13, 0, 0, 0, 0, pytz.UTC)
+end_date = datetime(2022, 5, 1, 0, 0, 0, 0, pytz.UTC)
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice']
 
-# tsquery.PROFILE_NAME = PROFILE_NAME # tsquery.PROFILE_NAME must be credential of source database
-tsquery.REGION_NAME = REGION_NAME
 tsupload.PROFILE_NAME = PROFILE_NAME
 tsupload.REGION_NAME = REGION_NAME
 tsupload.DATABASE_NAME = DATABASE_NAME
 tsupload.TABLE_NAME = TABLE_NAME
-
 
 # compress data as gzip file, save to local file system, upload file to s3
 def save_gz_s3(df, timestamp):
@@ -48,7 +38,6 @@ def save_gz_s3(df, timestamp):
     
     with open(SAVE_FILENAME, 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz")
-        
 
 def compare_nparray(previous_df, current_df, workload_cols, feature_cols):  
     previous_df.loc[:,'Workload'] = previous_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
@@ -117,36 +106,22 @@ def compare_nparray(previous_df, current_df, workload_cols, feature_cols):
     # removed_df have one more column, 'Ceased'
     removed_df['Ceased'] = True
     return changed_df, removed_df
-
-
+        
 def date_range(start, end):
     delta = end - start
     days = [start + timedelta(days=i) for i in range(delta.days + 1)]
     return days
 
-
 def time_format(timestamp):
     return 'T'.join(str(timestamp).split())
-
-
+  
 days = date_range(start_date, end_date)
-
+all_df = pd.read_pickle('./df_0413_0501.pkl')
 perf_start_total = time.time()
-for idx in range(len(days)-1):
+for day in days:
     perf_start = time.time()
-    start_timestamp = days[idx]
-    end_timestamp = days[idx+1]
-    
-    start_end_time_process_list = []
-    for i in range(NUM_CPUS):
-        start_time_process = start_timestamp + timedelta(hours = CHUNK_HOUR*i)
-        end_time_process = start_timestamp + timedelta(hours = CHUNK_HOUR*(i+1))
-        start_end_time_process_list.append((time_format(start_time_process), time_format(end_time_process)))
-        
-    with Pool(NUM_CPUS) as p:
-        process_df_list = p.starmap(tsquery.get_timestream, start_end_time_process_list)
-        
-    day_df = pd.concat(process_df_list, axis=0, ignore_index=True)
+    day_cond = (str(day) <= all_df['time'] ) & (all_df['time'] < str(day + timedelta(days=1)))
+    day_df = all_df[day_cond].copy()
     frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
     day_df = day_df.replace({'IF': frequency_map})
     day_df['SPS'] = day_df['SPS'].astype(int)

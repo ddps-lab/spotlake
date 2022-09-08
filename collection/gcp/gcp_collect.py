@@ -1,11 +1,13 @@
 import requests
 import pandas as pd
 import argparse
+import os
 from datetime import datetime
 
 from load_pricelist import get_price, preprocessing_price
 from load_vminstance_pricing import get_url_list, get_table, extract_price
 from upload_data import save_raw, update_latest
+from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
@@ -65,3 +67,20 @@ df_current = pd.merge(df_pricelist, df_vminstance_pricing)
 # update current data to S3
 update_latest(df_current)
 save_raw(df_current, timestamp)
+
+# compare latest and current data
+if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):
+    df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+    # upload timestream
+    exit()
+
+df_previous = pd.read_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+
+workload_cols = ['InstanceType', 'Region']
+feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price']
+
+changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
+
+# need to upload timestream
+

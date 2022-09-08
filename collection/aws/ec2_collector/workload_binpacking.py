@@ -120,11 +120,11 @@ def get_binpacked_workload(filedate):
     s3_client = boto3.client('s3')
     pickle.dump(user_queries_list, open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'wb'))
     gzip.open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", "rb"))
-    s3_client.upload_fileobj(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/workloads/{today}/binpacked_workloads.pkl.gz")
+    s3_client.upload_fileobj(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/aws/workloads/{today}/binpacked_workloads.pkl.gz")
 
     # reverse order of credential data
-    user_cred = pickle.load(open(f"{LOCAL_PATH}/user_cred_df.pkl", "rb"))
+    user_cred = pickle.load(open(f"{LOCAL_PATH}/user_cred_df_100_199.pkl", "rb"))
     user_cred = user_cred[::-1]
-    pickle.dump(user_cred, open(f"{LOCAL_PATH}/user_cred_df.pkl", "wb"))
+    pickle.dump(user_cred, open(f"{LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
 
     return user_queries_list

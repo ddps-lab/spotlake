@@ -90,7 +90,7 @@ def save_raw(data, timestamp):
     s3_obj_name = timestamp.strftime("%H:%M:%S")
 
     with open(SAVE_FILENAME, 'rb') as f:
-        s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz")
+        s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/aws/{s3_dir_name}/{s3_obj_name}.csv.gz")
     
     for filename in os.listdir(f"{LOCAL_PATH}/"):
         if "spotlake_" in filename:

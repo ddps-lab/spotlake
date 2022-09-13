@@ -126,6 +126,6 @@ def get_ondemand_price(filedate):
     s3_client = boto3.client('s3')
     pickle.dump(ondemand_price_df, open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl", "wb"))
     gzip.open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl.gz", "wb").writelines(open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl", "rb"))
-    s3_client.upload_fileobj(open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/ondemand_price/{'/'.join(filedate.split('-'))}/ondemand_price_df.pkl.gz")
+    s3_client.upload_fileobj(open(f"{LOCAL_PATH}/{filedate}_ondemand_price_df.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/aws/ondemand_price/{'/'.join(filedate.split('-'))}/ondemand_price_df.pkl.gz")
     
     return ondemand_price_df

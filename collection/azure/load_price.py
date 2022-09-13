@@ -10,7 +10,7 @@ MAX_SKIP = 2000
 SKIP_NUM_LIST = [i*100 for i in range(MAX_SKIP)]
 event = threading.Event()
 
-#get price data using the API
+# get price data using the API
 def get_price(skip_num):
     get_link = API_LINK + str(skip_num)
     response = requests.get(get_link)
@@ -61,14 +61,14 @@ def preprocessing_price(df):
                        right_on=['location', 'armRegionName', 'armSkuName', 'meterName'],
                        how='outer')
 
-    join_df = join_df.rename(columns={'effectiveStartDate_x': 'ondemandEffectiveStartDate','effectiveStartDate_y': 'spotEffectiveStartDate'})
-
     join_df.loc[join_df['ondemandPrice'] == 0, 'ondemandPrice'] = None
     join_df['savings'] = (join_df['ondemandPrice'] - join_df['spotPrice']) / join_df['ondemandPrice'] * 100
-    join_df = join_df.reindex(
-        columns=['location', 'armRegionName', 'armSkuName', 'meterName', 'ondemandPrice',
-                 'spotPrice','savings','ondemandEffectiveStartDate', 'spotEffectiveStartDate'
-                ])
+
+    join_df['instanceTier'] = join_df['armSkuName'].str.split('_').str[0]
+    join_df['instanceType'] = join_df['armSkuName'].str.split('_').str[1:].apply('_'.join)
+    join_df['vendor'] = "Azure"
+    join_df = join_df.reindex(columns=['vendor', 'instanceTier', 'instanceType', 'location', 'ondemandPrice', 'spotPrice', 'savings'])
+
 
     return join_df
 

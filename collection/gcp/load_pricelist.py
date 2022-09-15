@@ -174,11 +174,10 @@ def get_price(pricelist):
         for cpu_region, cpu_price in cpu_data.items():
             for ram_region, ram_price in ram_data.items():
                 for gpu_region, gpu_price in gpu_data.items():
-                    if output[machine_type][cpu_region]['ondemand'] != None:
-                        if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
+                    if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
+                        if output[machine_type][cpu_region]['ondemand'] != None:
                             output[machine_type][cpu_region]['preemptible'] = cpu_quantity * \
                                 cpu_price + ram_quantity*ram_price + gpu_quantity*gpu_price
-
     return output
 
 

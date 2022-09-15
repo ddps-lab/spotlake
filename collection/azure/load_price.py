@@ -5,7 +5,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 
-
 API_LINK = 'https://prices.azure.com:443/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27%20and%20priceType%20eq%20%27Consumption%27%20and%20unitOfMeasure%20eq%20%271%20Hour%27&$skip='
 FILTER_LOCATIONS = ['GOV', 'EUAP', 'ATT', 'SLV', '']
 price_list = []
@@ -16,8 +15,14 @@ event = threading.Event()
 
 # get instancetier from armSkuName
 def get_instaceTier(armSkuName):
-    if armSkuName.split('_')[0] == 'Standard' or armSkuName.split('_')[0] == 'Basic':
-        instanceTier = armSkuName.split('_')[0]
+    split_armSkuName = armSkuName.split('_')
+
+    if len(split_armSkuName) == 0:
+        instaceTier = np.nan
+        return instaceTier
+
+    if split_armSkuName[0] == 'Standard' or split_armSkuName[0] == 'Basic':
+        instanceTier = split_armSkuName[0]
     else:
         instanceTier = np.nan
 
@@ -26,10 +31,20 @@ def get_instaceTier(armSkuName):
 
 # get instancetype from armSkuName
 def get_instaceType(armSkuName):
-    if armSkuName.split('_')[0] == 'Standard' or armSkuName.split('_')[0] == 'Basic':
-        instanceType = '_'.join(armSkuName.split('_')[1:])
+    split_armSkuName = armSkuName.split('_')
+
+    if len(split_armSkuName) == 0:
+        instaceType = np.nan
+
+        return instaceType
+
+    if split_armSkuName[0] == 'Standard' or split_armSkuName[0] == 'Basic':
+        if len(split_armSkuName) == 1:
+            instanceType = np.nan
+            return instanceType
+        instanceType = '_'.join(split_armSkuName[1:])
     else:
-        instanceType = armSkuName
+        instanceType = split_armSkuName[0]
 
     return instanceType
 
@@ -58,6 +73,7 @@ def get_price(skip_num):
     price_list.extend(price_data)
 
     return
+
 
 # azure price dataframe preprocesing
 def preprocessing_price(df):
@@ -100,6 +116,7 @@ def preprocessing_price(df):
     join_df.rename(columns={'location': 'region'}, inplace=True)
 
     return join_df
+
 
 # collect azure price with multithreading
 def collect_price_with_multithreading():

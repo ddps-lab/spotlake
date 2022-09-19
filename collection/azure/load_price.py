@@ -106,6 +106,8 @@ def preprocessing_price(df):
     join_df.loc[join_df['ondemandPrice'] == 0, 'ondemandPrice'] = None
     join_df['savings'] = (join_df['ondemandPrice'] - join_df['spotPrice']) / join_df['ondemandPrice'] * 100
 
+    join_df = join_df.dropna(subset=['spotPrice'])
+
     join_df['instanceTier'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceTier(armSkuName))
     join_df['instanceType'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceType(armSkuName))
 

@@ -9,6 +9,8 @@ def build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df):
 
     spot_price_df['SpotPrice'] = spot_price_df['SpotPrice'].astype('float')
     spot_price_df['SpotPrice'] = spot_price_df['SpotPrice'].round(5)
+    ondemand_price_df['OndemandPrice'] = ondemand_price_df['OndemandPrice'].astype('float')
+    ondemand_price_df['OndemandPrice'] = ondemand_price_df['OndemandPrice'].round(5)
 
     # need to change to outer join
 

@@ -103,6 +103,8 @@ def preprocessing_price(df):
                        right_on=['location', 'armRegionName', 'armSkuName', 'meterName'],
                        how='outer')
 
+    join_df = join_df.dropna(subset=['spotPrice'])
+
     join_df.loc[join_df['ondemandPrice'] == 0, 'ondemandPrice'] = None
     join_df['savings'] = (join_df['ondemandPrice'] - join_df['spotPrice']) / join_df['ondemandPrice'] * 100
 

@@ -142,7 +142,9 @@ def _parse_row(column_info, row):
     for j in range(len(data)):
         info = column_info[j]
         datum = data[j]
-        row_output.append(_parse_datum(info, datum))
+        returnedData = _parse_datum(info, datum)
+        if returnedData != "":
+            row_output.append(returnedData)
     return "{%s}" % ",".join(row_output)
 
 def _parse_datum(info, datum):

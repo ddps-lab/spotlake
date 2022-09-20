@@ -111,8 +111,6 @@ def preprocessing_price(df):
     join_df['instanceTier'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceTier(armSkuName))
     join_df['instanceType'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceType(armSkuName))
 
-    join_df['vendor'] = "Azure"
-
     join_df = join_df.reindex(columns=['vendor', 'instanceTier', 'instanceType', 'location', 'ondemandPrice', 'spotPrice', 'savings'])
 
     join_df.rename(columns={'location': 'region'}, inplace=True)

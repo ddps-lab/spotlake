@@ -29,14 +29,10 @@ def run_query(TABLE_NAME, features, start, end):
         region_condition = ""
         az_condition = ""
 
-        if region == '*':
-            region_condition = ""
-        else:
+        if region != '*':
             region_condition = f"AND Region = '{region}'"    
-            if az == '*':
-                az_condition = ""
-            else:
-                az_condition = f"AND AZ = '{az}'"
+        if az != '*':
+            az_condition = f"AND AZ = '{az}'"
         
         query_string = f"""
         (SELECT ALL.* FROM (
@@ -64,9 +60,7 @@ def run_query(TABLE_NAME, features, start, end):
 
         region_condition = ""
 
-        if region == '*':
-            region_condition = ""
-        else:
+        if region != '*':
             region_condition = f"AND Region = '{region}'"
         
         query_string = f"""
@@ -89,15 +83,18 @@ def run_query(TABLE_NAME, features, start, end):
     elif TABLE_NAME == 'gcp':
         instance_type = features['InstanceType']
         region = features['Region']
+        instance_tier = features['InstanceTier']
         
         # instance type should be specified
 
         region_condition = ""
+        tier_condition = ""
 
-        if region == '*':
-            region_condition = ""
-        else:
+        if region != '*':
             region_condition = f"AND Region = '{region}'"
+        
+        if instance_tier != '*':
+            tier_condition = f"AND InstanceTier = '{instance_tier}'"
         
         query_string = f"""
         (SELECT ALL.* FROM (

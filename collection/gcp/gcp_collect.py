@@ -56,9 +56,9 @@ df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
 
 # preprocessing
 df_pricelist = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
-    'Vendor', 'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings'])
+    'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price'])
 df_vminstance_pricing = pd.DataFrame(preprocessing_price(df_vminstance_pricing), columns=[
-    'Vendor', 'InstanceType', 'Region', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
+    'InstanceType', 'Region', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price'])
 
 
 # make final dataframe
@@ -83,4 +83,5 @@ feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM
 changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
 
 # need to upload timestream
+
 

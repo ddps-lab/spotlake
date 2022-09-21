@@ -149,7 +149,7 @@ def _parse_row(column_info, row):
 
 def _parse_datum(info, datum):
     if datum.get('NullValue', False):
-        return "%s=NULL" % info['Name']
+        return "%s:NULL" % info['Name']
     column_type = info['Type']
 
     # If the column is of TimeSeries Type
@@ -171,6 +171,8 @@ def _parse_datum(info, datum):
     # If the column is AZ
     elif 'Name' in info and info['Name'] == 'AZ':
         return _parse_column_name(info) + datum['ScalarValue'].split("-az")[-1] + '"'
+    elif 'Name' in info and info['Name'] == 'measure_name':
+        return ""
     # The others
     else:
         return _parse_column_name(info) + datum['ScalarValue'] + '"'
@@ -212,27 +214,27 @@ def _parse_column_name(info):
         return ""
 
 def lambda_handler(event, context):
-    """
-    
-    
-    
-    
-    
-    
-    
-    
-    Filtering Code
-    CORS,
-    http method, etc...
-    
-    
-    
-    
-    
-    
-    
-    
-    """
+    operation = event['requestContext']['http']['method']
+    if operation != 'GET':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Origin': 'https://spotlake.ddps.cloud',
+                'Access-Control-Allow-Methods': 'OPTIONS,GET'
+            },
+            'body': json.dumps("[]")
+        }
+    if (not 'origin' in event['headers']) or event['headers']['origin'] != 'https://spotlake.ddps.cloud':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Origin': 'https://spotlake.ddps.cloud',
+                'Access-Control-Allow-Methods': 'OPTIONS,GET'
+            },
+            'body': json.dumps("[]")
+        }
     info = event['queryStringParameters']
     table_name = info['TableName']
     start = info['Start']

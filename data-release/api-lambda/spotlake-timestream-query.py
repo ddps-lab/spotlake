@@ -211,27 +211,27 @@ def _parse_column_name(info):
         return ""
 
 def lambda_handler(event, context):
-    operation = event['requestContext']['http']['method']
-    if operation != 'GET':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Headers': '*',
-                'Access-Control-Allow-Origin': 'https://spotlake.ddps.cloud',
-                'Access-Control-Allow-Methods': 'OPTIONS,GET'
-            },
-            'body': json.dumps("[]")
-        }
-    if (not 'origin' in event['headers']) or event['headers']['origin'] != 'https://spotlake.ddps.cloud':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Headers': '*',
-                'Access-Control-Allow-Origin': 'https://spotlake.ddps.cloud',
-                'Access-Control-Allow-Methods': 'OPTIONS,GET'
-            },
-            'body': json.dumps("[]")
-        }
+    '''
+    
+    
+    
+    
+    
+    
+    
+    
+    Filtering Code
+    CORS,
+    http method,
+    etc...
+    
+    
+    
+    
+    
+    
+    
+    '''
     info = event['queryStringParameters']
     table_name = info['TableName']
     start = info['Start']

@@ -10,10 +10,7 @@ id = 1
 def run_query(TABLE_NAME, features, start, end):
     session = boto3.Session()
     query_client = session.client('timestream-query')
-    
-    # if region is not null, add region constraint string to query string
-    # else region is null, don't add region constraint to query string
-    
+
     global result
     
     if start == '' or end == '':
@@ -23,47 +20,98 @@ def run_query(TABLE_NAME, features, start, end):
     query_string = ""
     
     if TABLE_NAME == 'aws':
-        instnace_type = features['InstanceType']
+        instance_type = features['InstanceType']
         region = features['Region']
         az = features['AZ']
-    
-        instances = []
-        for instance in instance_type.split(","):
-            instances.append("'" + instance.strip() + "'")
-        queryInstanceType = "\nAND InstanceType = ANY (VALUES " + ", ".join(instances) + ")" 
         
-        if instance_type == "*":
-            queryInstanceType = ""
-            
-        Regions = []
-        for reg in region.split(","):
-            Regions.append("'" + reg.strip() + "'")
-        queryRegion = "\nAND Region = ANY (VALUES " + ", ".join(Regions) + ") "
-        
-        if region == "*":
-            queryRegion = ""
-        
-        azs = []
-        azs_string = []
-        queryAZ = "\nAND ("
-        for azz in az.split(","):
-            azs.append("'" + azz.strip() + "'")
-            azs_string.append("substr(AZ, length(AZ)-" + str(len(azz.strip()) - 1) + ") = " + azz.strip())
-        queryAZ = "\nAND (substr(AZ, length(AZ)) = ANY (VALUES " + ", ".join(azs) + ") or substr(AZ, length(AZ)-1) = ANY (VALUES " + ", ".join(azs) + ")) "
-        
-        if az == "*":
-            queryAZ = ""
+        # instance type should be specified
+
+        region_condition = ""
+        az_condition = ""
+
+        if region != '*':
+            region_condition = f"AND Region = '{region}'"    
+        if az != '*':
+            az_condition = f"AND AZ = '{az}'"
         
         query_string = f"""
-        SELECT SpotPrice, Savings, SPS, AZ, Region, InstanceType, IF, time FROM "{DATABASE_NAME}"."{TABLE_NAME}" 
-        WHERE time between from_iso8601_date('{start}') and from_iso8601_date('{end}')""" + queryInstanceType + queryRegion + queryAZ_withAlphabet + f"""
-        ORDER BY time DESC limit 20000"""
+        (SELECT ALL.* FROM (
+                SELECT InstanceType, Region, AZ, MAX(time) as time 
+                FROM "spotlake"."aws" 
+                WHERE time < from_iso8601_date('{start}')
+                AND InstanceType = '{instance_type}' {region_condition} {az_condition}
+                GROUP BY InstanceType, Region, AZ
+                )LATEST, "spotlake"."aws" ALL 
+        WHERE LATEST.InstanceType = ALL.InstanceType 
+        AND LATEST.Region = ALL.Region 
+        AND LATEST.AZ = ALL.AZ 
+        AND LATEST.time = ALL.time)
+        UNION 
+        (SELECT * 
+        FROM "spotlake"."aws" 
+        WHERE time BETWEEN from_iso8601_date('{start}') and from_iso8601_date('{end}') 
+        AND InstanceType = '{instance_type}' {region_condition} {az_condition})"""
     
     elif TABLE_NAME == 'azure':
-        pass
+        instance_type = features['InstanceType']
+        region = features['Region']
+        
+        # instance type should be specified
+
+        region_condition = ""
+
+        if region != '*':
+            region_condition = f"AND Region = '{region}'"
+        
+        query_string = f"""
+        (SELECT ALL.* FROM (
+                SELECT InstanceType, Region, MAX(time) as time 
+                FROM "spotlake"."azure" 
+                WHERE time < from_iso8601_date('{start}')
+                AND InstanceType = '{instance_type}' {region_condition}
+                GROUP BY InstanceType, Region
+                )LATEST, "spotlake"."azure" ALL 
+        WHERE LATEST.InstanceType = ALL.InstanceType 
+        AND LATEST.Region = ALL.Region
+        AND LATEST.time = ALL.time)
+        UNION 
+        (SELECT * 
+        FROM "spotlake"."azure" 
+        WHERE time BETWEEN from_iso8601_date('{start}') and from_iso8601_date('{end}') 
+        AND InstanceType = '{instance_type}' {region_condition})"""
     
     elif TABLE_NAME == 'gcp':
-        pass
+        instance_type = features['InstanceType']
+        region = features['Region']
+        instance_tier = features['InstanceTier']
+        
+        # instance type should be specified
+
+        region_condition = ""
+        tier_condition = ""
+
+        if region != '*':
+            region_condition = f"AND Region = '{region}'"
+        
+        if instance_tier != '*':
+            tier_condition = f"AND InstanceTier = '{instance_tier}'"
+        
+        query_string = f"""
+        (SELECT ALL.* FROM (
+                SELECT InstanceType, Region, MAX(time) as time 
+                FROM "spotlake"."gcp" 
+                WHERE time < from_iso8601_date('{start}')
+                AND InstanceType = '{instance_type}' {region_condition}
+                GROUP BY InstanceType, Region
+                )LATEST, "spotlake"."gcp" ALL 
+        WHERE LATEST.InstanceType = ALL.InstanceType 
+        AND LATEST.Region = ALL.Region
+        AND LATEST.time = ALL.time)
+        UNION 
+        (SELECT * 
+        FROM "spotlake"."gcp" 
+        WHERE time BETWEEN from_iso8601_date('{start}') and from_iso8601_date('{end}') 
+        AND InstanceType = '{instance_type}' {region_condition})"""
     
     paginator = query_client.get_paginator('query')
     page_iterator = paginator.paginate(QueryString=query_string)
@@ -77,8 +125,6 @@ def run_query(TABLE_NAME, features, start, end):
 def _parse_query_result(query_result):
     column_info = query_result['ColumnInfo']
     global result
-    print("Metadata: %s" % column_info)
-    print("Data: ")
     global id
     for row in query_result['Rows']:
         tmp = _parse_row(column_info, row)
@@ -93,12 +139,14 @@ def _parse_row(column_info, row):
     for j in range(len(data)):
         info = column_info[j]
         datum = data[j]
-        row_output.append(_parse_datum(info, datum))
+        returnedData = _parse_datum(info, datum)
+        if returnedData != "":
+            row_output.append(returnedData)
     return "{%s}" % ",".join(row_output)
 
 def _parse_datum(info, datum):
     if datum.get('NullValue', False):
-        return "%s=NULL" % info['Name'],
+        return "%s:NULL" % info['Name']
     column_type = info['Type']
 
     # If the column is of TimeSeries Type
@@ -120,8 +168,8 @@ def _parse_datum(info, datum):
     # If the column is AZ
     elif 'Name' in info and info['Name'] == 'AZ':
         return _parse_column_name(info) + datum['ScalarValue'].split("-az")[-1] + '"'
-    elif 'Name' in info and info['Name'] == 'IF':
-        return _parse_column_name(info) + datum['ScalarValue'] + '"'
+    elif 'Name' in info and info['Name'] == 'measure_name':
+        return ""
     # The others
     else:
         return _parse_column_name(info) + datum['ScalarValue'] + '"'
@@ -163,27 +211,27 @@ def _parse_column_name(info):
         return ""
 
 def lambda_handler(event, context):
-    operation = event['httpMethod']
-    if operation != 'GET':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Headers': '*',
-                'Access-Control-Allow-Origin': 'https://spotlake.ddps.cloud',
-                'Access-Control-Allow-Methods': 'OPTIONS,GET'
-            },
-            'body': json.dumps("[]")
-        }
-    if (not 'origin' in event['headers']) or event['headers']['origin'] != 'https://spotlake.ddps.cloud':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Headers': '*',
-                'Access-Control-Allow-Origin': 'https://spotlake.ddps.cloud',
-                'Access-Control-Allow-Methods': 'OPTIONS,GET'
-            },
-            'body': json.dumps("[]")
-        }
+    '''
+    
+    
+    
+    
+    
+    
+    
+    
+    Filtering Code
+    CORS,
+    http method,
+    etc...
+    
+    
+    
+    
+    
+    
+    
+    '''
     info = event['queryStringParameters']
     table_name = info['TableName']
     start = info['Start']

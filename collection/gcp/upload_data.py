@@ -7,10 +7,10 @@ from botocore.exceptions import ClientError
 # write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
 
-BUCKET_NAME = 'tmp-gcp'
+BUCKET_NAME = 'test-gcp-lambda'             # need to change into 'spotlake'
 # DATABASE_NAME = 'spotlake'
 # TABLE_NAME = 'gcp'
-LOCAL_PATH = '/home/ubuntu/spot-score/collection/gcp'
+LOCAL_PATH = '/tmp'
 
 # need to implement timestream upload
 

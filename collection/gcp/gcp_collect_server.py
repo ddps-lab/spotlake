@@ -30,7 +30,6 @@ pricelist = data['gcp_price_list']
 output_pricelist = get_price(pricelist)
 df_pricelist = pd.DataFrame(output_pricelist)
 
-
 # get price from vm instance pricing page (crawling)
 output_vminstance_pricing = {}
 for machine_type in machine_type_list:
@@ -71,7 +70,7 @@ save_raw(df_current, timestamp)
 # compare latest and current data
 if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):
     df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
-    # upload timestream
+    # upload timestream(df_current, timestamp)
     exit()
 
 df_previous = pd.read_pickle(f'{LOCAL_PATH}/latest_df.pkl')
@@ -82,6 +81,6 @@ feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM
 
 changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
 
-# need to upload timestream
-
-
+# write timestream
+# upload_timestream(changed_df, timestamp)
+# upload_timestream(removed_df, timestamp)

@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 import json
-from datetime import datetime
+from datetime import datetime, timezone 
 import boto3
 import botocore
 
@@ -98,8 +98,7 @@ def gcp_collect(timestamp) :
 
     
 def lambda_handler(event, context):
-    # time is UTC
-    str_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M")
+    str_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
     timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
     
     gcp_collect(timestamp)

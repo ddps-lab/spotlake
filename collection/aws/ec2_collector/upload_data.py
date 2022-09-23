@@ -79,7 +79,8 @@ def update_latest(data):
     s3 = session.client('s3')
     with open(f"{LOCAL_PATH}/{filename}", 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, s3_path)
-    object_acl = s3.ObjectAcl(SAVE_BUCKET_NAME, s3_path)
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
     response = object_acl.put(ACL='public-read')
 
 

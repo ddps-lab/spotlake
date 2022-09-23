@@ -1,6 +1,6 @@
 sudo apt-get update
-sudo apt-get upgrade -Y
-sudo apt install python3-pip -Y
-sudo apt install awscli -Y
+sudo apt-get upgrade -y
+sudo apt install python3-pip -y
+sudo apt install awscli -y
 
 pip install -r ./aws/ec2_collector/requirements.txt

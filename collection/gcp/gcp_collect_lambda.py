@@ -13,7 +13,6 @@ from gcp_metadata import machine_type_list, region_list
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
-LOCAL_PATH = "/tmp"
 BUCKET_NAME = 'test-gcp-lambda'         # need to change -> 'spotlake'
 KEY = 'latest_data/latest_gcp.json'
 
@@ -73,11 +72,10 @@ def gcp_collect(timestamp) :
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == '404':
             update_latest(df_current)
-            # upload timestream
-            exit()
+            # upload_timestream(df_current, timestamp)
+            return
         else:
             print(e)
-    
     
     # get previous latest_data from s3
     object = s3.Object(BUCKET_NAME, KEY)
@@ -85,26 +83,27 @@ def gcp_collect(timestamp) :
     data = json.load(response['Body'])
     df_previous = pd.DataFrame(data)
     
-    # update latest ddata
+    # update latest (current data -> latest data)
     update_latest(df_current)
     
-    # compare latest and current data
+    # compare previous and current data
     workload_cols = ['InstanceType', 'Region']
     feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price']
         
     changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
         
-    # need to upload timestream
+    # wirte timestream
+    # upload_timestream(changed_df, timestamp)
+    # upload_timestream(removed_df, timestamp)
 
-
+    
 def lambda_handler(event, context):
+    # time is UTC
     str_datetime = datetime.now().strftime("%Y-%m-%dT%H:%M")
     timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
-
     
     gcp_collect(timestamp)
     
     return {
-        "statusCode": 200,
-        "body": json.dumps('')
+        "statusCode": 200
     }

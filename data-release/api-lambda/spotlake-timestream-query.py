@@ -55,6 +55,7 @@ def run_query(TABLE_NAME, features, start, end):
     elif TABLE_NAME == 'azure':
         instance_type = features['InstanceType']
         region = features['Region']
+        instance_tier = features['InstanceTier']
         
         # instance type should be specified
 
@@ -63,12 +64,15 @@ def run_query(TABLE_NAME, features, start, end):
         if region != '*':
             region_condition = f"AND Region = '{region}'"
         
+        if instance_tier != '*':
+            tier_condition = f"AND InstanceTier = '{instance_tier}'"
+        
         query_string = f"""
         (SELECT ALL.* FROM (
                 SELECT InstanceType, Region, MAX(time) as time 
                 FROM "spotlake"."azure" 
                 WHERE time < from_iso8601_date('{start}')
-                AND InstanceType = '{instance_type}' {region_condition}
+                AND InstanceType = '{instance_type}' {region_condition} {tier_condition}
                 GROUP BY InstanceType, Region
                 )LATEST, "spotlake"."azure" ALL 
         WHERE LATEST.InstanceType = ALL.InstanceType 
@@ -78,12 +82,11 @@ def run_query(TABLE_NAME, features, start, end):
         (SELECT * 
         FROM "spotlake"."azure" 
         WHERE time BETWEEN from_iso8601_date('{start}') and from_iso8601_date('{end}') 
-        AND InstanceType = '{instance_type}' {region_condition})"""
+        AND InstanceType = '{instance_type}' {region_condition} {tier_condition})"""
     
     elif TABLE_NAME == 'gcp':
         instance_type = features['InstanceType']
         region = features['Region']
-        instance_tier = features['InstanceTier']
         
         # instance type should be specified
 
@@ -92,9 +95,6 @@ def run_query(TABLE_NAME, features, start, end):
 
         if region != '*':
             region_condition = f"AND Region = '{region}'"
-        
-        if instance_tier != '*':
-            tier_condition = f"AND InstanceTier = '{instance_tier}'"
         
         query_string = f"""
         (SELECT ALL.* FROM (
@@ -211,6 +211,7 @@ def _parse_column_name(info):
         return ""
 
 def lambda_handler(event, context):
+    operation = event['requestContext']['http']['method']
     '''
     
     
@@ -219,11 +220,10 @@ def lambda_handler(event, context):
     
     
     
-    
+    <HIDDEN>
     Filtering Code
-    CORS,
-    http method,
-    etc...
+    CORS, httpMethod, etc...
+    
     
     
     
@@ -232,6 +232,8 @@ def lambda_handler(event, context):
     
     
     '''
+    global id
+    id = 1
     info = event['queryStringParameters']
     table_name = info['TableName']
     start = info['Start']

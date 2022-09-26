@@ -31,7 +31,7 @@ function Demo () {
   const [IFGraph, setIFGraph] = useState([]);
   const [SPSGraph, setSPSGraph] = useState([]);
   const [SPGraph, setSPGraph] = useState([]);
-  const [searchFilter, setSearchFilter] = useState({instance: '', region: '', az: '', start_date: '', end_date: ''});
+  const [searchFilter, setSearchFilter] = useState({instance: '', region: '', az: '', start_date: '', end_date: '', tier: ''});
   const [alpha, setAlpha] = useState(0.7);
   const alphaInput = useRef();
   const [pageSize, setPageSize] = useState(1000);
@@ -236,7 +236,7 @@ function Demo () {
     { field: 'ondemandPrice', headerName: 'OndemandPrice', flex: 1, type: 'number' },
     { field: 'spotPrice', headerName: 'SpotPrice', flex: 1.3, type: 'number' },
     { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number' },
-    {field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
+    { field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
   ];
 
   const CustomToolbar = () => (
@@ -310,15 +310,17 @@ function Demo () {
       setLoad(true);
       //guery 요청시 들어가는 Params, params의 값은 searchFilter에 저장되어 있음
       const params  = {
-        AZ: searchFilter["az"] === 'ALL' ? "*" : searchFilter["az"],
+        TableName: vendor.toLowerCase(),
+        ...(vendor === 'AWS' && { AZ: searchFilter["az"] === 'ALL' ? "*" : searchFilter["az"] }),
         Region: searchFilter["region"] === 'ALL' ? "*" : searchFilter["region"],
         InstanceType: searchFilter["instance"] === 'ALL' ? "*" : searchFilter["instance"],
+        ...(vendor === 'AZURE' && { InstanceTier: searchFilter["tier"] === 'ALL' ? '*' : searchFilter["tier"] }),
         Start: searchFilter["start_date"] === '' ? "*" : searchFilter["start_date"],
         End: searchFilter["end_date"] === '' ? "*" : searchFilter["end_date"]
       };
       //현재 url = "https://puhs0z1q3l.execute-api.us-west-2.amazonaws.com/default/sungjae-timestream-query";
-      await axios.get(url,{params}
-      ).then((res) => {
+      await axios.get(url,{params})
+        .then((res) => {
         //get 요청을 통해 받는 리턴값
         let parseData = JSON.parse(res.data);
         setGetdata(parseData);
@@ -445,6 +447,26 @@ function Demo () {
               </style.filterSelect>
             </FormControl>
             :null}
+          {vendor === 'AZURE' &&
+            <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+              <style.filterLabel id="instance-tier-input-label" vendor={vendor}>Tier</style.filterLabel>
+              <style.filterSelect
+                labelId="instance-tier-input-label"
+                id="instance-tier-input"
+                value={searchFilter['tier']}
+                onChange={setFilter}
+                label="instance-tier"
+                name="instance-tier"
+                vendor={vendor}
+              >
+                {assoAZ ? assoAZ.map((e) => (
+                  <style.selectItem value={e} vendor={vendor}>{e}</style.selectItem>
+                )):az ? az.map((e) => (
+                  <style.selectItem value={e} vendor={vendor}>{e}</style.selectItem>
+                )) : null}
+              </style.filterSelect>
+            </FormControl>
+          }
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="start_date-input">Start date : </style.dataLabel>
             <input type="date" id="start_date-input" name="start_date" onChange={setFilter} min={setDate("min")} max={setDate("max")}/>
@@ -453,7 +475,7 @@ function Demo () {
             <style.dataLabel htmlFor="end_date-input">End date : </style.dataLabel>
             <input type="date" id="end_date-input" name="end_date" onChange={setFilter} value={searchFilter.end_date} min={setDate("min")} max={setDate("max")}/>
           </FormControl>
-          <style.chartBtn onClick={vendor==='AWS'?querySubmit:notReadyQuery} vendor={vendor} loading={load}>Query</style.chartBtn>
+          <style.chartBtn onClick={querySubmit} vendor={vendor} loading={load}>Query</style.chartBtn>
           {/*{load?<ReactLoading type='spin' height='30px' width='30px' color='#1876d2' /> : null}*/}
         </style.tablefilter>
         {chartModal ?

@@ -11,7 +11,7 @@ def extract_price(machine_type, price_data, price_type):
     for region, price in price_data.items():
         if region in region_list:
             if price == 0:
-                output[machine_type][region][price_type] = None
+                output[machine_type][region][price_type] = -1
             else:
                 output[machine_type][region][price_type] = price
 
@@ -42,8 +42,8 @@ def get_price(pricelist):
         output[machine_type] = {}
         for region in region_list:
             output[machine_type][region] = {}
-            output[machine_type][region]['ondemand'] = None
-            output[machine_type][region]['preemptible'] = None
+            output[machine_type][region]['ondemand'] = -1
+            output[machine_type][region]['preemptible'] = -1
 
     # N1 : f1-micro
     # ondemand
@@ -175,7 +175,7 @@ def get_price(pricelist):
             for ram_region, ram_price in ram_data.items():
                 for gpu_region, gpu_price in gpu_data.items():
                     if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
-                        if output[machine_type][cpu_region]['ondemand'] != None:
+                        if output[machine_type][cpu_region]['ondemand'] != -1:
                             output[machine_type][cpu_region]['preemptible'] = cpu_quantity * \
                                 cpu_price + ram_quantity*ram_price + gpu_quantity*gpu_price
     return output
@@ -192,7 +192,7 @@ def preprocessing_price(df):
             ondemand = price['ondemand']
             preemptible = price['preemptible']
 
-            if ondemand != None and preemptible != None:
+            if ondemand != -1 and preemptible != -1:
                 ondemand = round(ondemand, 4)
                 preemptible = round(preemptible, 4)
 

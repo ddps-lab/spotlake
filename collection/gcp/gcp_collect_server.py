@@ -6,7 +6,7 @@ from datetime import datetime
 
 from load_pricelist import get_price, preprocessing_price
 from load_vminstance_pricing import get_url_list, get_table, extract_price
-from upload_data import save_raw, update_latest
+from upload_data import save_raw, update_latest, upload_timestream
 from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
 
@@ -36,8 +36,8 @@ for machine_type in machine_type_list:
     output_vminstance_pricing[machine_type] = {}
     for region in region_list:
         output_vminstance_pricing[machine_type][region] = {}
-        output_vminstance_pricing[machine_type][region]['ondemand'] = None
-        output_vminstance_pricing[machine_type][region]['preemptible'] = None
+        output_vminstance_pricing[machine_type][region]['ondemand'] = -1
+        output_vminstance_pricing[machine_type][region]['preemptible'] = -1
 
 url_list = get_url_list(PAGE_URL)
 
@@ -70,7 +70,7 @@ save_raw(df_current, timestamp)
 # compare latest and current data
 if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):
     df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
-    # upload timestream(df_current, timestamp)
+    upload_timestream(df_current, timestamp)
     exit()
 
 df_previous = pd.read_pickle(f'{LOCAL_PATH}/latest_df.pkl')
@@ -82,5 +82,5 @@ feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM
 changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
 
 # write timestream
-# upload_timestream(changed_df, timestamp)
-# upload_timestream(removed_df, timestamp)
+upload_timestream(changed_df, timestamp)
+upload_timestream(removed_df, timestamp)

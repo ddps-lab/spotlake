@@ -34,8 +34,8 @@ def gcp_collect(timestamp) :
         output_vminstance_pricing[machine_type] = {}
         for region in region_list:
             output_vminstance_pricing[machine_type][region] = {}
-            output_vminstance_pricing[machine_type][region]['ondemand'] = None
-            output_vminstance_pricing[machine_type][region]['preemptible'] = None
+            output_vminstance_pricing[machine_type][region]['ondemand'] = -1
+            output_vminstance_pricing[machine_type][region]['preemptible'] = -1
     
     url_list = get_url_list(PAGE_URL)
     

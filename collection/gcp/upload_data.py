@@ -11,7 +11,7 @@ write_client = session.client('timestream-write', config=Config(read_timeout=20,
 BUCKET_NAME = 'spotlake'
 DATABASE_NAME = 'spotlake'
 TABLE_NAME = 'gcp'
-LOCAL_PATH = './'
+LOCAL_PATH = '/tmp'
 
 
 # Submit Batch To Timestream

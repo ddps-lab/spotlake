@@ -145,6 +145,8 @@ def _parse_row(column_info, row):
     return "{%s}" % ",".join(row_output)
 
 def _parse_datum(info, datum):
+    if 'Name' in info and info['Name'] == 'Ceased':
+        return ""
     if datum.get('NullValue', False):
         return "%s:NULL" % info['Name']
     column_type = info['Type']

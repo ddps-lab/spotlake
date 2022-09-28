@@ -10,7 +10,6 @@ import aws_association from './aws_association.json';
 import gcp_association from './gcp_association.json';
 import azure_association from './azure_association.json';
 import {FormControl} from "@mui/material";
-import GCPDataFile from './gcp_demo_new.json';
 import AZUREDataFile from './azure_demo_new.json';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
@@ -47,9 +46,22 @@ function Demo () {
   const [graphLoad, setGraphLoad] = useState(false);
   const [visualDate, setVisualDate] = useState(0);
   const [vendor, setVendor] = useState('AWS');
-  const [GCPData, setGCPData] = useState(JSON.parse(GCPDataFile));
-  const [AZUREData, setAZUREData] = useState(JSON.parse(AZUREDataFile));
-  const [progress, setProgress]= useState(0);
+  const [GCPData, setGCPData] = useState([]);
+  const [AZUREData, setAZUREData] = useState([]);
+  const [progress, setProgress]= useState({
+    AWS: {
+      loading: false,
+      percent: 0,
+    },
+    GCP: {
+      loading: false,
+      percent: 0,
+    },
+    AZURE: {
+      loading: false,
+      percent: 0,
+    },
+  });
 
   const setDate = (input) => {
     let year = today.getFullYear().toString()
@@ -105,12 +117,23 @@ function Demo () {
     setAssoAZ();
     filterSort(vendor);
     ResetSelected();
+
+    if (vendor  && !progress[vendor].loading) {
+      if (vendor === 'AWS' && Object.keys(getData) === []) {
+        getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
+      } else if (vendor === 'GCP' && Object.keys(GCPData).length === 0) {
+        getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
+      } else if (vendor === 'AZURE' && Object.keys(AZUREData).length === 0) {
+        getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
+      }
+    }
+
     // if (getData!== []) {setProgress(0);}
   },[vendor])
 
   useEffect(() => {
-    getLatestData("https://spotrank-latest.s3.us-west-2.amazonaws.com/latest_data/latest_spot_data.json", setGetdata);
-    // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
+    // getLatestData("https://spotrank-latest.s3.us-west-2.amazonaws.com/latest_data/latest_spot_data.json", setGetdata);
+    getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
   },[])
@@ -134,18 +157,22 @@ function Demo () {
     }
   }
   //latest data 가져오기
-  const getLatestData = async (DataUrl, setLatestData) => {
+  const getLatestData = async (curVendor, DataUrl, setLatestData) => {
     await axios({
       url: DataUrl,
       method: "GET",
       responseType: "json", // important
       onDownloadProgress: (progressEvent) => {
         let percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total); // you can use this to show user percentage of file downloaded
-        setProgress(percentCompleted);
+        setProgress({ ...progress, [curVendor]: { loading: true, percent: percentCompleted } });
       }
     }).then((response) => {
+      setProgress({ ...progress, [curVendor]: { ...progress[curVendor], loading: false } });
       let responData = response.data;
-      setLatestData(JSON.parse(responData));
+      setLatestData(responData);
+    }).catch((err) => {
+      console.log(err);
+      setProgress({ ...progress, [curVendor]: { percent: 0, loading: false } });
     })
   }
   const filterSort = (V) => {
@@ -540,9 +567,9 @@ function Demo () {
             </style.chartModal>
             : null}
         <style.table>
-          {vendor ==='AWS' && progress!==100?
+          {progress[vendor].loading ?
             <style.progressBar vendor={vendor}>
-              <LinearProgressWithLabel value={progress} />
+              <LinearProgressWithLabel value={progress[vendor].percent} />
             </style.progressBar>
           : null}
             <style.dataTable

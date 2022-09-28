@@ -3,6 +3,7 @@ import os
 from botocore.config import Config
 import time
 from botocore.exceptions import ClientError
+import pandas as pd
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
@@ -71,6 +72,11 @@ def upload_timestream(data, timestamp):
 
 def update_latest(data):
     filename = 'latest_gcp.json'
+    data['Calculator Savings'] = round((data['Calculator OnDemand Price'] - data['Calculator Preemptible Price']) / data['Calculator OnDemand Price'] * 100)
+    data['VM Instance Savings'] = round((data['VM Instance OnDemand Price'] - data['VM Instance Preemptible Price']) / data['VM Instance OnDemand Price'] * 100)
+    data = data.replace(-0, -1)
+    data = pd.DataFrame(data, columns=['InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
+    data = data.reset_index().rename(columns={'index':'id'})
     data.to_json(f"{LOCAL_PATH}/{filename}")
     s3_path = f'latest_data/{filename}'
     session = boto3.Session()

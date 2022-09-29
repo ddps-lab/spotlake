@@ -2,6 +2,7 @@ import boto3
 import os
 from botocore.config import Config
 import time
+from datetime import datetime
 from botocore.exceptions import ClientError
 import pandas as pd
 
@@ -70,14 +71,16 @@ def upload_timestream(data, timestamp):
     print(f"end : {counter}")
 
 
-def update_latest(data):
+def update_latest(data, timestamp):
     filename = 'latest_gcp.json'
     data['Calculator Savings'] = round((data['Calculator OnDemand Price'] - data['Calculator Preemptible Price']) / data['Calculator OnDemand Price'] * 100)
     data['VM Instance Savings'] = round((data['VM Instance OnDemand Price'] - data['VM Instance Preemptible Price']) / data['VM Instance OnDemand Price'] * 100)
     data = data.replace(-0, -1)
     data = pd.DataFrame(data, columns=['InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
+    data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
     data = data.reset_index().rename(columns={'index':'id'})
     data.to_json(f"{LOCAL_PATH}/{filename}")
+
     s3_path = f'latest_data/{filename}'
     session = boto3.Session()
     s3 = session.client('s3')

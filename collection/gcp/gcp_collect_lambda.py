@@ -71,7 +71,7 @@ def gcp_collect(timestamp) :
     
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == '404':
-            update_latest(df_current)
+            update_latest(df_current, timestamp)
             upload_timestream(df_current, timestamp)
             return
         else:
@@ -84,7 +84,7 @@ def gcp_collect(timestamp) :
     df_previous = pd.DataFrame(data)
     
     # update latest (current data -> latest data)
-    update_latest(df_current)
+    update_latest(df_current, timestamp)
     
     # compare previous and current data
     workload_cols = ['InstanceType', 'Region']

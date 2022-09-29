@@ -76,9 +76,9 @@ def update_latest(data, timestamp):
     data['Calculator Savings'] = round((data['Calculator OnDemand Price'] - data['Calculator Preemptible Price']) / data['Calculator OnDemand Price'] * 100)
     data['VM Instance Savings'] = round((data['VM Instance OnDemand Price'] - data['VM Instance Preemptible Price']) / data['VM Instance OnDemand Price'] * 100)
     data = data.replace(-0, -1)
-    data = pd.DataFrame(data, columns=['InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
+    data['id'] = data.index+1
+    data = pd.DataFrame(data, columns=['id', 'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
     data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
-    data = data.reset_index().rename(columns={'index':'id'})
     data.to_json(f"{LOCAL_PATH}/{filename}")
 
     s3_path = f'latest_data/{filename}'

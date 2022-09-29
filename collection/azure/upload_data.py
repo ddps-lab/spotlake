@@ -87,10 +87,10 @@ def update_latest(data, timestamp):
     s3 = session.client('s3')
 
     with open(f"{SAVE_DIR}/{FILENAME}", 'rb') as f:
-        s3.upload_fileobj(f, 'spotlake', S3_PATH)
+        s3.upload_fileobj(f, BUCKET_NAME, S3_PATH)
 
     s3 = boto3.resource('s3')
-    object_acl = s3.ObjectAcl('spotlake', S3_PATH)
+    object_acl = s3.ObjectAcl(BUCKET_NAME, S3_PATH)
     response = object_acl.put(ACL='public-read')
 
     pickle.dump(data, open(f"{SAVE_DIR}/latest_azure_df.pkl", "wb"))

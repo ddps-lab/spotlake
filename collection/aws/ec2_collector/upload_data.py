@@ -76,7 +76,7 @@ def update_latest(data, timestamp):
     data = data.drop(data[(data['AZ'].isna()) | (data['Region'].isna()) | (data['InstanceType'].isna())].index)
     data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
     data['id'] = data.index+1
-    result = data.to_json(f"{LOCAL_PATH}/{filename}")
+    result = data.to_json(f"{LOCAL_PATH}/{filename}", orient="records")
     s3_path = f'latest_data/{filename}'
     session = boto3.Session()
     s3 = session.client('s3')

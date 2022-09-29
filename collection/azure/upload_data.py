@@ -7,10 +7,9 @@ from datetime import datetime
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-session = boto3.session.Session(region_name='us-west-2')
-write_client = session.client('timestream-write',
-                              config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
 
+session = boto3.session.Session(region_name='us-west-2')
+write_client = session.client('timestream-write',config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
 SAVE_DIR = '/home/ubuntu/spot-score/collection/azure'
 BUCKET_NAME = 'spotlake'
 DATABASE_NAME = 'spotlake'
@@ -24,8 +23,8 @@ def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName=TABLE_NAME, Records=records,
-                                            CommonAttributes={})
+        result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName=TABLE_NAME, Records=records,CommonAttributes={})
+
     except write_client.exceptions.RejectedRecordsException as err:
         print(err)
         re_records = []
@@ -81,23 +80,31 @@ def update_latest(data, timestamp):
     data['ondemandPrice'] = data['ondemandPrice'].fillna(0)
     data['savings'] = data['savings'].fillna(0)
     data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
+
     result = data.to_json(f"{SAVE_DIR}/{FILENAME}", orient='records')
+
     session = boto3.Session()
     s3 = session.client('s3')
+
     with open(f"{SAVE_DIR}/{FILENAME}", 'rb') as f:
         s3.upload_fileobj(f, 'spotlake', S3_PATH)
+
     s3 = boto3.resource('s3')
     object_acl = s3.ObjectAcl('spotlake', S3_PATH)
     response = object_acl.put(ACL='public-read')
+
     pickle.dump(data, open(f"{SAVE_DIR}/latest_azure_df.pkl", "wb"))
 
 
 def save_raw(data, timestamp):
     data.to_csv(f"{SAVE_DIR}/{timestamp}.csv.gz", index=False, compression="gzip")
+
     session = boto3.Session()
     s3 = session.client('s3')
+
     s3_dir_name = timestamp.strftime("%Y/%m/%d")
     s3_obj_name = timestamp.strftime("%H:%M:%S")
+
     with open(f"{SAVE_DIR}/{timestamp}.csv.gz", 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz")
     os.remove(f"{SAVE_DIR}/{timestamp}.csv.gz")

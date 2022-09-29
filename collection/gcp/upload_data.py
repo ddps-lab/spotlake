@@ -2,7 +2,9 @@ import boto3
 import os
 from botocore.config import Config
 import time
+from datetime import datetime
 from botocore.exceptions import ClientError
+import pandas as pd
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
@@ -69,14 +71,24 @@ def upload_timestream(data, timestamp):
     print(f"end : {counter}")
 
 
-def update_latest(data):
+def update_latest(data, timestamp):
     filename = 'latest_gcp.json'
+    data['Calculator Savings'] = round((data['Calculator OnDemand Price'] - data['Calculator Preemptible Price']) / data['Calculator OnDemand Price'] * 100)
+    data['VM Instance Savings'] = round((data['VM Instance OnDemand Price'] - data['VM Instance Preemptible Price']) / data['VM Instance OnDemand Price'] * 100)
+    data = data.replace(-0, -1)
+    data['id'] = data.index+1
+    data = pd.DataFrame(data, columns=['id', 'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
+    data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
     data.to_json(f"{LOCAL_PATH}/{filename}")
+
     s3_path = f'latest_data/{filename}'
     session = boto3.Session()
     s3 = session.client('s3')
     with open(f"{LOCAL_PATH}/{filename}", 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, s3_path)
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
+    response = object_acl.put(ACL='public-read')
 
 
 def save_raw(data, timestamp):

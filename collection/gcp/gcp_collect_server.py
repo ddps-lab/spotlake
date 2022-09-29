@@ -64,7 +64,7 @@ df_vminstance_pricing = pd.DataFrame(preprocessing_price(df_vminstance_pricing),
 df_current = pd.merge(df_pricelist, df_vminstance_pricing)
 
 # update current data to S3
-update_latest(df_current)
+update_latest(df_current, timestamp)
 save_raw(df_current, timestamp)
 
 # compare latest and current data

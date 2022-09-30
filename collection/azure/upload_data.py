@@ -75,7 +75,7 @@ def upload_timestream(data, timestamp):
 
 
 def update_latest(data, timestamp):
-    data['id'] = data.index
+    data['id'] = data.index + 1
     data = data[['id', 'instanceTier', 'instanceType', 'region', 'ondemandPrice', 'spotPrice', 'savings']]
     data['ondemandPrice'] = data['ondemandPrice'].fillna(-1)
     data['savings'] = data['savings'].fillna(-1)

@@ -77,8 +77,8 @@ def upload_timestream(data, timestamp):
 def update_latest(data, timestamp):
     data['id'] = data.index
     data = data[['id', 'instanceTier', 'instanceType', 'region', 'ondemandPrice', 'spotPrice', 'savings']]
-    data['ondemandPrice'] = data['ondemandPrice'].fillna(0)
-    data['savings'] = data['savings'].fillna(0)
+    data['ondemandPrice'] = data['ondemandPrice'].fillna(-1)
+    data['savings'] = data['savings'].fillna(-1)
     data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
 
     result = data.to_json(f"{SAVE_DIR}/{FILENAME}", orient='records')

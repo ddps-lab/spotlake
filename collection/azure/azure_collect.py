@@ -25,7 +25,7 @@ current_df = collect_price_with_multithreading()
 
 # check first execution
 if SAVE_FILENAME not in os.listdir(SAVE_DIR):
-    update_latest(current_df)
+    update_latest(current_df, timestamp)
     save_raw(current_df, timestamp)
     upload_timestream(current_df, timestamp)
     exit()
@@ -37,7 +37,7 @@ current_df.to_pickle(SAVE_DIR + SAVE_FILENAME)
 
 
 # upload latest azure price to s3
-update_latest(current_df)
+update_latest(current_df, timestamp)
 save_raw(current_df, timestamp)
 
 

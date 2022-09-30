@@ -10,7 +10,6 @@ import aws_association from './aws_association.json';
 import gcp_association from './gcp_association.json';
 import azure_association from './azure_association.json';
 import {FormControl} from "@mui/material";
-import AZUREDataFile from './azure_demo_new.json';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -118,12 +117,12 @@ function Demo () {
     filterSort(vendor);
     ResetSelected();
 
-    if (vendor  && !progress[vendor].loading) {
+    if (vendor && !progress[vendor].loading) {
       if (vendor === 'AWS' && Object.keys(getData) === []) {
         getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
-      } else if (vendor === 'GCP' && Object.keys(GCPData).length === 0) {
+      } else if (vendor === 'GCP' && GCPData.length === 0) {
         getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
-      } else if (vendor === 'AZURE' && Object.keys(AZUREData).length === 0) {
+      } else if (vendor === 'AZURE' && AZUREData.length === 0) {
         getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
       }
     }
@@ -169,6 +168,11 @@ function Demo () {
     }).then((response) => {
       setProgress({ ...progress, [curVendor]: { ...progress[curVendor], loading: false } });
       let responData = response.data;
+      responData.map((obj) => {
+        Object.keys(obj).map((key) => {
+          if (obj[key] === -1) obj[key] = "N/A";
+        });
+      });
       setLatestData(responData);
     }).catch((err) => {
       console.log(err);
@@ -234,24 +238,24 @@ function Demo () {
     { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
     { field: 'InstanceType', headerName: 'InstanceType', flex: 1.3},
     { field: 'Region', headerName: 'Region', flex: 1,},
-    { field: 'CalculatorOnDemandPrice', headerName: 'OnDemand Price', flex: 1, type: 'number' },
-    { field: 'CalculatorPreemptiblePrice', headerName: 'Preemptible Price', flex: 1, type: 'number' },
-    { field: 'CalculatorSavings', headerName: 'Savings', flex: 1, type: 'number' },
-    { field: 'VMInstanceOnDemandPrice', headerName: 'OnDemand Price', flex: 1, type: 'number' },
-    { field: 'VMInstancePreemptiblePrice', headerName: 'Preemptible Price', flex: 1, type: 'number' },
-    { field: 'VMInstanceSavings', headerName: 'Savings', flex: 1, type: 'number' },
+    { field: 'Calculator OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number' },
+    { field: 'Calculator Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number' },
+    { field: 'Calculator Savings', headerName: 'Savings', flex: 1, type: 'number' },
+    { field: 'VM Instance OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number' },
+    { field: 'VM Instance Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number' },
+    { field: 'VM Instance Savings', headerName: 'Savings', flex: 1, type: 'number' },
     {field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
   ];
   const GCPcolumnGroup = [
     {
       groupId: 'Caculator',
       description: '',
-      children: [{ field: 'CalculatorOnDemandPrice' }, {field: 'CalculatorPreemptiblePrice'},{field: 'CalculatorSavings'}],
+      children: [{ field: 'Calculator OnDemand Price' }, {field: 'Calculator Preemptible Price'},{field: 'Calculator Savings'}],
     },
     {
       groupId: 'VM Instance',
       description: '',
-      children: [{ field: 'VMInstanceOnDemandPrice' }, {field: 'VMInstancePreemptiblePrice'},{field: 'VMInstanceSavings'}],
+      children: [{ field: 'VM Instance OnDemand Price' }, {field: 'VM Instance Preemptible Price'},{field: 'VM Instance Savings'}],
     }
   ];
   //AZURE columns
@@ -350,7 +354,8 @@ function Demo () {
         .then((res) => {
         //get 요청을 통해 받는 리턴값
         let parseData = JSON.parse(res.data);
-        setGetdata(parseData);
+        const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
+        setQueryData(parseData);
         let dataCnt = parseData.length;
         if (dataCnt<20000){
           alert("Total "+dataCnt+" data points have been returned")
@@ -496,7 +501,7 @@ function Demo () {
           }
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="start_date-input">Start date : </style.dataLabel>
-            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} min={setDate("min")} max={setDate("max")}/>
+            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} value={searchFilter.start_date} min={setDate("min")} max={setDate("max")}/>
           </FormControl>
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="end_date-input">End date : </style.dataLabel>
@@ -567,11 +572,10 @@ function Demo () {
             </style.chartModal>
             : null}
         <style.table>
-          {progress[vendor].loading ?
+          {vendor && progress[vendor].loading &&
             <style.progressBar vendor={vendor}>
               <LinearProgressWithLabel value={progress[vendor].percent} />
-            </style.progressBar>
-          : null}
+            </style.progressBar>}
             <style.dataTable
                 rows={vendor==='AWS' ? getData : vendor === 'GCP' ? GCPData : AZUREData}
                 columns={vendor==='AWS' ? columns : vendor === 'GCP' ? GCPcolumns : AZUREcolumns}

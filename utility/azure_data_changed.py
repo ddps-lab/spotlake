@@ -27,9 +27,9 @@ for (path, dir, files) in os.walk("./rawdata"):
 file_list.sort()
 
 # 맨 처음 rawdata를 previous_df로 설정 10분뒤 데이터를 current_df로 하여 계속 10분뒤 데이터와 비교
-previous_df = pd.read_csv('./rawdata/2022/09/14/09:50:00.csv.gz', compression='gzip')
-for i in file_list:
-    current_df = pd.read_csv(i, compression='gzip')
+for i in range(1, len(file_list)):
+    previous_df = pd.read_csv(file_list[i-1], compression='gzip')
+    current_df = pd.read_csv(file_list[i], compression='gzip')
     try:
         changed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
         if not changed_df.empty:

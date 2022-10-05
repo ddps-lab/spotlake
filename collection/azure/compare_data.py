@@ -3,7 +3,10 @@ import pandas as pd
 
 # compare previous collected workload with current collected workload
 # return changed workload
-def compare(previous_df, current_df, workload_cols, feature_cols):  
+def compare(previous_df, current_df, workload_cols, feature_cols):
+    previous_df = previous_df.drop_duplicates()
+    current_df = current_df.drop_duplicates()
+
     previous_df.loc[:,'Workload'] = previous_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
     previous_df.loc[:,'Feature'] = previous_df[feature_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
     current_df.loc[:,'Workload'] = current_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)

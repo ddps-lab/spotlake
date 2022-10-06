@@ -37,5 +37,3 @@ for i in range(1, len(file_list)):
             print(changed_df)
     except Exception as e:
         print(f"exception{e} : {i}")
-    finally:
-        previous_df = current_df

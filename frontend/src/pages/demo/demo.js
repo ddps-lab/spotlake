@@ -335,6 +335,12 @@ function Demo () {
   };
 
   const querySubmit = async () => {
+    // 쿼리를 날리기 전에 searchFilter에 있는 값들이 비어있지 않은지 확인.
+    const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false)
+    if (invalidQuery) {
+      alert("The query is invalid. \nPlease check your search option.");
+      return;
+    }
     //start_date , end_date 비교 후 start_date가 end_date보다 이전일 경우에만 데이터 요청
     if (searchFilter["start_date"] <= searchFilter["end_date"]){
       // button load True로 설정
@@ -373,9 +379,6 @@ function Demo () {
       alert("The date range for the query is invalid. Please set the date correctly.");
     };
   };
-  const notReadyQuery = () => {
-      alert("Query feature is not available yet (under development).")
-  }
 
   const LinearProgressWithLabel = (props) => {
     return (

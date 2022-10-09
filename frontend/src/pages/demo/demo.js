@@ -66,7 +66,7 @@ function Demo () {
     let year = today.getFullYear().toString()
     let month = input==='min' ? today.getUTCMonth() : today.getUTCMonth() + 1
     month = month < 10 ? '0' + month : month
-    let date = (month < 10 && '0') + today.getDate()
+    let date = (today.getUTCDate() < 10 && '0') + today.getUTCDate();
     return  year + '-' + month + '-' + date
   }
   const setFilter = ({target}) => { //filter value 저장

@@ -32,7 +32,7 @@ export const ContentBox = styled.div`
   & ul {
     list-style-type: '- '
   }
-  &.about a {
+  & a {
     color : #3d56b2;
   }
 `;

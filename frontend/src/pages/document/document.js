@@ -31,7 +31,8 @@ function Document () {
     )
 }
 const DemoImg = styled.img`
-    width: 80%;
+    max-width: 80%;
+    max-height: 500px;
     margin: 0 auto 20px auto;
 `;
 export default Document;

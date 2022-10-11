@@ -10,8 +10,6 @@ import aws_association from './aws_association.json';
 import gcp_association from './gcp_association.json';
 import azure_association from './azure_association.json';
 import {FormControl} from "@mui/material";
-import GCPDataFile from './gcp_demo_new.json';
-import AZUREDataFile from './azure_demo_new.json';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -47,15 +45,28 @@ function Demo () {
   const [graphLoad, setGraphLoad] = useState(false);
   const [visualDate, setVisualDate] = useState(0);
   const [vendor, setVendor] = useState('AWS');
-  const [GCPData, setGCPData] = useState(JSON.parse(GCPDataFile));
-  const [AZUREData, setAZUREData] = useState(JSON.parse(AZUREDataFile));
-  const [progress, setProgress]= useState(0);
+  const [GCPData, setGCPData] = useState([]);
+  const [AZUREData, setAZUREData] = useState([]);
+  const [progress, setProgress]= useState({
+    AWS: {
+      loading: false,
+      percent: 0,
+    },
+    GCP: {
+      loading: false,
+      percent: 0,
+    },
+    AZURE: {
+      loading: false,
+      percent: 0,
+    },
+  });
 
   const setDate = (input) => {
     let year = today.getFullYear().toString()
     let month = input==='min' ? today.getUTCMonth() : today.getUTCMonth() + 1
     month = month < 10 ? '0' + month : month
-    let date = today.getDate()
+    let date = (today.getUTCDate() < 10 && '0') + today.getUTCDate();
     return  year + '-' + month + '-' + date
   }
   const setFilter = ({target}) => { //filter value 저장
@@ -105,12 +116,23 @@ function Demo () {
     setAssoAZ();
     filterSort(vendor);
     ResetSelected();
+
+    if (vendor && !progress[vendor].loading) {
+      if (vendor === 'AWS' && Object.keys(getData) === []) {
+        getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
+      } else if (vendor === 'GCP' && GCPData.length === 0) {
+        getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
+      } else if (vendor === 'AZURE' && AZUREData.length === 0) {
+        getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
+      }
+    }
+
     // if (getData!== []) {setProgress(0);}
   },[vendor])
 
   useEffect(() => {
-    getLatestData("https://spotrank-latest.s3.us-west-2.amazonaws.com/latest_data/latest_spot_data.json", setGetdata);
-    // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
+    // getLatestData("https://spotrank-latest.s3.us-west-2.amazonaws.com/latest_data/latest_spot_data.json", setGetdata);
+    getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
   },[])
@@ -134,18 +156,27 @@ function Demo () {
     }
   }
   //latest data 가져오기
-  const getLatestData = async (DataUrl, setLatestData) => {
+  const getLatestData = async (curVendor, DataUrl, setLatestData) => {
     await axios({
       url: DataUrl,
       method: "GET",
       responseType: "json", // important
       onDownloadProgress: (progressEvent) => {
         let percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total); // you can use this to show user percentage of file downloaded
-        setProgress(percentCompleted);
+        setProgress({ ...progress, [curVendor]: { loading: true, percent: percentCompleted } });
       }
     }).then((response) => {
+      setProgress({ ...progress, [curVendor]: { ...progress[curVendor], loading: false } });
       let responData = response.data;
-      setLatestData(JSON.parse(responData));
+      responData.map((obj) => {
+        Object.keys(obj).map((key) => {
+          if (obj[key] === -1) obj[key] = "N/A";
+        });
+      });
+      setLatestData(responData);
+    }).catch((err) => {
+      console.log(err);
+      setProgress({ ...progress, [curVendor]: { percent: 0, loading: false } });
     })
   }
   const filterSort = (V) => {
@@ -207,24 +238,24 @@ function Demo () {
     { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
     { field: 'InstanceType', headerName: 'InstanceType', flex: 1.3},
     { field: 'Region', headerName: 'Region', flex: 1,},
-    { field: 'CalculatorOnDemandPrice', headerName: 'OnDemand Price', flex: 1, type: 'number' },
-    { field: 'CalculatorPreemptiblePrice', headerName: 'Preemptible Price', flex: 1, type: 'number' },
-    { field: 'CalculatorSavings', headerName: 'Savings', flex: 1, type: 'number' },
-    { field: 'VMInstanceOnDemandPrice', headerName: 'OnDemand Price', flex: 1, type: 'number' },
-    { field: 'VMInstancePreemptiblePrice', headerName: 'Preemptible Price', flex: 1, type: 'number' },
-    { field: 'VMInstanceSavings', headerName: 'Savings', flex: 1, type: 'number' },
+    { field: 'Calculator OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number' },
+    { field: 'Calculator Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number' },
+    { field: 'Calculator Savings', headerName: 'Savings', flex: 1, type: 'number' },
+    { field: 'VM Instance OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number' },
+    { field: 'VM Instance Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number' },
+    { field: 'VM Instance Savings', headerName: 'Savings', flex: 1, type: 'number' },
     {field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
   ];
   const GCPcolumnGroup = [
     {
       groupId: 'Caculator',
       description: '',
-      children: [{ field: 'CalculatorOnDemandPrice' }, {field: 'CalculatorPreemptiblePrice'},{field: 'CalculatorSavings'}],
+      children: [{ field: 'Calculator OnDemand Price' }, {field: 'Calculator Preemptible Price'},{field: 'Calculator Savings'}],
     },
     {
       groupId: 'VM Instance',
       description: '',
-      children: [{ field: 'VMInstanceOnDemandPrice' }, {field: 'VMInstancePreemptiblePrice'},{field: 'VMInstanceSavings'}],
+      children: [{ field: 'VM Instance OnDemand Price' }, {field: 'VM Instance Preemptible Price'},{field: 'VM Instance Savings'}],
     }
   ];
   //AZURE columns
@@ -304,6 +335,12 @@ function Demo () {
   };
 
   const querySubmit = async () => {
+    // 쿼리를 날리기 전에 searchFilter에 있는 값들이 비어있지 않은지 확인.
+    const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false)
+    if (invalidQuery) {
+      alert("The query is invalid. \nPlease check your search option.");
+      return;
+    }
     //start_date , end_date 비교 후 start_date가 end_date보다 이전일 경우에만 데이터 요청
     if (searchFilter["start_date"] <= searchFilter["end_date"]){
       // button load True로 설정
@@ -323,7 +360,8 @@ function Demo () {
         .then((res) => {
         //get 요청을 통해 받는 리턴값
         let parseData = JSON.parse(res.data);
-        setGetdata(parseData);
+        const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
+        setQueryData(parseData);
         let dataCnt = parseData.length;
         if (dataCnt<20000){
           alert("Total "+dataCnt+" data points have been returned")
@@ -341,9 +379,6 @@ function Demo () {
       alert("The date range for the query is invalid. Please set the date correctly.");
     };
   };
-  const notReadyQuery = () => {
-      alert("Query feature is not available yet (under development).")
-  }
 
   const LinearProgressWithLabel = (props) => {
     return (
@@ -469,7 +504,7 @@ function Demo () {
           }
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="start_date-input">Start date : </style.dataLabel>
-            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} min={setDate("min")} max={setDate("max")}/>
+            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} value={searchFilter.start_date} min={setDate("min")} max={setDate("max")}/>
           </FormControl>
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="end_date-input">End date : </style.dataLabel>
@@ -540,11 +575,10 @@ function Demo () {
             </style.chartModal>
             : null}
         <style.table>
-          {vendor ==='AWS' && progress!==100?
+          {vendor && progress[vendor].loading &&
             <style.progressBar vendor={vendor}>
-              <LinearProgressWithLabel value={progress} />
-            </style.progressBar>
-          : null}
+              <LinearProgressWithLabel value={progress[vendor].percent} />
+            </style.progressBar>}
             <style.dataTable
                 rows={vendor==='AWS' ? getData : vendor === 'GCP' ? GCPData : AZUREData}
                 columns={vendor==='AWS' ? columns : vendor === 'GCP' ? GCPcolumns : AZUREcolumns}

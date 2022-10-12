@@ -156,7 +156,7 @@ function Demo () {
     }
   },[graphData])
 
-  useEffect(() => {
+  useEffect(() => { // end_date가 max를 초과할 경우
     if (searchFilter.end_date && new Date(searchFilter.end_date) > new Date(dateRange.max)) {
       setSearchFilter({ ...searchFilter, end_date: dateRange.max });
     }
@@ -405,10 +405,6 @@ function Demo () {
         </Box>
     );
   }
-
-  useEffect(() => {
-    console.log(searchFilter);
-  }, [searchFilter.end_date])
 
   return (
     <div style={{width: '100%', height: '100%'}}>

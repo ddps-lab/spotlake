@@ -20,7 +20,6 @@ LicenseInfo.setLicenseKey(
 
 function Demo () {
   const url = "https://ohu7b2tglrqpl7qlogbu7pduq40flbgg.lambda-url.us-west-2.on.aws/";
-  const [today, setToday] = useState(new Date())
   const [w, setWidth] = useState(window.innerWidth*0.6);
   const canvasSection = useRef();
   const [chartColor, setChartColor] = useState(['#339f5e','#2a81ea', '#b23eff', '#ffa53e', '#ff6565']);
@@ -61,16 +60,23 @@ function Demo () {
       percent: 0,
     },
   });
+  const [dateRange, setDateRange] = useState({
+    min: null,
+    max: new Date().toISOString().split('T')[0]
+  })
 
-  const setDate = (input) => {
-    let year = today.getFullYear().toString()
-    let month = input==='min' ? today.getUTCMonth() : today.getUTCMonth() + 1
-    month = month < 10 ? '0' + month : month
-    let date = (today.getUTCDate() < 10 && '0') + today.getUTCDate();
-    return  year + '-' + month + '-' + date
+  const setDate = (name, value) => {
+    const tmpMax = new Date(value);
+    const today = new Date();
+    tmpMax.setMonth(tmpMax.getMonth() + 1);
+    if (tmpMax < today) {
+      setDateRange({ ...dateRange, max: tmpMax.toISOString().split('T')[0] });
+    } else setDateRange({ ...dateRange, max: today.toISOString().split('T')[0] });
   }
   const setFilter = ({target}) => { //filter value 저장
     const {name, value} = target;
+    // 날짜가 입력 될 경우
+    if (name.includes('start_date')) setDate(name, value);
     setSearchFilter({...searchFilter, [name] : value});
     const assoFile = vendor==='AWS' ? aws_association : vendor === 'GCP' ? gcp_association : azure_association;
     if (value!=="ALL"){
@@ -149,6 +155,13 @@ function Demo () {
       }
     }
   },[graphData])
+
+  useEffect(() => {
+    if (searchFilter.end_date && new Date(searchFilter.end_date) > new Date(dateRange.max)) {
+      setSearchFilter({ ...searchFilter, end_date: dateRange.max });
+    }
+  }, [searchFilter.start_date]);
+
   const ResetSelected = () => {
     if (selectedData.length!==0) {
       document.querySelector('.PrivateSwitchBase-input').click();
@@ -392,6 +405,12 @@ function Demo () {
         </Box>
     );
   }
+
+  useEffect(() => {
+    console.log('hi');
+    console.log(searchFilter);
+  }, [searchFilter.end_date])
+
   return (
     <div style={{width: '100%', height: '100%'}}>
       <style.demo>
@@ -504,11 +523,11 @@ function Demo () {
           }
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="start_date-input">Start date : </style.dataLabel>
-            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} value={searchFilter.start_date} min={setDate("min")} max={setDate("max")}/>
+            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} value={searchFilter.start_date} max={new Date().toISOString().split('T')[0]}/>
           </FormControl>
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="end_date-input">End date : </style.dataLabel>
-            <input type="date" id="end_date-input" name="end_date" onChange={setFilter} value={searchFilter.end_date} min={setDate("min")} max={setDate("max")}/>
+            <input type="date" id="end_date-input" name="end_date" onChange={setFilter} value={searchFilter.end_date} max={dateRange.max}/>
           </FormControl>
           <style.chartBtn onClick={querySubmit} vendor={vendor} loading={load}>Query</style.chartBtn>
           {/*{load?<ReactLoading type='spin' height='30px' width='30px' color='#1876d2' /> : null}*/}

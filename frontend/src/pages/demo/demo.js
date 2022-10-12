@@ -407,7 +407,6 @@ function Demo () {
   }
 
   useEffect(() => {
-    console.log('hi');
     console.log(searchFilter);
   }, [searchFilter.end_date])
 

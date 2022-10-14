@@ -1,11 +1,14 @@
 import pandas as pd
-
+import numpy as np
 
 # compare previous collected workload with current collected workload
 # return changed workload
 def compare(previous_df, current_df, workload_cols, feature_cols):
+    previous_df = previous_df.fillna(value=np.nan)
+
     current_df = current_df.drop(['id'], axis=1)
     previous_df = previous_df.drop(['id'], axis=1)
+
     previous_df = previous_df.drop_duplicates()
     current_df = current_df.drop_duplicates()
 

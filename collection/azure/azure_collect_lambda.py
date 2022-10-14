@@ -1,9 +1,7 @@
-import requests
 import pandas as pd
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import boto3
-import botocore
 
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
@@ -13,7 +11,6 @@ STR_DATETIME = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
 TIMESTAMP = datetime.strptime(STR_DATETIME, "%Y-%m-%dT%H:%M")
 KEY = 'latest_data/latest_azure.json'
 BUCKET_NAME = 'spotlake'
-SAVE_FILENAME = 'latest_azure_df.pkl'
 WORKLOAD_COLS = ['instanceTier', 'instanceType', 'region']
 FEATURE_COLS = ['ondemandPrice', 'spotPrice']
 

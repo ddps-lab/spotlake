@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import datetime
 import os
-from compare_data import compare
+from compare_data_server import compare
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 

@@ -1,6 +1,5 @@
 import React from "react";
 import {ContentBox, Box, SubTitle, Wrapper, ButtonICon, theme, CustomButton} from "../../UI/styles";
-import GitHubButton from 'react-github-btn'
 import { ThemeProvider } from '@mui/material/styles';
 function About () {
     return (

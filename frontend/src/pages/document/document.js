@@ -4,7 +4,7 @@ import styled from "styled-components";
 
 function Document () {
     return (
-        <Wrapper padding={`1rem 4rem`}>
+        <Wrapper>
             <Box column align={'flex-start'} gap={1} margin={`20px 0`}>
                 <DemoImg src={process.env.PUBLIC_URL + "/demoImg.png"} alt={"demoPageImg"}/>
                 <SubTitle>(1) Vendor selection</SubTitle>

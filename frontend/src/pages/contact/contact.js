@@ -4,7 +4,7 @@ import {ThemeProvider} from "@mui/material/styles";
 
 function Contact () {
     return (
-        <Wrapper padding={`1rem 4rem`}>
+        <Wrapper>
             <Box column align={'flex-start'} gap={1} margin={`20px 0`}>
                 <ContentBox className="contact">
                     SpotLake system is maintained by Distributed Data Processing System Lab (DDPS Lab, <a href="https://ddps.cloud" target={"_blank"}>https://ddps.cloud</a>) at Kookmin University.

@@ -4,7 +4,7 @@ import GitHubButton from 'react-github-btn'
 import { ThemeProvider } from '@mui/material/styles';
 function About () {
     return (
-        <Wrapper padding={`1rem 4rem`}>
+        <Wrapper>
             <Box column align={'flex-start'} gap={1} margin={`20px 0`}>
                 <SubTitle>What is SpotLake system?</SubTitle>
                 <ContentBox>

@@ -31,11 +31,13 @@ export const theme = createTheme({
     }
 })
 export const Wrapper = styled.div`
-  padding-top: 10px;
+  padding-top: 60px;
+  width: 80%;
+  min-width: 800px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  ${(props) => props.padding ? 'padding : '+ props.padding : ''};
 `;
 export const Title =styled.h1`
     ${(props) => props.color? 'color : ' : 'color : #000'};

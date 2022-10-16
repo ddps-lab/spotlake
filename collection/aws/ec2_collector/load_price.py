@@ -11,7 +11,7 @@ from load_metadata import get_regions
 
 
 BUCKET_NAME = 'spotlake'
-LOCAL_PATH = '/home/ubuntu/spot-score/collection/aws/ec2_collector'
+LOCAL_PATH = '/home/ubuntu/spotlake/collection/aws/ec2_collector'
 
 
 # get spot price by all availability zone in single region

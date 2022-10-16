@@ -6,7 +6,7 @@ from compare_data_server import compare
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 
-SAVE_DIR = '/home/ubuntu/spot-score/collection/azure/'
+SAVE_DIR = '/home/ubuntu/spotlake/collection/azure/'
 SAVE_FILENAME = 'latest_azure_df.pkl'
 WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
 FEATURE_COLS = ['OndemandPrice', 'SpotPrice']

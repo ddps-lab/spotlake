@@ -15,6 +15,18 @@ export const theme = createTheme({
             dark : "rgb(130,104,181)",
             main: 'rgba(103,58,183, 0.5)',
             contrastText: '#fff',
+        },
+        arxiv : {
+            light : "rgb(212,119,119)",
+            dark : "rgb(255,218,218)",
+            main : "rgb(254, 246, 246)",
+            contrastText : "rgb(34, 34, 34)",
+        },
+        IISWC :{
+            light : "rgb(129,132,215)",
+            dark : "rgb(1, 8, 128)",
+            main : "rgb(67,81,196)",
+            contrastText : "#fff",
         }
     }
 })
@@ -59,8 +71,10 @@ export const ContentBox = styled.div`
   }
 `;
 export const ButtonICon = styled.img`
-  max-height: 20px;
-  max-width: 20px;
+  ${(props) =>(`
+      max-height: auto;
+      max-width: ${props.size? props.size : "20px"};
+  `)}
 `
 export const CustomButton = styled(Button)`
   ${(props) => props.padding? 'padding : '+ props.padding : null} !important;

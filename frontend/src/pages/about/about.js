@@ -16,14 +16,32 @@ function About () {
                 <ContentBox className="about">
                     If you are interested in an analysis of the SpotLake datasets or system implementation, check the latest version of the SpotLake paper which is published in IISWC 2022. We also published an older version of the paper through arXiv.
                     <ul>
-                        <li>IISWC 2022 paper (link will be available soon)</li>
-                        <li>arXiv paper (<a href="https://arxiv.org/abs/2202.02973" target={"_blank"}>https://arxiv.org/abs/2202.02973</a>)</li>
+                        <li>
+                            <ThemeProvider theme={theme}>
+                                <CustomButton
+                                    color={"IISWC"}
+                                    variant="contained"
+                                    onClick={() => {alert("link will be available soon")}}
+                                >IISWC 2022 paper</CustomButton>
+                            </ThemeProvider>
+                        </li>
+                        <li style={{marginTop : "20px"}}>
+                            <ThemeProvider theme={theme}>
+                                <CustomButton
+                                    startIcon={<ButtonICon size={"24px"} src={process.env.PUBLIC_URL + "/icon/arxiv-logo-1.png"} />}
+                                    color={"arxiv"}
+                                    variant="contained"
+                                    onClick={() => {window.open('https://arxiv.org/abs/2202.02973')}}
+                                >arXiv paper</CustomButton>
+                            </ThemeProvider>
+                        </li>
                     </ul>
                     Every source code and the issue of the SpotLake system is maintained through the GitHub repository. Anyone interested in the SpotLake system could contribute to the code. You can check the star button if you are intriguing this open-source project.
                     <ul>
                         <li>
                             <ThemeProvider theme={theme}>
                                 <CustomButton
+                                    size={"small"}
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"
@@ -34,6 +52,7 @@ function About () {
                         <li style={{marginTop : "20px"}}>
                             <ThemeProvider theme={theme}>
                                 <CustomButton
+                                    size={"small"}
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"

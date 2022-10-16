@@ -17,7 +17,7 @@ function Contact () {
                             color={"github"}
                             variant="contained"
                             onClick={() => {window.open('https://github.com/ddps-lab/spotlake')}}
-                        >Github</CustomButton>
+                        >Github SpotLake</CustomButton>
                     </ThemeProvider>
                 </ContentBox>
             </Box>

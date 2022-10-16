@@ -10,7 +10,7 @@ from load_metadata import num_az_by_region
 
 
 BUCKET_NAME = "spotlake"
-LOCAL_PATH = "/home/ubuntu/spot-score/collection/aws/ec2_collector"
+LOCAL_PATH = "/home/ubuntu/spotlake/collection/aws/ec2_collector"
 
 
 # create object of bin packing input data

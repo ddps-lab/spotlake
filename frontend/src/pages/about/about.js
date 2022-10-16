@@ -1,6 +1,7 @@
 import React from "react";
-import {ContentBox, Box, SubTitle, Title, Wrapper} from "../../UI/styles";
-
+import {ContentBox, Box, SubTitle, Wrapper, ButtonICon, theme, CustomButton} from "../../UI/styles";
+import GitHubButton from 'react-github-btn'
+import { ThemeProvider } from '@mui/material/styles';
 function About () {
     return (
         <Wrapper padding={`1rem 4rem`}>
@@ -16,12 +17,30 @@ function About () {
                     If you are interested in an analysis of the SpotLake datasets or system implementation, check the latest version of the SpotLake paper which is published in IISWC 2022. We also published an older version of the paper through arXiv.
                     <ul>
                         <li>IISWC 2022 paper (link will be available soon)</li>
-                        <li>arXiv paper (<a href="https://arxiv.org/abs/2202.02973">https://arxiv.org/abs/2202.02973</a>)</li>
+                        <li>arXiv paper (<a href="https://arxiv.org/abs/2202.02973" target={"_blank"}>https://arxiv.org/abs/2202.02973</a>)</li>
                     </ul>
                     Every source code and the issue of the SpotLake system is maintained through the GitHub repository. Anyone interested in the SpotLake system could contribute to the code. You can check the star button if you are intriguing this open-source project.
                     <ul>
-                        <li>GitHub Link (<a href="https://github.com/ddps-lab/spotlake">https://github.com/ddps-lab/spotlake</a>)</li>
-                        <li>GitHub Star (star 버튼 만드는 법 참고: <a href="https://buttons.github.io">https://buttons.github.io</a>)</li>
+                        <li>
+                            <ThemeProvider theme={theme}>
+                                <CustomButton
+                                    startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
+                                    color={"github"}
+                                    variant="contained"
+                                    onClick={() => {window.open('https://github.com/ddps-lab')}}
+                                    >Github</CustomButton>
+                            </ThemeProvider>
+                        </li>
+                        <li style={{marginTop : "20px"}}>
+                            <ThemeProvider theme={theme}>
+                                <CustomButton
+                                    startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
+                                    color={"github"}
+                                    variant="contained"
+                                    onClick={() => {window.open('https://github.com/ddps-lab/spotlake')}}
+                                >Star</CustomButton>
+                            </ThemeProvider>
+                        </li>
                     </ul>
                 </ContentBox>
             </Box>
@@ -30,7 +49,14 @@ function About () {
                 <ContentBox className="about">
                     We can not provide the full dataset through this web-service because the dataset is too large. Those who want to access the full dataset of the SpotLake system, please fill out the google form below and we will give you access permission for the full dataset.
                     <ul>
-                        <li>Google Form Link (<a color={"#3d56b2"} href="link">link</a>)</li>
+                        <ThemeProvider theme={theme}>
+                            <CustomButton
+                                startIcon={<ButtonICon src={"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Google_Forms_2020_Logo.svg/1489px-Google_Forms_2020_Logo.svg.png"} />}
+                                color={"GoogleForm"}
+                                variant="contained"
+                                onClick={() => {window.open('https://forms.gle/FKqFVYUAJgGH34nJ7')}}
+                            >Google Form</CustomButton>
+                        </ThemeProvider>
                     </ul>
                 </ContentBox>
             </Box>

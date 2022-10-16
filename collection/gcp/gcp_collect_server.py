@@ -12,7 +12,7 @@ from gcp_metadata import machine_type_list, region_list
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
-LOCAL_PATH = "/home/ubuntu/spot-score/collection/gcp"
+LOCAL_PATH = "/home/ubuntu/spotlake/collection/gcp"
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()

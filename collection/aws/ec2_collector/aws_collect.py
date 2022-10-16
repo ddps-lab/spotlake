@@ -16,7 +16,7 @@ from upload_data import upload_timestream, update_latest, save_raw
 from join_data import build_join_df
 
 NUM_CPU = 2
-LOCAL_PATH = '/home/ubuntu/spot-score/collection/aws/ec2_collector'
+LOCAL_PATH = '/home/ubuntu/spotlake/collection/aws/ec2_collector'
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()

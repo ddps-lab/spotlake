@@ -71,6 +71,12 @@ export const ContentBox = styled.div`
   & ul.contribute_developers li {
     margin-bottom: 20px;
   }
+  & ul.buttonGroup {
+    list-style-type: none;
+  }
+  & ul.contribute_developers {
+    list-style-type: disc;
+  }
 `;
 export const ButtonICon = styled.img`
   ${(props) =>(`

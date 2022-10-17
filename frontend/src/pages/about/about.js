@@ -14,7 +14,7 @@ function About () {
                 <SubTitle>Paper and code</SubTitle>
                 <ContentBox className="about">
                     If you are interested in an analysis of the SpotLake datasets or system implementation, check the latest version of the SpotLake paper which is published in IISWC 2022. We also published an older version of the paper through arXiv.
-                    <ul>
+                    <ul className="buttonGroup">
                         <li>
                             <ThemeProvider theme={theme}>
                                 <CustomButton
@@ -36,7 +36,7 @@ function About () {
                         </li>
                     </ul>
                     Every source code and the issue of the SpotLake system is maintained through the GitHub repository. Anyone interested in the SpotLake system could contribute to the code. You can check the star button if you are intriguing this open-source project.
-                    <ul>
+                    <ul className="buttonGroup">
                         <li>
                             <ThemeProvider theme={theme}>
                                 <CustomButton
@@ -66,7 +66,7 @@ function About () {
                 <SubTitle>How to access full dataset</SubTitle>
                 <ContentBox className="about">
                     We can not provide the full dataset through this web-service because the dataset is too large. Those who want to access the full dataset of the SpotLake system, please fill out the google form below and we will give you access permission for the full dataset.
-                    <ul>
+                    <ul className="buttonGroup">
                         <ThemeProvider theme={theme}>
                             <CustomButton
                                 startIcon={<ButtonICon src={"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Google_Forms_2020_Logo.svg/1489px-Google_Forms_2020_Logo.svg.png"} />}

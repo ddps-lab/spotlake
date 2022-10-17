@@ -46,8 +46,8 @@ function Contact () {
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"
-                                    onClick={() => {window.open('https://github.com/')}}
-                                >Github @</CustomButton>
+                                    onClick={() => {window.open('https://github.com/leehanjeong')}}
+                                >Github @leehanjeong</CustomButton>
                             </ThemeProvider>
                         </li>
                         <li>
@@ -59,8 +59,8 @@ function Contact () {
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"
-                                    onClick={() => {window.open('https://github.com/')}}
-                                >Github @</CustomButton>
+                                    onClick={() => {window.open('https://github.com/HyeonYoung-Lee')}}
+                                >Github @HyeonYoung-Lee</CustomButton>
                             </ThemeProvider>
                         </li>
                         <li>
@@ -72,8 +72,21 @@ function Contact () {
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"
-                                    onClick={() => {window.open('https://github.com/')}}
-                                >Github @</CustomButton>
+                                    onClick={() => {window.open('https://github.com/chris0765')}}
+                                >Github @chris0765</CustomButton>
+                            </ThemeProvider>
+                        </li>
+                        <li>
+                            Jungmyeong Park: Front-end development
+                            <ThemeProvider theme={theme}>
+                                <CustomButton
+                                    size={"small"}
+                                    margin={"0 0 0 10px"}
+                                    startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
+                                    color={"github"}
+                                    variant="contained"
+                                    onClick={() => {window.open('https://github.com/j-myeong')}}
+                                >Github @j-myeong</CustomButton>
                             </ThemeProvider>
                         </li>
                         <li>
@@ -85,8 +98,8 @@ function Contact () {
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"
-                                    onClick={() => {window.open('https://github.com/h0zzae')}}
-                                >Github @</CustomButton>
+                                    onClick={() => {window.open('https://github.com/red0sena')}}
+                                >Github @red0sena</CustomButton>
                             </ThemeProvider>
                         </li>
                         <li>

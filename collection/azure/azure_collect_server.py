@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import datetime
 import os
-from compare_data import compare
+from compare_data_server import compare
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 
@@ -25,7 +25,7 @@ current_df = collect_price_with_multithreading()
 
 # check first execution
 if SAVE_FILENAME not in os.listdir(SAVE_DIR):
-    update_latest(current_df)
+    update_latest(current_df, timestamp)
     save_raw(current_df, timestamp)
     upload_timestream(current_df, timestamp)
     exit()
@@ -37,7 +37,7 @@ current_df.to_pickle(SAVE_DIR + SAVE_FILENAME)
 
 
 # upload latest azure price to s3
-update_latest(current_df)
+update_latest(current_df, timestamp)
 save_raw(current_df, timestamp)
 
 

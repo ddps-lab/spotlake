@@ -51,7 +51,7 @@ sps_df = pd.concat(sps_df_list).reset_index(drop=True)
 
 current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
 
-update_latest(current_df) # upload current data to S3
+update_latest(current_df, timestamp) # upload current data to S3
 save_raw(current_df, timestamp)
 
 if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):

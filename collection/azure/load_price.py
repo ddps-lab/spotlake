@@ -80,7 +80,6 @@ def preprocessing_price(df):
     df = df[~df['productName'].str.contains('Windows')]
     df = df[~df['meterName'].str.contains('Priority')]
     df = df[~df['meterName'].str.contains('Expired')]
-    df = df[df['isPrimaryMeterRegion'] == True]
     df = df[~df['location'].str.split().str[0].isin(FILTER_LOCATIONS)]
 
     ondemand_df = df[~df['meterName'].str.contains('Spot')]

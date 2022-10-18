@@ -71,14 +71,20 @@ def upload_timestream(data, timestamp):
     print(f"end : {counter}")
 
 
-def update_latest(data):
+def update_latest(data, timestamp):
     filename = 'latest_aws.json'
-    result = data.to_json(f"{LOCAL_PATH}/{filename}")
+    data = data.drop(data[(data['AZ'].isna()) | (data['Region'].isna()) | (data['InstanceType'].isna())].index)
+    data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    data['id'] = data.index+1
+    result = data.to_json(f"{LOCAL_PATH}/{filename}", orient="records")
     s3_path = f'latest_data/{filename}'
     session = boto3.Session()
     s3 = session.client('s3')
     with open(f"{LOCAL_PATH}/{filename}", 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, s3_path)
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
+    response = object_acl.put(ACL='public-read')
 
 
 def save_raw(data, timestamp):

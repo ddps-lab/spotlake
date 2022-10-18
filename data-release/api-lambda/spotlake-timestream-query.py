@@ -172,8 +172,6 @@ def _parse_datum(info, datum):
         return _parse_column_name(info) + datum['ScalarValue'].split("-az")[-1] + '"'
     elif 'Name' in info and info['Name'] == 'measure_name':
         return ""
-    elif 'Name' in info and (info['Name'] in ['IF', 'SPS', 'SpotPrice']) and datum['ScalarValue'] == 0:
-        return _parse_column_name(info) + '-1"'
     # The others
     else:
         return _parse_column_name(info) + datum['ScalarValue'] + '"'

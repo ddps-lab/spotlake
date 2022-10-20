@@ -7,7 +7,6 @@ import numpy as np
 def compare(previous_df, current_df, workload_cols, feature_cols):
     previous_df = previous_df.fillna(value=np.nan)
 
-    current_df = current_df.drop(['id'], axis=1)
     previous_df = previous_df.drop(['id'], axis=1)
 
     previous_df = previous_df.drop_duplicates()
@@ -24,6 +23,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
     previous_values = previous_df[['Workload', 'Feature']].sort_values(by='Workload').values
 
     changed_indices = []
+    removed_indices = []
 
     prev_idx = 0
     curr_idx = 0
@@ -33,6 +33,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
         elif curr_idx == len(current_indices):
             prev_workload = previous_values[prev_idx][0]
             if prev_workload not in current_values[:, 0]:
+                removed_indices.append(previous_indices[prev_idx])
                 prev_idx += 1
                 continue
             else:
@@ -59,6 +60,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 changed_indices.append(current_indices[curr_idx])
                 curr_idx += 1
             elif prev_workload not in current_values[:, 0]:
+                removed_indices.append(previous_indices[prev_idx])
                 prev_idx += 1
                 continue
             else:
@@ -68,4 +70,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 changed_indices.append(current_indices[curr_idx])
             curr_idx += 1
             prev_idx += 1
-    return current_df.loc[changed_indices].drop(['Workload', 'Feature'], axis=1)
+
+    current_df = current_df.loc[changed_indices].drop(['Workload', 'Feature'], axis=1)
+    removed_df = previous_df.loc[removed_indices].drop(['Workload', 'Feature'], axis=1)
+    return current_df, removed_df

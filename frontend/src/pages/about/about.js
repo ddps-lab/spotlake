@@ -24,16 +24,6 @@ function About () {
                                 >IISWC 2022 paper</CustomButton>
                             </ThemeProvider>
                         </li>
-                        <li style={{marginTop : "20px"}}>
-                            <ThemeProvider theme={theme}>
-                                <CustomButton
-                                    startIcon={<ButtonICon size={"24px"} src={process.env.PUBLIC_URL + "/icon/arxiv-logo-1.png"} />}
-                                    color={"arxiv"}
-                                    variant="contained"
-                                    onClick={() => {window.open('https://arxiv.org/abs/2202.02973')}}
-                                >arXiv paper</CustomButton>
-                            </ThemeProvider>
-                        </li>
                     </ul>
                     Every source code and the issue of the SpotLake system is maintained through the GitHub repository. Anyone interested in the SpotLake system could contribute to the code. You can check the star button if you are intriguing this open-source project.
                     <ul className="buttonGroup">
@@ -44,19 +34,8 @@ function About () {
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"
-                                    onClick={() => {window.open('https://github.com/ddps-lab')}}
-                                    >Github</CustomButton>
-                            </ThemeProvider>
-                        </li>
-                        <li style={{marginTop : "20px"}}>
-                            <ThemeProvider theme={theme}>
-                                <CustomButton
-                                    size={"small"}
-                                    startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
-                                    color={"github"}
-                                    variant="contained"
                                     onClick={() => {window.open('https://github.com/ddps-lab/spotlake')}}
-                                >Star</CustomButton>
+                                    >Github</CustomButton>
                             </ThemeProvider>
                         </li>
                     </ul>
@@ -72,7 +51,7 @@ function About () {
                                 startIcon={<ButtonICon src={"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Google_Forms_2020_Logo.svg/1489px-Google_Forms_2020_Logo.svg.png"} />}
                                 color={"GoogleForm"}
                                 variant="contained"
-                                onClick={() => {window.open('https://forms.gle/FKqFVYUAJgGH34nJ7')}}
+                                onClick={() => {window.open('https://forms.gle/zUAqmJ4B9fuaUhE89')}}
                             >Google Form</CustomButton>
                         </ThemeProvider>
                     </ul>

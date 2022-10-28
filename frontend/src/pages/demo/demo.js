@@ -20,7 +20,6 @@ LicenseInfo.setLicenseKey(
 
 function Demo () {
   const url = "https://ohu7b2tglrqpl7qlogbu7pduq40flbgg.lambda-url.us-west-2.on.aws/";
-  const [today, setToday] = useState(new Date())
   const [w, setWidth] = useState(window.innerWidth*0.6);
   const canvasSection = useRef();
   const [chartColor, setChartColor] = useState(['#339f5e','#2a81ea', '#b23eff', '#ffa53e', '#ff6565']);
@@ -61,16 +60,23 @@ function Demo () {
       percent: 0,
     },
   });
+  const [dateRange, setDateRange] = useState({
+    min: null,
+    max: new Date().toISOString().split('T')[0]
+  })
 
-  const setDate = (input) => {
-    let year = today.getFullYear().toString()
-    let month = input==='min' ? today.getUTCMonth() : today.getUTCMonth() + 1
-    month = month < 10 ? '0' + month : month
-    let date = today.getDate()
-    return  year + '-' + month + '-' + date
+  const setDate = (name, value) => {
+    const tmpMax = new Date(value);
+    const today = new Date();
+    tmpMax.setMonth(tmpMax.getMonth() + 1);
+    if (tmpMax < today) {
+      setDateRange({ ...dateRange, max: tmpMax.toISOString().split('T')[0] });
+    } else setDateRange({ ...dateRange, max: today.toISOString().split('T')[0] });
   }
   const setFilter = ({target}) => { //filter value 저장
     const {name, value} = target;
+    // 날짜가 입력 될 경우
+    if (name.includes('start_date')) setDate(name, value);
     setSearchFilter({...searchFilter, [name] : value});
     const assoFile = vendor==='AWS' ? aws_association : vendor === 'GCP' ? gcp_association : azure_association;
     if (value!=="ALL"){
@@ -149,6 +155,13 @@ function Demo () {
       }
     }
   },[graphData])
+
+  useEffect(() => { // end_date가 max를 초과할 경우
+    if (searchFilter.end_date && new Date(searchFilter.end_date) > new Date(dateRange.max)) {
+      setSearchFilter({ ...searchFilter, end_date: dateRange.max });
+    }
+  }, [searchFilter.start_date]);
+
   const ResetSelected = () => {
     if (selectedData.length!==0) {
       document.querySelector('.PrivateSwitchBase-input').click();
@@ -335,6 +348,12 @@ function Demo () {
   };
 
   const querySubmit = async () => {
+    // 쿼리를 날리기 전에 searchFilter에 있는 값들이 비어있지 않은지 확인.
+    const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false)
+    if (invalidQuery) {
+      alert("The query is invalid. \nPlease check your search option.");
+      return;
+    }
     //start_date , end_date 비교 후 start_date가 end_date보다 이전일 경우에만 데이터 요청
     if (searchFilter["start_date"] <= searchFilter["end_date"]){
       // button load True로 설정
@@ -373,9 +392,6 @@ function Demo () {
       alert("The date range for the query is invalid. Please set the date correctly.");
     };
   };
-  const notReadyQuery = () => {
-      alert("Query feature is not available yet (under development).")
-  }
 
   const LinearProgressWithLabel = (props) => {
     return (
@@ -389,6 +405,7 @@ function Demo () {
         </Box>
     );
   }
+
   return (
     <div style={{width: '100%', height: '100%'}}>
       <style.demo>
@@ -501,11 +518,11 @@ function Demo () {
           }
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="start_date-input">Start date : </style.dataLabel>
-            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} value={searchFilter.start_date} min={setDate("min")} max={setDate("max")}/>
+            <input type="date" id="start_date-input" name="start_date" onChange={setFilter} value={searchFilter.start_date} max={new Date().toISOString().split('T')[0]}/>
           </FormControl>
           <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
             <style.dataLabel htmlFor="end_date-input">End date : </style.dataLabel>
-            <input type="date" id="end_date-input" name="end_date" onChange={setFilter} value={searchFilter.end_date} min={setDate("min")} max={setDate("max")}/>
+            <input type="date" id="end_date-input" name="end_date" onChange={setFilter} value={searchFilter.end_date} max={dateRange.max}/>
           </FormControl>
           <style.chartBtn onClick={querySubmit} vendor={vendor} loading={load}>Query</style.chartBtn>
           {/*{load?<ReactLoading type='spin' height='30px' width='30px' color='#1876d2' /> : null}*/}

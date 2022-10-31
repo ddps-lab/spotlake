@@ -3,7 +3,7 @@ import aiohttp
 import json
 import asyncio
 
-AZURE_SUBSCRIPTION_ID = "862ad8bc-ae09-4e2e-ba9c-6d073e706f58"
+AZURE_SUBSCRIPTION_ID = ""
 LIMIT = 2000
 
 lambda_client = boto3.client('lambda')

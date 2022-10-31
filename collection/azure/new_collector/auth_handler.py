@@ -21,7 +21,7 @@ def lambda_handler(event, context):
     now = int(time.time())
 
     expire = get_item('expire')
-    if expire - 600 > now:
+    if expire - 300 > now:
         access_token = get_item('access_token')
         return access_token
 

@@ -19,7 +19,7 @@ def get_token():
     return json.loads(token.decode("utf-8"))
 
 
-def get_all_item():
+def get_all_items():
     global table
     return table.scan()["Items"]
 

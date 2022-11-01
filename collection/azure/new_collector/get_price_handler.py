@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
 from util.auth import get_token
-from util.dynamodb import DynamoDB
+from util.s3 import S3
 
 AZURE_SUBSCRIPTION_ID = ""
 LIMIT = 2000
@@ -10,8 +10,8 @@ datas = {}
 
 
 def get_hardwaremap():
-    db = DynamoDB("AzureHardwareMap")
-    return db.get_all_items()
+    s3 = S3("azure-hardware-map")
+    return s3.get_json("hardwaremap.json")
 
 
 async def get_data(token, data, retry=3):

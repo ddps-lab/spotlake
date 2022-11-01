@@ -1,6 +1,6 @@
 import requests
 import re
-from util.dynamodb import DynamoDB
+from util.s3 import S3
 
 
 def get_hardwaremap_urls(retry=3):
@@ -42,11 +42,15 @@ def get_hardwaremap(url, retry=3):
 
 def lambda_handler(event, context):
     try:
-        db = DynamoDB("AzureHardwareMap")
+        s3 = S3("azure-hardware-map")
+        hardwaremap = {}
 
         for i in get_hardwaremap_urls():
             tmp = get_hardwaremap(i["url"])
             if tmp:
-                db.put_item(i["region"], tmp)
+                hardwaremap[i["region"]] = tmp
+
+        s3.put_json("hardwaremap.json", hardwaremap)
+
     except Exception as e:
         pass

@@ -26,7 +26,7 @@ def get_all_items():
 
 def get_hardwaremap():
     hardwaremap = {}
-    for i in get_all_item():
+    for i in get_all_items():
         hardwaremap[i["id"]] = i["data"]
     return hardwaremap
 

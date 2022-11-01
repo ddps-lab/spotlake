@@ -5,7 +5,7 @@ on:
     branches:
       - 'main'
     paths:
-      - 'frontend/public/**'
+      - 'frontend/build/**'
   workflow_dispatch:
       
 env:

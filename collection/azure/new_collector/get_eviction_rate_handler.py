@@ -4,13 +4,8 @@ import requests
 from util.auth import get_token
 
 
-def lambda_handler(event, context):
-    token = get_token()
-
-    datas = []
-    skip_token = ""
-
-    while True:
+def get_data(token, skip_token, retry=3):
+    try:
         data = requests.post("https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01", headers={
             "Authorization": "Bearer " + token
         }, json={
@@ -21,10 +16,32 @@ def lambda_handler(event, context):
             }
         }).json()
 
-        datas += data["data"]
+        if not "data" in data:
+            raise ValueError
 
-        if not "$skipToken" in data:
-            break
-        skip_token = data["$skipToken"]
+        return data
+    except:
+        if retry == 1:
+            raise
+        return get_data(token, skip_token, retry - 1)
 
-    return datas
+
+def lambda_handler(event, context):
+    try:
+        token = get_token()
+
+        datas = []
+        skip_token = ""
+
+        while True:
+            data = get_data(token, skip_token)
+
+            datas += data["data"]
+
+            if not "$skipToken" in data:
+                break
+            skip_token = data["$skipToken"]
+
+        return datas
+    except Exception as e:
+        return []

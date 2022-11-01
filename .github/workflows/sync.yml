@@ -19,4 +19,4 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: "Sync with AWS S3"
-        run: aws s3 sync ./frontend/public/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} --acl public-read --delete
+        run: aws s3 sync ./frontend/build/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} --acl public-read --delete

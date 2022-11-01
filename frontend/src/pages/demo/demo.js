@@ -148,6 +148,7 @@ function Demo () {
     getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
+    console.log("github action test 20221101 17:45 update")
   },[])
 
   useEffect(() => { //데이터 가져오기 한번 끝날때마다 한곳에 모으기

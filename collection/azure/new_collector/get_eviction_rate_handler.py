@@ -1,14 +1,7 @@
 import json
 import boto3
 import requests
-
-lambda_client = boto3.client('lambda')
-
-
-def get_token():
-    token = lambda_client.invoke(
-        FunctionName='AzureAuth', InvocationType='RequestResponse')["Payload"].read()
-    return json.loads(token.decode("utf-8"))
+from util.auth import get_token
 
 
 def lambda_handler(event, context):

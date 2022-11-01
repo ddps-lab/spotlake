@@ -1,34 +1,17 @@
-import boto3
 import aiohttp
-import json
 import asyncio
+from util.auth import get_token
+from util.dynamodb import DynamoDB
 
 AZURE_SUBSCRIPTION_ID = ""
 LIMIT = 2000
 
-lambda_client = boto3.client('lambda')
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('AzureHardwareMap')
-
 datas = {}
 
 
-def get_token():
-    token = lambda_client.invoke(
-        FunctionName='AzureAuth', InvocationType='RequestResponse')["Payload"].read()
-    return json.loads(token.decode("utf-8"))
-
-
-def get_all_items():
-    global table
-    return table.scan()["Items"]
-
-
 def get_hardwaremap():
-    hardwaremap = {}
-    for i in get_all_items():
-        hardwaremap[i["id"]] = i["data"]
-    return hardwaremap
+    db = DynamoDB("AzureHardwareMap")
+    return db.get_all_items()
 
 
 async def get_data(token, data, retry=3):

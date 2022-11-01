@@ -1,14 +1,6 @@
-import boto3
 import requests
 import re
-
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('AzureHardwareMap')
-
-
-def put_item(id, data):
-    global table
-    table.put_item(Item={'id': id, 'data': data})
+from util.dynamodb import DynamoDB
 
 
 def get_hardwaremap_urls():
@@ -39,7 +31,9 @@ def get_hardwaremap(url):
 
 
 def lambda_handler(event, context):
+    db = DynamoDB("AzureHardwareMap")
+
     for i in get_hardwaremap_urls():
         tmp = get_hardwaremap(i["url"])
         if tmp:
-            put_item(i["region"], tmp)
+            db.put_item(i["region"], tmp)

@@ -2,6 +2,9 @@ import json
 import boto3
 import requests
 from util.auth import get_token
+import traceback
+
+SLACK_WEBHOOK_URL = ""
 
 
 def get_data(token, skip_token, retry=3):
@@ -44,4 +47,6 @@ def lambda_handler(event, context):
 
         return datas
     except Exception as e:
+        requests.post(SLACK_WEBHOOK_URL, json={
+                      "text": f"get_eviction_rate_handler\n\n{traceback.format_exc()}"})
         return []

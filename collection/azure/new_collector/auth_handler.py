@@ -2,6 +2,9 @@ import json
 import requests
 import time
 from util.dynamodb import DynamoDB
+import traceback
+
+SLACK_WEBHOOK_URL = ""
 
 
 def request_token(realm, client_id, refresh_token, retry=3):
@@ -44,4 +47,5 @@ def lambda_handler(event, context):
 
         return access_token
     except Exception as e:
-        return ""
+        requests.post(SLACK_WEBHOOK_URL, json={
+                      "text": f"auth_handler\n\n{traceback.format_exc()}"})

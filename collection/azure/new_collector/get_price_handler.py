@@ -1,10 +1,13 @@
 import aiohttp
 import asyncio
+import requests
 from util.auth import get_token
 from util.s3 import S3
+import traceback
 
 AZURE_SUBSCRIPTION_ID = ""
 LIMIT = 2000
+SLACK_WEBHOOK_URL = ""
 
 datas = {}
 
@@ -74,4 +77,6 @@ def lambda_handler(event, context):
 
         return datas
     except Exception as e:
+        requests.post(SLACK_WEBHOOK_URL, json={
+                      "text": f"get_price_handler\n\n{traceback.format_exc()}"})
         return {}

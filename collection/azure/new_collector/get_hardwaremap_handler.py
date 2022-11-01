@@ -1,6 +1,9 @@
 import requests
 import re
 from util.s3 import S3
+import traceback
+
+SLACK_WEBHOOK_URL = ""
 
 
 def get_hardwaremap_urls(retry=3):
@@ -53,4 +56,5 @@ def lambda_handler(event, context):
         s3.put_json("hardwaremap.json", hardwaremap)
 
     except Exception as e:
-        pass
+        requests.post(SLACK_WEBHOOK_URL, json={
+                      "text": f"get_hardwaremap_handler\n\n{traceback.format_exc()}"})

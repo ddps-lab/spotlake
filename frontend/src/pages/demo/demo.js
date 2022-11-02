@@ -13,6 +13,7 @@ import {FormControl} from "@mui/material";
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import latestAws from './latest_aws.json';
 
 LicenseInfo.setLicenseKey(
     'a2de1b3a7dbfa31c88ed686c8184b394T1JERVI6MzYzOTAsRVhQSVJZPTE2NzQzNjA3NDAwMDAsS0VZVkVSU0lPTj0x',
@@ -24,7 +25,7 @@ function Demo () {
   const canvasSection = useRef();
   const [chartColor, setChartColor] = useState(['#339f5e','#2a81ea', '#b23eff', '#ffa53e', '#ff6565']);
   const [chartModal, setChartModal] = useState(false);
-  const [getData, setGetdata] = useState([]);
+  const [getData, setGetdata] = useState(latestAws);
   const [IFGraph, setIFGraph] = useState([]);
   const [SPSGraph, setSPSGraph] = useState([]);
   const [SPGraph, setSPGraph] = useState([]);
@@ -145,7 +146,7 @@ function Demo () {
 
   useEffect(() => {
     // getLatestData("https://spotrank-latest.s3.us-west-2.amazonaws.com/latest_data/latest_spot_data.json", setGetdata);
-    getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
+    // getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
   },[])
@@ -188,11 +189,11 @@ function Demo () {
     }).then((response) => {
       setProgress({ ...progress, [curVendor]: { ...progress[curVendor], loading: false } });
       let responData = response.data;
-      responData.map((obj) => {
-        Object.keys(obj).map((key) => {
-          if (obj[key] === -1) obj[key] = "N/A";
-        });
-      });
+      // responData.map((obj) => {
+      //   Object.keys(obj).map((key) => {
+      //     if (obj[key] === -1) obj[key] = "N/A";
+      //   });
+      // });
       setLatestData(responData);
     }).catch((err) => {
       console.log(err);
@@ -226,14 +227,43 @@ function Demo () {
   }
   //AWS columns
   const columns = [
-    { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
-    { field: 'InstanceType', headerName: 'InstanceType', flex: 1},
-    { field: 'Region', headerName: 'Region', flex: 1,},
-    { field: 'AZ', headerName: 'AZ', flex: 0.5, type: 'number', description: 'Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html' },
-    { field: 'SPS', headerName: 'Availability', flex: 1.3, description: 'In AWS, it is Spot Placement Score. For details, please refer to https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html', type: 'number' },
-    { field: 'IF', headerName: 'Interruption Ratio', flex: 1.3, description: 'In AWS, it is Interruption-free score. For details, please refer to “Frequency of interruption” in https://aws.amazon.com/ec2/spot/instance-advisor/', type: 'number' },
-    { field: 'SpotPrice', headerName: 'SpotPrice ($)', type: 'number', flex: 1.3 },
-    { field: 'Savings', headerName: 'Savings (%)', flex: 1.3, type: 'number' },
+    { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true },
+    { field: 'InstanceType', headerName: 'InstanceType', flex: 1,
+      valueGetter: (params) => {
+        return params.row.InstanceType === -1 ? "N/A" : params.row.InstanceType;
+      }
+    },
+    { field: 'Region', headerName: 'Region', flex: 1,
+      valueGetter: (params) => {
+        return params.row.Region === -1 ? "N/A" : params.row.Region;
+      }
+    },
+    { field: 'AZ', headerName: 'AZ', flex: 0.5, type: 'number', description: 'Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html',
+      valueGetter: (params) => {
+        return params.row.AZ === -1 ? "N/A" : params.row.AZ;
+      }
+    },
+    { field: 'SPS', headerName: 'Availability', flex: 1.3, description: 'In AWS, it is Spot Placement Score. For details, please refer to https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html', type: 'number',
+      valueGetter: (params) => {
+        return params.row.SPS === -1 ? "N/A" : params.row.SPS;
+      }
+    },
+    { field: 'IF', headerName: 'Interruption Ratio', flex: 1.3, description: 'In AWS, it is Interruption-free score. For details, please refer to “Frequency of interruption” in https://aws.amazon.com/ec2/spot/instance-advisor/', type: 'number',
+      valueGetter: (params) => {
+        return params.row.IF === -1 ? "N/A" : params.row.IF;
+      }
+    },
+    { field: 'SpotPrice', headerName: 'SpotPrice ($)', type: 'number', flex: 1.3,
+      valueGetter: (params) => {
+        return params.row.SpotPrice === -1 ? "N/A" : params.row.SpotPrice;
+      }
+    },
+    { field: 'Savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
+      valueGetter: (params) => {
+        let savings = Math.round((params.row.OndemandPrice - params.row.SpotPrice) / params.row.OndemandPrice * 100)
+        return params.row.OndemandPrice === -1 || params.row.SpotPrice === -1 ? "N/A" : savings;
+      }
+    },
     // { field: 'SpotRank', headerName: 'SpotRank', flex: 1, type: 'number',
     //   valueGetter: (params) =>{
     //     let rank = (params.row.Savings / 100.0) * (alpha * params.row.SPS + (1-alpha) * params.row.IF)
@@ -256,14 +286,48 @@ function Demo () {
   //GCP columns
   const GCPcolumns = [
     { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
-    { field: 'InstanceType', headerName: 'InstanceType', flex: 1.3},
-    { field: 'Region', headerName: 'Region', flex: 1,},
-    { field: 'Calculator OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number' },
-    { field: 'Calculator Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number' },
-    { field: 'Calculator Savings', headerName: 'Savings', flex: 1, type: 'number' },
-    { field: 'VM Instance OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number' },
-    { field: 'VM Instance Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number' },
-    { field: 'VM Instance Savings', headerName: 'Savings', flex: 1, type: 'number' },
+    { field: 'InstanceType', headerName: 'InstanceType', flex: 1.3,
+      valueGetter: (params) => {
+        return params.row.InstanceType === -1 ? "N/A" : params.row.InstanceType;
+      }
+    },
+    { field: 'Region', headerName: 'Region', flex: 1,
+      valueGetter: (params) => {
+        return params.row.Region === -1 ? "N/A" : params.row.Region;
+      }
+    },
+    { field: 'Calculator OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
+      valueGetter: (params) => {
+        return params.row['Calculator OnDemand Price'] === -1 ? "N/A" : params.row['Calculator OnDemand Price'];
+      }
+    },
+    { field: 'Calculator Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number',
+      valueGetter: (params) => {
+        return params.row['Calculator Preemptible Price'] === -1 ? "N/A" : params.row['Calculator Preemptible Price'];
+      }
+    },
+    { field: 'Calculator Savings', headerName: 'Savings', flex: 1, type: 'number',
+      valueGetter: (params) => {
+        let savings = Math.round((params.row['Calculator OnDemand Price'] - params.row['Calculator Preemptible Price']) / params.row['Calculator OnDemand Price'] * 100)
+        return params.row['Calculator OnDemand Price'] === -1 || params.row['Calculator Preemptible Price'] === -1  ? "N/A" : savings;
+      }
+    },
+    { field: 'VM Instance OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
+      valueGetter: (params) => {
+        return params.row['VM Instance OnDemand Price'] === -1 ? "N/A" : params.row['VM Instance OnDemand Price'];
+      }
+    },
+    { field: 'VM Instance Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number',
+      valueGetter: (params) => {
+        return params.row['VM Instance Preemptible Price'] === -1 ? "N/A" : params.row['VM Instance Preemptible Price'];
+      }
+    },
+    { field: 'VM Instance Savings', headerName: 'Savings', flex: 1, type: 'number',
+      valueGetter: (params) => {
+        let savings = Math.round((params.row['VM Instance OnDemand Price'] - params.row['VM Instance Preemptible Price']) / params.row['VM Instance OnDemand Price'] * 100)
+        return params.row['VM Instance OnDemand Price'] === -1 ? "N/A" : savings;
+      }
+    },
     {field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
   ];
   const GCPcolumnGroup = [
@@ -281,13 +345,42 @@ function Demo () {
   //AZURE columns
   const AZUREcolumns = [
     { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
-    { field: 'instanceTier', headerName: 'InstanceTier', flex: 1},
-    { field: 'instanceType', headerName: 'InstanceType', flex: 1},
-    { field: 'region', headerName: 'Region', flex: 1,},
-    { field: 'ondemandPrice', headerName: 'OndemandPrice', flex: 1, type: 'number' },
-    { field: 'spotPrice', headerName: 'SpotPrice', flex: 1.3, type: 'number' },
-    { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number' },
-    { field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
+    { field: 'instanceTier', headerName: 'InstanceTier', flex: 1 ,
+      valueGetter: (params) => {
+        return params.row.instanceTier === -1 ? "N/A" : params.row.instanceTier;
+      }
+    },
+    { field: 'instanceType', headerName: 'InstanceType', flex: 1,
+      valueGetter: (params) => {
+        return params.row.instanceType === -1 ? "N/A" : params.row.instanceType;
+      }
+    },
+    { field: 'region', headerName: 'Region', flex: 1,
+      valueGetter: (params) => {
+        return params.row.region === -1 ? "N/A" : params.row.region;
+      }
+    },
+    { field: 'ondemandPrice', headerName: 'OndemandPrice', flex: 1, type: 'number',
+      valueGetter: (params) => {
+        return params.row.ondemandPrice === -1 ? "N/A" : params.row.ondemandPrice;
+      }
+    },
+    { field: 'spotPrice', headerName: 'SpotPrice', flex: 1.3, type: 'number',
+      valueGetter: (params) => {
+        return params.row.spotPrice === -1 ? "N/A" : params.row.spotPrice === -1;
+      }
+    },
+    { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
+      valueGetter: (params) => {
+        let savings = Math.round((params.row.ondemandPrice - params.row.spotPrice) / params.row.ondemandPrice * 100)
+        return params.row.ondemandPrice === -1 || params.row.spotPrice === -1 ? "N/A" : savings;
+      }
+    },
+    { field: 'Date', headerName: 'Date', type: 'date', flex: 2,
+      valueGetter: (params) => {
+        return params.row.Date === -1 && "N/A";
+      }
+    }
   ];
 
   const CustomToolbar = () => (

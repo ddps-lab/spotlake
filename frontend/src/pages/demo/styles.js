@@ -65,7 +65,7 @@ export const calimg = styled.img`
 `;
 export const table = styled.div`
   width: 100%;
-  height: 1000px;
+  height: 100vh;
   overflow-x: scroll;
   position: relative;
   margin-bottom: 50px;

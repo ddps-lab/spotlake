@@ -9,8 +9,8 @@ def get_url_list(page_url):
     # get iframe url list from VM Instance Pricing page
     # input : VM Instance Pricing page url
     # output : url list containing all iframe's url
+    
     url_list = []
-
     response = requests.get(page_url)
     if response.status_code == 200:
         html = response.text
@@ -99,12 +99,12 @@ def extract_price(table, output):
                     preemptible_prc = ''
 
                     if ondemand_str == 'Not available in this region':
-                        ondemand_prc = None
+                        ondemand_prc = -1
                     else:
                         ondemand_prc = float(ondemand_str.split('$')[1])
 
                     if preemptible_str == 'Not available in this region':
-                        preemptible_prc = None
+                        preemptible_prc = -1
                     else:
                         preemptible_prc = float(preemptible_str.split('$')[1])
 

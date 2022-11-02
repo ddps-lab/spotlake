@@ -28,7 +28,7 @@ function Demo () {
   const [IFGraph, setIFGraph] = useState([]);
   const [SPSGraph, setSPSGraph] = useState([]);
   const [SPGraph, setSPGraph] = useState([]);
-  const [searchFilter, setSearchFilter] = useState({instance: '', region: '', start_date: '', end_date: ''});
+  const [searchFilter, setSearchFilter] = useState({instance: '', region: '', az: '', start_date: '', end_date: '', tier: ''});
   const [alpha, setAlpha] = useState(0.7);
   const alphaInput = useRef();
   const [pageSize, setPageSize] = useState(1000);
@@ -116,14 +116,7 @@ function Demo () {
   },[window.innerWidth]);
 
   useEffect(() => {
-    setSearchFilter({
-      instance: '',
-      region: '',
-      start_date: '',
-      end_date: '',
-      ...(vendor === 'AWS' && {az: ''}),
-      ...(vendor === 'AZURE' && {tier: ''}),
-    });
+    setSearchFilter({instance: '', region: '', az: '', start_date: '', end_date: ''})
     setAssoRegion();
     setAssoInstance();
     setAssoAZ();
@@ -148,6 +141,7 @@ function Demo () {
     getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
+    console.log("github action test 20221101 17:45 update")
   },[])
 
   useEffect(() => { //데이터 가져오기 한번 끝날때마다 한곳에 모으기
@@ -597,14 +591,14 @@ function Demo () {
             :null}
           {vendor === 'AZURE' &&
             <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
-              <style.filterLabel id="tier-input-label" vendor={vendor}>Tier</style.filterLabel>
+              <style.filterLabel id="instance-tier-input-label" vendor={vendor}>Tier</style.filterLabel>
               <style.filterSelect
-                labelId="tier-input-label"
-                id="tier-input"
+                labelId="instance-tier-input-label"
+                id="instance-tier-input"
                 value={searchFilter['tier']}
                 onChange={setFilter}
-                label="Tier"
-                name="tier"
+                label="instance-tier"
+                name="instance-tier"
                 vendor={vendor}
               >
                 {assoAZ ? assoAZ.map((e) => (

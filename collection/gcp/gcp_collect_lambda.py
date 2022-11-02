@@ -7,13 +7,13 @@ import botocore
 
 from load_pricelist import get_price, preprocessing_price
 from load_vminstance_pricing import get_url_list, get_table, extract_price
-from upload_data import save_raw, update_latest
+from upload_data import save_raw, update_latest, upload_timestream
 from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
-BUCKET_NAME = 'test-gcp-lambda'         # need to change -> 'spotlake'
+BUCKET_NAME = 'spotlake'
 KEY = 'latest_data/latest_gcp.json'
 
 
@@ -34,8 +34,8 @@ def gcp_collect(timestamp) :
         output_vminstance_pricing[machine_type] = {}
         for region in region_list:
             output_vminstance_pricing[machine_type][region] = {}
-            output_vminstance_pricing[machine_type][region]['ondemand'] = None
-            output_vminstance_pricing[machine_type][region]['preemptible'] = None
+            output_vminstance_pricing[machine_type][region]['ondemand'] = -1
+            output_vminstance_pricing[machine_type][region]['preemptible'] = -1
     
     url_list = get_url_list(PAGE_URL)
     
@@ -71,8 +71,8 @@ def gcp_collect(timestamp) :
     
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == '404':
-            update_latest(df_current)
-            # upload_timestream(df_current, timestamp)
+            update_latest(df_current, timestamp)
+            upload_timestream(df_current, timestamp)
             return
         else:
             print(e)
@@ -84,7 +84,7 @@ def gcp_collect(timestamp) :
     df_previous = pd.DataFrame(data)
     
     # update latest (current data -> latest data)
-    update_latest(df_current)
+    update_latest(df_current, timestamp)
     
     # compare previous and current data
     workload_cols = ['InstanceType', 'Region']
@@ -93,8 +93,8 @@ def gcp_collect(timestamp) :
     changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
         
     # wirte timestream
-    # upload_timestream(changed_df, timestamp)
-    # upload_timestream(removed_df, timestamp)
+    upload_timestream(changed_df, timestamp)
+    upload_timestream(removed_df, timestamp)
 
     
 def lambda_handler(event, context):

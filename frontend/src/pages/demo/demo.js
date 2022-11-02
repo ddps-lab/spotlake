@@ -13,7 +13,6 @@ import {FormControl} from "@mui/material";
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import latestAws from './latest_aws.json';
 
 LicenseInfo.setLicenseKey(
     'a2de1b3a7dbfa31c88ed686c8184b394T1JERVI6MzYzOTAsRVhQSVJZPTE2NzQzNjA3NDAwMDAsS0VZVkVSU0lPTj0x',
@@ -25,7 +24,7 @@ function Demo () {
   const canvasSection = useRef();
   const [chartColor, setChartColor] = useState(['#339f5e','#2a81ea', '#b23eff', '#ffa53e', '#ff6565']);
   const [chartModal, setChartModal] = useState(false);
-  const [getData, setGetdata] = useState(latestAws);
+  const [getData, setGetdata] = useState([]);
   const [IFGraph, setIFGraph] = useState([]);
   const [SPSGraph, setSPSGraph] = useState([]);
   const [SPGraph, setSPGraph] = useState([]);
@@ -146,7 +145,7 @@ function Demo () {
 
   useEffect(() => {
     // getLatestData("https://spotrank-latest.s3.us-west-2.amazonaws.com/latest_data/latest_spot_data.json", setGetdata);
-    // getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
+    getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
     // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
   },[])

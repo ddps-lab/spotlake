@@ -253,8 +253,9 @@ function Demo () {
     },
     { field: 'Savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
       valueGetter: (params) => {
+        if (params.row.OndemandPrice === -1 || params.row.SpotPrice === -1) return "N/A";
         let savings = Math.round((params.row.OndemandPrice - params.row.SpotPrice) / params.row.OndemandPrice * 100)
-        return params.row.OndemandPrice === -1 || params.row.SpotPrice === -1 ? "N/A" : savings;
+        return savings;
       }
     },
     // { field: 'SpotRank', headerName: 'SpotRank', flex: 1, type: 'number',
@@ -301,8 +302,9 @@ function Demo () {
     },
     { field: 'Calculator Savings', headerName: 'Savings', flex: 1, type: 'number',
       valueGetter: (params) => {
+        if (params.row['Calculator OnDemand Price'] === -1 || params.row['Calculator Preemptible Price'] === -1) return "N/A";
         let savings = Math.round((params.row['Calculator OnDemand Price'] - params.row['Calculator Preemptible Price']) / params.row['Calculator OnDemand Price'] * 100)
-        return params.row['Calculator OnDemand Price'] === -1 || params.row['Calculator Preemptible Price'] === -1  ? "N/A" : savings;
+        return savings;
       }
     },
     { field: 'VM Instance OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
@@ -317,8 +319,9 @@ function Demo () {
     },
     { field: 'VM Instance Savings', headerName: 'Savings', flex: 1, type: 'number',
       valueGetter: (params) => {
+        if (params.row['VM Instance Preemptible Price'] === -1 || params.row['VM Instance OnDemand Price'] === -1) return "N/A";
         let savings = Math.round((params.row['VM Instance OnDemand Price'] - params.row['VM Instance Preemptible Price']) / params.row['VM Instance OnDemand Price'] * 100)
-        return params.row['VM Instance OnDemand Price'] === -1 ? "N/A" : savings;
+        return savings;
       }
     },
     {field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
@@ -365,8 +368,9 @@ function Demo () {
     },
     { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
       valueGetter: (params) => {
+        if (params.row.ondemandPrice === -1 || params.row.spotPrice === -1) return "N/A";
         let savings = Math.round((params.row.ondemandPrice - params.row.spotPrice) / params.row.ondemandPrice * 100)
-        return params.row.ondemandPrice === -1 || params.row.spotPrice === -1 ? "N/A" : savings;
+        return savings;
       }
     },
     { field: 'Date', headerName: 'Date', type: 'date', flex: 2,

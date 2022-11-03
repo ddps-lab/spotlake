@@ -13,7 +13,6 @@ import {FormControl} from "@mui/material";
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import queryAws from './query_aws.json';
 
 LicenseInfo.setLicenseKey(
     'a2de1b3a7dbfa31c88ed686c8184b394T1JERVI6MzYzOTAsRVhQSVJZPTE2NzQzNjA3NDAwMDAsS0VZVkVSU0lPTj0x',
@@ -451,49 +450,48 @@ function Demo () {
 
   const querySubmit = async () => {
     // 쿼리를 날리기 전에 searchFilter에 있는 값들이 비어있지 않은지 확인.
-    // const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false)
-    // if (invalidQuery) {
-    //   alert("The query is invalid. \nPlease check your search option.");
-    //   return;
-    // }
-    // //start_date , end_date 비교 후 start_date가 end_date보다 이전일 경우에만 데이터 요청
-    // if (searchFilter["start_date"] <= searchFilter["end_date"]){
-    //   // button load True로 설정
-    //   setLoad(true);
-    //   //guery 요청시 들어가는 Params, params의 값은 searchFilter에 저장되어 있음
-    //   const params  = {
-    //     TableName: vendor.toLowerCase(),
-    //     ...(vendor === 'AWS' && { AZ: searchFilter["az"] === 'ALL' ? "*" : searchFilter["az"] }),
-    //     Region: searchFilter["region"] === 'ALL' ? "*" : searchFilter["region"],
-    //     InstanceType: searchFilter["instance"] === 'ALL' ? "*" : searchFilter["instance"],
-    //     ...(vendor === 'AZURE' && { InstanceTier: searchFilter["tier"] === 'ALL' ? '*' : searchFilter["tier"] }),
-    //     Start: searchFilter["start_date"] === '' ? "*" : searchFilter["start_date"],
-    //     End: searchFilter["end_date"] === '' ? "*" : searchFilter["end_date"]
-    //   };
-    //   //현재 url = "https://puhs0z1q3l.execute-api.us-west-2.amazonaws.com/default/sungjae-timestream-query";
-    //   await axios.get(url,{params})
-    //     .then((res) => {
-    //     //get 요청을 통해 받는 리턴값
-    //     let parseData = JSON.parse(res.data);
-    //     const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
-    //     setQueryData(parseData);
-    //     let dataCnt = parseData.length;
-    //     if (dataCnt<20000){
-    //       alert("Total "+dataCnt+" data points have been returned")
-    //     }else if (dataCnt === 20000){
-    //       alert("The maximum number of data points has been returned (20,000)")
-    //     }
-    //     // button load false로 설정
-    //     setLoad(false);
-    //   }).catch((e) => {
-    //     console.log(e);
-    //     alert("The query is invalid. \nPlease check your search option.");
-    //     setLoad(false);
-    //   })}
-    // else {
-    //   alert("The date range for the query is invalid. Please set the date correctly.");
-    // };
-    setGetdata(JSON.parse(queryAws));
+    const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false)
+    if (invalidQuery) {
+      alert("The query is invalid. \nPlease check your search option.");
+      return;
+    }
+    //start_date , end_date 비교 후 start_date가 end_date보다 이전일 경우에만 데이터 요청
+    if (searchFilter["start_date"] <= searchFilter["end_date"]){
+      // button load True로 설정
+      setLoad(true);
+      //guery 요청시 들어가는 Params, params의 값은 searchFilter에 저장되어 있음
+      const params  = {
+        TableName: vendor.toLowerCase(),
+        ...(vendor === 'AWS' && { AZ: searchFilter["az"] === 'ALL' ? "*" : searchFilter["az"] }),
+        Region: searchFilter["region"] === 'ALL' ? "*" : searchFilter["region"],
+        InstanceType: searchFilter["instance"] === 'ALL' ? "*" : searchFilter["instance"],
+        ...(vendor === 'AZURE' && { InstanceTier: searchFilter["tier"] === 'ALL' ? '*' : searchFilter["tier"] }),
+        Start: searchFilter["start_date"] === '' ? "*" : searchFilter["start_date"],
+        End: searchFilter["end_date"] === '' ? "*" : searchFilter["end_date"]
+      };
+      //현재 url = "https://puhs0z1q3l.execute-api.us-west-2.amazonaws.com/default/sungjae-timestream-query";
+      await axios.get(url,{params})
+        .then((res) => {
+        //get 요청을 통해 받는 리턴값
+        let parseData = JSON.parse(res.data);
+        const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
+        setQueryData(parseData);
+        let dataCnt = parseData.length;
+        if (dataCnt<20000){
+          alert("Total "+dataCnt+" data points have been returned")
+        }else if (dataCnt === 20000){
+          alert("The maximum number of data points has been returned (20,000)")
+        }
+        // button load false로 설정
+        setLoad(false);
+      }).catch((e) => {
+        console.log(e);
+        alert("The query is invalid. \nPlease check your search option.");
+        setLoad(false);
+      })}
+    else {
+      alert("The date range for the query is invalid. Please set the date correctly.");
+    };
   };
 
   const LinearProgressWithLabel = (props) => {

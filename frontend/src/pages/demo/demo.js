@@ -223,37 +223,38 @@ function Demo () {
     { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true },
     { field: 'InstanceType', headerName: 'InstanceType', flex: 1,
       valueGetter: (params) => {
-        return params.row.InstanceType === -1 ? "N/A" : params.row.InstanceType;
+        return params.row.InstanceType == -1 ? "N/A" : params.row.InstanceType;
       }
     },
     { field: 'Region', headerName: 'Region', flex: 1,
       valueGetter: (params) => {
-        return params.row.Region === -1 ? "N/A" : params.row.Region;
+        return params.row.Region == -1 ? "N/A" : params.row.Region;
       }
     },
     { field: 'AZ', headerName: 'AZ', flex: 0.5, type: 'number', description: 'Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html',
       valueGetter: (params) => {
-        return params.row.AZ === -1 ? "N/A" : params.row.AZ;
+        return params.row.AZ == -1 ? "N/A" : params.row.AZ;
       }
     },
     { field: 'SPS', headerName: 'Availability', flex: 1.3, description: 'In AWS, it is Spot Placement Score. For details, please refer to https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html', type: 'number',
       valueGetter: (params) => {
-        return params.row.SPS === -1 ? "N/A" : params.row.SPS;
+        return params.row.SPS == -1 ? "N/A" : params.row.SPS;
       }
     },
     { field: 'IF', headerName: 'Interruption Ratio', flex: 1.3, description: 'In AWS, it is Interruption-free score. For details, please refer to “Frequency of interruption” in https://aws.amazon.com/ec2/spot/instance-advisor/', type: 'number',
       valueGetter: (params) => {
-        return params.row.IF === -1 ? "N/A" : params.row.IF;
+        return params.row.IF == -1 ? "N/A" : params.row.IF;
       }
     },
     { field: 'SpotPrice', headerName: 'SpotPrice ($)', type: 'number', flex: 1.3,
       valueGetter: (params) => {
-        return params.row.SpotPrice === -1 ? "N/A" : params.row.SpotPrice;
+        return params.row.SpotPrice == -1 ? "N/A" : params.row.SpotPrice;
       }
     },
     { field: 'Savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
       valueGetter: (params) => {
-        if (params.row.OndemandPrice === -1 || params.row.SpotPrice === -1) return "N/A";
+        if (!params.row.OndemandPrice || !params.row.SpotPrice) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+        else if (params.row.OndemandPrice == -1 || params.row.SpotPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
         let savings = Math.round((params.row.OndemandPrice - params.row.SpotPrice) / params.row.OndemandPrice * 100)
         return savings;
       }
@@ -282,44 +283,46 @@ function Demo () {
     { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
     { field: 'InstanceType', headerName: 'InstanceType', flex: 1.3,
       valueGetter: (params) => {
-        return params.row.InstanceType === -1 ? "N/A" : params.row.InstanceType;
+        return params.row.InstanceType == -1 ? "N/A" : params.row.InstanceType;
       }
     },
     { field: 'Region', headerName: 'Region', flex: 1,
       valueGetter: (params) => {
-        return params.row.Region === -1 ? "N/A" : params.row.Region;
+        return params.row.Region == -1 ? "N/A" : params.row.Region;
       }
     },
     { field: 'Calculator OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
       valueGetter: (params) => {
-        return params.row['Calculator OnDemand Price'] === -1 ? "N/A" : params.row['Calculator OnDemand Price'];
+        return params.row['Calculator OnDemand Price'] == -1 ? "N/A" : params.row['Calculator OnDemand Price'];
       }
     },
     { field: 'Calculator Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number',
       valueGetter: (params) => {
-        return params.row['Calculator Preemptible Price'] === -1 ? "N/A" : params.row['Calculator Preemptible Price'];
+        return params.row['Calculator Preemptible Price'] == -1 ? "N/A" : params.row['Calculator Preemptible Price'];
       }
     },
     { field: 'Calculator Savings', headerName: 'Savings', flex: 1, type: 'number',
       valueGetter: (params) => {
-        if (params.row['Calculator OnDemand Price'] === -1 || params.row['Calculator Preemptible Price'] === -1) return "N/A";
+        if (!params.row['Calculator OnDemand Price'] || !params.row['Calculator Preemptible Price']) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+        else if (params.row['Calculator OnDemand Price'] == -1 || params.row['Calculator Preemptible Price'] == -1) return "N/A";  // 값이 -1일 경우 (string, num...)
         let savings = Math.round((params.row['Calculator OnDemand Price'] - params.row['Calculator Preemptible Price']) / params.row['Calculator OnDemand Price'] * 100)
         return savings;
       }
     },
     { field: 'VM Instance OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
       valueGetter: (params) => {
-        return params.row['VM Instance OnDemand Price'] === -1 ? "N/A" : params.row['VM Instance OnDemand Price'];
+        return params.row['VM Instance OnDemand Price'] == -1 ? "N/A" : params.row['VM Instance OnDemand Price'];
       }
     },
     { field: 'VM Instance Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number',
       valueGetter: (params) => {
-        return params.row['VM Instance Preemptible Price'] === -1 ? "N/A" : params.row['VM Instance Preemptible Price'];
+        return params.row['VM Instance Preemptible Price'] == -1 ? "N/A" : params.row['VM Instance Preemptible Price'];
       }
     },
     { field: 'VM Instance Savings', headerName: 'Savings', flex: 1, type: 'number',
       valueGetter: (params) => {
-        if (params.row['VM Instance Preemptible Price'] === -1 || params.row['VM Instance OnDemand Price'] === -1) return "N/A";
+        if (!params.row['VM Instance Preemptible Price'] || !params.row['VM Instance OnDemand Price']) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+        else if (params.row['VM Instance Preemptible Price'] == -1 || params.row['VM Instance OnDemand Price'] == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
         let savings = Math.round((params.row['VM Instance OnDemand Price'] - params.row['VM Instance Preemptible Price']) / params.row['VM Instance OnDemand Price'] * 100)
         return savings;
       }
@@ -343,39 +346,40 @@ function Demo () {
     { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
     { field: 'instanceTier', headerName: 'InstanceTier', flex: 1 ,
       valueGetter: (params) => {
-        return params.row.instanceTier === -1 ? "N/A" : params.row.instanceTier;
+        return params.row.instanceTier == -1 ? "N/A" : params.row.instanceTier;
       }
     },
     { field: 'instanceType', headerName: 'InstanceType', flex: 1,
       valueGetter: (params) => {
-        return params.row.instanceType === -1 ? "N/A" : params.row.instanceType;
+        return params.row.instanceType == -1 ? "N/A" : params.row.instanceType;
       }
     },
     { field: 'region', headerName: 'Region', flex: 1,
       valueGetter: (params) => {
-        return params.row.region === -1 ? "N/A" : params.row.region;
+        return params.row.region == -1 ? "N/A" : params.row.region;
       }
     },
     { field: 'ondemandPrice', headerName: 'OndemandPrice', flex: 1, type: 'number',
       valueGetter: (params) => {
-        return params.row.ondemandPrice === -1 ? "N/A" : params.row.ondemandPrice;
+        return params.row.ondemandPrice == -1 ? "N/A" : params.row.ondemandPrice;
       }
     },
     { field: 'spotPrice', headerName: 'SpotPrice', flex: 1.3, type: 'number',
       valueGetter: (params) => {
-        return params.row.spotPrice === -1 ? "N/A" : params.row.spotPrice === -1;
+        return params.row.spotPrice == -1 ? "N/A" : params.row.spotPrice == -1;
       }
     },
     { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
       valueGetter: (params) => {
-        if (params.row.ondemandPrice === -1 || params.row.spotPrice === -1) return "N/A";
+        if (!params.row.ondemandPrice || !params.row.spotPrice) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+        else if (params.row.ondemandPrice == -1 || params.row.spotPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
         let savings = Math.round((params.row.ondemandPrice - params.row.spotPrice) / params.row.ondemandPrice * 100)
         return savings;
       }
     },
     { field: 'Date', headerName: 'Date', type: 'date', flex: 2,
       valueGetter: (params) => {
-        return params.row.Date === -1 && "N/A";
+        return params.row.Date == -1 && "N/A";
       }
     }
   ];

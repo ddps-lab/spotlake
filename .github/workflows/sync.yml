@@ -20,3 +20,5 @@ jobs:
       - uses: actions/checkout@v2
       - name: "Sync with AWS S3"
         run: aws s3 sync ./frontend/build/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} --acl public-read --delete
+      - name: "Create Invalidation"
+        run: aws cloudfront create-invalidation --distribution-id EM3KPE8H4PYYF --paths "/*"

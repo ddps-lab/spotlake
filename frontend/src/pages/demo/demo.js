@@ -366,7 +366,7 @@ function Demo () {
     },
     { field: 'spotPrice', headerName: 'SpotPrice', flex: 1.3, type: 'number',
       valueGetter: (params) => {
-        return params.row.spotPrice == -1 ? "N/A" : params.row.spotPrice == -1;
+        return params.row.spotPrice == -1 ? "N/A" : params.row.spotPrice;
       }
     },
     { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
@@ -377,11 +377,7 @@ function Demo () {
         return isNaN(savings) ? "N/A" : savings;
       }
     },
-    { field: 'Date', headerName: 'Date', type: 'date', flex: 2,
-      valueGetter: (params) => {
-        return params.row.Date == -1 && "N/A";
-      }
-    }
+    { field: 'time', headerName: 'Date', type: 'date', flex: 2 }
   ];
 
   const CustomToolbar = () => (

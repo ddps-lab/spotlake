@@ -327,7 +327,7 @@ function Demo () {
         return isNaN(savings) ? "N/A" : savings;
       }
     },
-    {field: 'Date', headerName: 'Date', type: 'date', flex: 2 }
+    {field: 'time', headerName: 'Date', type: 'date', flex: 2 }
   ];
   const GCPcolumnGroup = [
     {

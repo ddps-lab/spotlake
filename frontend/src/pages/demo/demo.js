@@ -28,7 +28,7 @@ function Demo () {
   const [IFGraph, setIFGraph] = useState([]);
   const [SPSGraph, setSPSGraph] = useState([]);
   const [SPGraph, setSPGraph] = useState([]);
-  const [searchFilter, setSearchFilter] = useState({instance: '', region: '', az: '', start_date: '', end_date: '', tier: ''});
+  const [searchFilter, setSearchFilter] = useState({instance: '', region: '', start_date: '', end_date: ''});
   const [alpha, setAlpha] = useState(0.7);
   const alphaInput = useRef();
   const [pageSize, setPageSize] = useState(1000);
@@ -116,7 +116,7 @@ function Demo () {
   },[window.innerWidth]);
 
   useEffect(() => {
-    setSearchFilter({instance: '', region: '', az: '', start_date: '', end_date: ''})
+    setSearchFilter({instance: '', region: '', start_date: '', end_date: ''})
     setAssoRegion();
     setAssoInstance();
     setAssoAZ();

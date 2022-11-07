@@ -1,4 +1,5 @@
 # SpotLake
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7084392.svg)](https://doi.org/10.5281/zenodo.7084392)
 
 ## What is SpotLake System?
 SpotLake system is an integrated data archive service that provides spot instance datasets collected from diverse public cloud vendors.The datasets include various information about spot instances like spot availability, spot interruption frequency, and spot price. Researchers and developers can utilize the SpotLake system to make their own system more cost-efficiently. SpotLake system currently provides the latest and restricted range of spot datasets collected from AWS, Google Cloud, and Azure through a demo page. We believe numerous systems could achieve a huge improvement in cost efficiency by utilizing the SpotLake system.
@@ -6,7 +7,7 @@ SpotLake system is an integrated data archive service that provides spot instanc
 ## Paper and Demo-Web
 If you are interested in an analysis of the SpotLake datasets or system implementation, check the latest version of the SpotLake paper which is published in IISWC 2022. We also published an older version of the paper through arXiv.
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7084389.svg)](https://doi.org/10.5281/zenodo.7084389)
+*-link will be available soon-*
 
 Demo-Web is provided so that users can easily access SpotLake data.
 

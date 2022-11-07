@@ -6,7 +6,7 @@ SpotLake system is an integrated data archive service that provides spot instanc
 ## Paper and Demo-Web
 If you are interested in an analysis of the SpotLake datasets or system implementation, check the latest version of the SpotLake paper which is published in IISWC 2022. We also published an older version of the paper through arXiv.
 
-*-Insert here DOI link-*
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7084389.svg)](https://doi.org/10.5281/zenodo.7084389)
 
 Demo-Web is provided so that users can easily access SpotLake data.
 

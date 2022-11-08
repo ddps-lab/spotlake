@@ -476,9 +476,9 @@ function Demo () {
         setLoad(false);
       }).catch((e) => {
         if (e.message === "Network Error"){
-          alert("A network error occurred")
+          alert("A network error occurred. Try it again. ")
         }
-        console.log(e.name);
+        console.log(e);
         setLoad(false);
       })}
     else {

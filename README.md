@@ -1,13 +1,29 @@
-# SpotLake
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7084392.svg)](https://doi.org/10.5281/zenodo.7084392)
+# SpotLake [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7084392.svg)](https://doi.org/10.5281/zenodo.7084392)
 
 ## What is SpotLake System?
 SpotLake system is an integrated data archive service that provides spot instance datasets collected from diverse public cloud vendors.The datasets include various information about spot instances like spot availability, spot interruption frequency, and spot price. Researchers and developers can utilize the SpotLake system to make their own system more cost-efficiently. SpotLake system currently provides the latest and restricted range of spot datasets collected from AWS, Google Cloud, and Azure through a demo page. We believe numerous systems could achieve a huge improvement in cost efficiency by utilizing the SpotLake system.
 
+## About Code
+```
+.
+├── analysis : analysis spot instance's data
+├── collection : codes to collect spot instance's data (in aws, azure and gcp)
+│   ├── aws
+│   ├── azure
+│   └── gcp
+├── frontend : codes of https://spotlake.ddps.cloud
+│   ├── build
+│   ├── public
+│   └── src
+├── migration : codes to migrate timeseries data from one to other
+├── monitoring : monitoring the collector's status
+├── preprocessing : preprocess data to analysis
+└── utility : etc tools
+```
 ## Paper and Demo-Web
 If you are interested in an analysis of the SpotLake datasets or system implementation, check the latest version of the SpotLake paper which is published in IISWC 2022. We also published an older version of the paper through arXiv.
 
-*-link will be available soon-*
+[spotlake-ieee-official.pdf](https://github.com/ddps-lab/spotlake/files/9962402/879800a242.pdf)
 
 Demo-Web is provided so that users can easily access SpotLake data.
 
@@ -24,7 +40,7 @@ https://spotlake.ddps.cloud/
 3. **Filtering**
 <br>User can apply additional filter to the table that shows default latest dataset or queried dataset. For instance, user can select specific data points that contains specific character in Instance Type column or filter by size of the score. Also table could be exported in the CSV format with EXPORT button.
 
-## How to access full dataset
+## How to Access Full Dataset
 We can not provide the full dataset through this web-service because the dataset is too large. Those who want to access the full dataset of the SpotLake system, please fill out the google form below and we will give you access permission for the full dataset.
 
 https://forms.gle/zUAqmJ4B9fuaUhE89

@@ -475,11 +475,13 @@ function Demo () {
         // button load false로 설정
         setLoad(false);
       }).catch((e) => {
+        console.log(e)
+        setLoad(false);
         if (e.message === "Network Error"){
           alert("A network error occurred. Try it again. ")
+        }else {
+          alert(e.message)
         }
-        console.log(e);
-        setLoad(false);
       })}
     else {
       alert("The date range for the query is invalid. Please set the date correctly.");

@@ -132,16 +132,10 @@ function Demo () {
         getLatestData(vendor, "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
       }
     }
-
-    // if (getData!== []) {setProgress(0);}
   },[vendor])
 
   useEffect(() => {
-    // getLatestData("https://spotrank-latest.s3.us-west-2.amazonaws.com/latest_data/latest_spot_data.json", setGetdata);
     getLatestData('AWS', "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json", setGetdata);
-    // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json", setAZUREData);
-    // getLatestData("https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json", setGCPData);
-    console.log("github action test 20221101 17:45 update")
   },[])
 
   useEffect(() => { //데이터 가져오기 한번 끝날때마다 한곳에 모으기
@@ -481,9 +475,13 @@ function Demo () {
         // button load false로 설정
         setLoad(false);
       }).catch((e) => {
-        console.log(e);
-        alert("The query is invalid. \nPlease check your search option.");
+        console.log(e)
         setLoad(false);
+        if (e.message === "Network Error"){
+          alert("A network error occurred. Try it again. ")
+        }else {
+          alert(e.message)
+        }
       })}
     else {
       alert("The date range for the query is invalid. Please set the date correctly.");
@@ -523,15 +521,27 @@ function Demo () {
         {/*</style.imgDiv>*/}
         {/*<style.filterTitle>Fill the Boxes for take a specific value</style.filterTitle>*/}
         <style.vendor>
-          <style.vendorBtn onClick={() => {setVendor('AWS')}} clicked={vendor==='AWS'}>
+          <style.vendorBtn
+            onClick={() => {setVendor('AWS')}}
+            clicked={vendor==='AWS'}
+            disabled={progress[vendor].loading}
+          >
             <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/awsIcon.png'} alt="awsIcon"/>
             <style.vendorTitle>Amazon Web Services</style.vendorTitle>
           </style.vendorBtn>
-          <style.vendorBtn onClick={() => {setVendor('GCP')}} clicked={vendor==='GCP'}>
+          <style.vendorBtn
+            onClick={() => {setVendor('GCP')}}
+            clicked={vendor==='GCP'}
+            disabled={progress[vendor].loading}
+          >
             <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/gcpIcon.png'} alt="awsIcon"/>
             <style.vendorTitle>Google Cloud Platform</style.vendorTitle>
           </style.vendorBtn>
-          <style.vendorBtn onClick={() => {setVendor('AZURE')}} clicked={vendor==='AZURE'}>
+          <style.vendorBtn
+            onClick={() => {setVendor('AZURE')}}
+            clicked={vendor==='AZURE'}
+            disabled={progress[vendor].loading}
+          >
             <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/azureIcon.png'} alt="awsIcon"/>
             <style.vendorTitle>Microsoft Azure</style.vendorTitle>
           </style.vendorBtn>
@@ -689,6 +699,7 @@ function Demo () {
           {vendor && progress[vendor].loading &&
             <style.progressBar vendor={vendor}>
               <LinearProgressWithLabel value={progress[vendor].percent} />
+              <style.noticeMsg>After the data is loaded, you can change to other vendors.</style.noticeMsg>
             </style.progressBar>}
             <style.dataTable
                 rows={vendor==='AWS' ? getData : vendor === 'GCP' ? GCPData : AZUREData}
@@ -719,6 +730,9 @@ function Demo () {
                   '& .MuiDataGrid-cellCheckbox:focus-within' :{
                     outline : vendor==='AWS' ? 'solid rgba(246, 141, 17, 0.5) 1px !important' : vendor === 'GCP' ?'solid rgba(234, 67, 53, 0.5) 1px !important' : 'solid rgba(0, 103, 184, 0.5) 1px !important'
                   },
+                  "& .MuiDataGrid-cell" : {
+                    justifyContent : "center !important",
+                  }
                 }}
             />
         </style.table>

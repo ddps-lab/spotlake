@@ -30,3 +30,13 @@ export const navBtn = styled.button`
   box-shadow: none;
   cursor: pointer;
 `;
+export const forkRibbon = styled.a`
+  height: 110%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  & img {
+    height: 100%;
+    width: auto;
+  }
+`;

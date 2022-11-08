@@ -221,3 +221,8 @@ export const progressBar = styled.div`
    background-color: ${(props) => (props.vendor==='AWS' ? '#f68d11' : props.vendor ==='GCP' ? 'rgb(234, 67, 53)': '#0067b8')};
   }
 `;
+export const noticeMsg = styled.p`
+  color: #000;
+  font-size: 14px;
+  margin: 10px 0;
+`;

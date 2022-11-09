@@ -16,8 +16,7 @@ export const demo = styled.div`
   padding-top: 10px;
   color: #fff;
 `;
-export const vendor = styled.div`
-  width: 50%;
+export const vendor = styled.div` 
   color: #000;
   margin: 50px auto;
   display: flex;
@@ -26,7 +25,7 @@ export const vendor = styled.div`
   gap: 30px;
 `;
 export const vendorBtn = styled(Button)`
-  width: 30%;
+  width: 180px;
   min-width: max-content !important;
   border: none;
   box-shadow: 0px 0px 4px rgba(0,0,0,0.26);

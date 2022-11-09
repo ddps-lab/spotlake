@@ -1,9 +1,12 @@
 import pandas as pd
 import json
+import sys
 from get_info import get_processor_info, get_vcpus_info, get_disk_info, get_memory_info, get_network_info, get_gpu_info
 
+FILE_NAME = sys.argv[1]
+FILE_PATH = f'./{FILE_NAME}'
 
-with open('aws_instance_types.json', 'r') as f:
+with open(FILE_PATH, 'r') as f:
     aws_json = json.load(f)
 df_raw = pd.DataFrame(aws_json)
 

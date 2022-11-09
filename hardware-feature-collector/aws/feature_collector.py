@@ -1,6 +1,5 @@
 import pandas as pd
 import json
-import os
 from get_info import get_processor_info, get_vcpus_info, get_disk_info, get_memory_info, get_network_info, get_gpu_info
 
 
@@ -46,7 +45,3 @@ for idx, row in df_raw.iterrows():
 
 df_aws_instances = pd.DataFrame(feature_list, columns=col_list)
 df_aws_instances.to_pickle('./aws_hardware_feature.pkl')
-
-file_path = './aws_instance_types.json'
-if os.path.exists(file_path):
-    os.remove(file_path)

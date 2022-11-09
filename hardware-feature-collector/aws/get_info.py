@@ -30,10 +30,14 @@ def get_vcpus_info(each_feature, vcpu_info):
     return each_feature
 
 def get_disk_info(each_feature, disk_info):
-    each_feature.append(disk_info['SizeInGB'])
-    each_feature.append(disk_info['Count'])
-    each_feature.append(disk_info['Type'])
-    
+    if type(disk_info) == dict: 
+        each_feature.append(disk_info['Disks'][0]['SizeInGB'])
+        each_feature.append(disk_info['Disks'][0]['Count'])
+        each_feature.append(disk_info['Disks'][0]['Type'])
+    else:
+        for i in range(0, 3):
+            each_feature.append(None)
+
     return each_feature
 
 def get_memory_info(each_feature, memory_info):
@@ -54,9 +58,13 @@ def get_network_info(each_feature, network_info):
     return each_feature
 
 def get_gpu_info(each_feature, gpu_info):
-    each_feature.append(gpu_info['Name'])
-    each_feature.append(gpu_info['Manufacturer'])
-    each_feature.append(gpu_info['Count'])
-    each_feature.append(gpu_info['MemoryInfo']['SizeInMiB'])
+    if type(gpu_info) == dict:
+        each_feature.append(gpu_info['Gpus'][0]['Name'])
+        each_feature.append(gpu_info['Gpus'][0]['Manufacturer'])
+        each_feature.append(gpu_info['Gpus'][0]['Count'])
+        each_feature.append(gpu_info['Gpus'][0]['MemoryInfo']['SizeInMiB'])
+    else:
+        for i in range(0, 4):
+            each_feature.append(None)
 
     return each_feature

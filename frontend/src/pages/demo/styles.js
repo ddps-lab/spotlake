@@ -208,7 +208,7 @@ export const chart = styled(LineChart)`
 export const progressBar = styled.div`
   z-index: 1;
   position: absolute;
-  top: 15%;
+  top: 28%;
   right: 10%;
   width: 80%;
   & .MuiLinearProgress-root {

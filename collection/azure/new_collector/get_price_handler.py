@@ -31,7 +31,7 @@ async def get_data(token, data, retry=3):
     except:
         if retry == 1:
             raise
-        return get_data(token, data, retry - 1)
+        return await get_data(token, data, retry - 1)
 
 
 async def run_async(token, spec_resource_sets, specs_to_allow_zero_cost):

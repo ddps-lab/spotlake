@@ -18,15 +18,15 @@ def get_instaceTier(armSkuName):
     split_armSkuName = armSkuName.split('_')
 
     if len(split_armSkuName) == 0:
-        instaceTier = np.nan
-        return instaceTier
+        InstaceTier = np.nan
+        return InstaceTier
 
     if split_armSkuName[0] == 'Standard' or split_armSkuName[0] == 'Basic':
-        instanceTier = split_armSkuName[0]
+        InstanceTier = split_armSkuName[0]
     else:
-        instanceTier = np.nan
+        InstanceTier = np.nan
 
-    return instanceTier
+    return InstanceTier
 
 
 # get instancetype from armSkuName
@@ -34,19 +34,19 @@ def get_instaceType(armSkuName):
     split_armSkuName = armSkuName.split('_')
 
     if len(split_armSkuName) == 0:
-        instaceType = np.nan
+        InstaceType = np.nan
 
-        return instaceType
+        return InstaceType
 
     if split_armSkuName[0] == 'Standard' or split_armSkuName[0] == 'Basic':
         if len(split_armSkuName) == 1:
-            instanceType = np.nan
-            return instanceType
-        instanceType = '_'.join(split_armSkuName[1:])
+            InstanceType = np.nan
+            return InstanceType
+        InstanceType = '_'.join(split_armSkuName[1:])
     else:
-        instanceType = split_armSkuName[0]
+        InstanceType = split_armSkuName[0]
 
-    return instanceType
+    return InstanceType
 
 
 # get price data using the API
@@ -90,9 +90,9 @@ def preprocessing_price(df):
     spot_df['meterName'] = list_meterName
 
     spot_df = spot_df[['location', 'armRegionName', 'armSkuName', 'retailPrice', 'meterName', 'effectiveStartDate']]
-    spot_df.rename(columns={'retailPrice': 'spotPrice'}, inplace=True)
+    spot_df.rename(columns={'retailPrice': 'SpotPrice'}, inplace=True)
     ondemand_df = ondemand_df[['location', 'armRegionName', 'armSkuName', 'retailPrice', 'meterName', 'effectiveStartDate']]
-    ondemand_df.rename(columns={'retailPrice': 'ondemandPrice'}, inplace=True)
+    ondemand_df.rename(columns={'retailPrice': 'OndemandPrice'}, inplace=True)
 
     drop_idx = ondemand_df.loc[(ondemand_df['location'] == '')].index
     ondemand_df.drop(drop_idx, inplace=True)
@@ -102,17 +102,17 @@ def preprocessing_price(df):
                        right_on=['location', 'armRegionName', 'armSkuName', 'meterName'],
                        how='outer')
 
-    join_df = join_df.dropna(subset=['spotPrice'])
+    join_df = join_df.dropna(subset=['SpotPrice'])
 
-    join_df.loc[join_df['ondemandPrice'] == 0, 'ondemandPrice'] = None
-    join_df['savings'] = (join_df['ondemandPrice'] - join_df['spotPrice']) / join_df['ondemandPrice'] * 100
+    join_df.loc[join_df['OndemandPrice'] == 0, 'OndemandPrice'] = None
+    join_df['Savings'] = (join_df['OndemandPrice'] - join_df['SpotPrice']) / join_df['OndemandPrice'] * 100
 
-    join_df['instanceTier'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceTier(armSkuName))
-    join_df['instanceType'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceType(armSkuName))
+    join_df['InstanceTier'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceTier(armSkuName))
+    join_df['InstanceType'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceType(armSkuName))
 
-    join_df = join_df.reindex(columns=['instanceTier', 'instanceType', 'location', 'ondemandPrice', 'spotPrice', 'savings'])
+    join_df = join_df.reindex(columns=['InstanceTier', 'InstanceType', 'location', 'OndemandPrice', 'SpotPrice', 'Savings'])
 
-    join_df.rename(columns={'location': 'region'}, inplace=True)
+    join_df.rename(columns={'location': 'Region'}, inplace=True)
 
     return join_df
 

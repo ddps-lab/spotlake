@@ -11,8 +11,8 @@ STR_DATETIME = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
 TIMESTAMP = datetime.strptime(STR_DATETIME, "%Y-%m-%dT%H:%M")
 KEY = 'latest_data/latest_azure.json'
 BUCKET_NAME = 'spotlake'
-WORKLOAD_COLS = ['instanceTier', 'instanceType', 'region']
-FEATURE_COLS = ['ondemandPrice', 'spotPrice']
+WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
+FEATURE_COLS = ['OndemandPrice', 'SpotPrice']
 
 
 def azure_collector(timestamp):

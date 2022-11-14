@@ -31,9 +31,8 @@ def azure_collector(timestamp):
     save_raw(current_df, timestamp)
 
     # compare and upload changed_df to timestream
-    changed_df, removed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
+    changed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
     upload_timestream(changed_df, timestamp)
-    upload_timestream(removed_df, timestamp)
 
 
 def lambda_handler(event, context):

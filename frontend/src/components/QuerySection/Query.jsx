@@ -22,6 +22,7 @@ const Query = ({
     const [assoRegion, setAssoRegion] = useState();
     const [assoInstance, setAssoInstance] = useState();
     const [assoAZ, setAssoAZ] = useState();
+    const [assoTier, setAssoTier] = useState(['ALL', 'Standard', 'Basic']);
     const [searchFilter, setSearchFilter] = useState({instance: '', region: '', start_date: '', end_date: ''});
     const [dateRange, setDateRange] = useState({
         min: null,
@@ -235,13 +236,13 @@ const Query = ({
                     id="instance-tier-input"
                     value={searchFilter['tier']}
                     onChange={setFilter}
-                    label="instance-tier"
-                    name="instance-tier"
+                    label="tier"
+                    name="tier"
                     vendor={vendor}
                 >
-                    {assoAZ ? assoAZ.map((e) => (
+                    {assoTier ? assoTier.map((e) => (
                         <style.selectItem value={e} vendor={vendor}>{e}</style.selectItem>
-                    )):az ? az.map((e) => (
+                    )):assoTier ? assoTier.map((e) => (
                         <style.selectItem value={e} vendor={vendor}>{e}</style.selectItem>
                     )) : null}
                 </style.filterSelect>

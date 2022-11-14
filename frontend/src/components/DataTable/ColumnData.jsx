@@ -141,42 +141,42 @@ const ColumnData = () =>{
     //AZURE columns
     const AZUREcolumns = [
         { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
-        { field: 'instanceTier', headerName: 'InstanceTier', flex: 1 ,
+        { field: 'InstanceTier', headerName: 'InstanceTier', flex: 1 ,
             headerAlign: 'center',
             valueGetter: (params) => {
-                return params.row.instanceTier == -1 ? "N/A" : params.row.instanceTier;
+                return params.row.instanceTier == -1 ? "N/A" : params.row.InstanceTier;
             }
         },
-        { field: 'instanceType', headerName: 'InstanceType', flex: 1,
+        { field: 'InstanceType', headerName: 'InstanceType', flex: 1,
             headerAlign: 'center',
             valueGetter: (params) => {
-                return params.row.instanceType == -1 ? "N/A" : params.row.instanceType;
+                return params.row.instanceType == -1 ? "N/A" : params.row.InstanceType;
             }
         },
-        { field: 'region', headerName: 'Region', flex: 1,
+        { field: 'Region', headerName: 'Region', flex: 1,
             headerAlign: 'center',
             valueGetter: (params) => {
-                return params.row.region == -1 ? "N/A" : params.row.region;
+                return params.row.region == -1 ? "N/A" : params.row.Region;
             }
         },
-        { field: 'ondemandPrice', headerName: 'OndemandPrice', flex: 1, type: 'number',
+        { field: 'OndemandPrice', headerName: 'OndemandPrice', flex: 1, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {
-                return params.row.ondemandPrice == -1 ? "N/A" : params.row.ondemandPrice;
+                return params.row.ondemandPrice == -1 ? "N/A" : params.row.OndemandPrice;
             }
         },
-        { field: 'spotPrice', headerName: 'SpotPrice', flex: 1.3, type: 'number',
+        { field: 'SpotPrice', headerName: 'SpotPrice', flex: 1.3, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {
-                return params.row.spotPrice == -1 ? "N/A" : params.row.spotPrice;
+                return params.row.spotPrice == -1 ? "N/A" : params.row.SpotPrice;
             }
         },
         { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {
-                if (!params.row.ondemandPrice || !params.row.spotPrice) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
-                else if (params.row.ondemandPrice == -1 || params.row.spotPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
-                let savings = Math.round((params.row.ondemandPrice - params.row.spotPrice) / params.row.ondemandPrice * 100)
+                if (!params.row.OndemandPrice || !params.row.SpotPrice) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+                else if (params.row.OndemandPrice == -1 || params.row.OndemandPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
+                let savings = Math.round((params.row.OndemandPrice - params.row.SpotPrice) / params.row.OndemandPrice * 100)
                 return isNaN(savings) ? "N/A" : savings;
             }
         },

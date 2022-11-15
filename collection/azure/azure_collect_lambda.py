@@ -5,14 +5,14 @@ import boto3
 
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
-from compare_data_server import compare
+from compare_data import compare
 
 STR_DATETIME = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
 TIMESTAMP = datetime.strptime(STR_DATETIME, "%Y-%m-%dT%H:%M")
 KEY = 'latest_data/latest_azure.json'
 BUCKET_NAME = 'spotlake'
-WORKLOAD_COLS = ['instanceTier', 'instanceType', 'region']
-FEATURE_COLS = ['ondemandPrice', 'spotPrice']
+WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
+FEATURE_COLS = ['OndemandPrice', 'SpotPrice']
 
 
 def azure_collector(timestamp):
@@ -33,7 +33,6 @@ def azure_collector(timestamp):
     # compare and upload changed_df to timestream
     changed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
     upload_timestream(changed_df, timestamp)
-
 
 
 def lambda_handler(event, context):

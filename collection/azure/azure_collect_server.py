@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 import datetime
 import os
-from compare_data_server import compare
+from compare_data import compare
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 
@@ -42,5 +42,7 @@ save_raw(current_df, timestamp)
 
 
 # compare and upload changed_df to timestream
-changed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
+changed_df, removed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
 upload_timestream(changed_df, timestamp)
+upload_timestream(removed_df, timestamp)
+

@@ -7,7 +7,6 @@ import numpy as np
 def compare(previous_df, current_df, workload_cols, feature_cols):
     previous_df = previous_df.fillna(value=np.nan)
 
-    current_df = current_df.drop(['id'], axis=1)
     previous_df = previous_df.drop(['id'], axis=1)
 
     previous_df = previous_df.drop_duplicates()
@@ -68,4 +67,6 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 changed_indices.append(current_indices[curr_idx])
             curr_idx += 1
             prev_idx += 1
-    return current_df.loc[changed_indices].drop(['Workload', 'Feature'], axis=1)
+
+    current_df = current_df.loc[changed_indices].drop(['Workload', 'Feature'], axis=1)
+    return current_df

@@ -12,3 +12,9 @@ class S3:
 
     def put_json(self, key, data):
         self.bucket.Object(key=key).put(Body=json.dumps(data))
+
+    def get(self, key):
+        return self.bucket.Object(key=key).get()["Body"].read().decode("utf-8")
+
+    def put(self, key, data):
+        self.bucket.Object(key=key).put(Body=data)

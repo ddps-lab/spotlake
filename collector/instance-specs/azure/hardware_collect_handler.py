@@ -8,57 +8,26 @@ import traceback
 SLACK_WEBHOOK_URL = ""
 
 
-def put_json(s3, data):
-    hardware = {}
-    for i in data["value"]:
-        if i["resourceType"] != "virtualMachines":
-            continue
-        tmp = {}
-        for j in i["capabilities"]:
-            tmp[j["name"]] = j["value"]
-
-        cpus, mem, iops, family, gpus = tmp.get("vCPUs"), tmp.get(
-            "MemoryGB"), tmp.get("UncachedDiskIOPS"), i["family"], tmp.get("GPUs")
-
-        for location in i["locations"]:
-            location = location.lower()
-            if not location in hardware:
-                hardware[location] = {}
-            hardware[location][i["name"].lower()] = {
-                "cpu": cpus, "mem": mem, "iops": iops, "family": family, "gpu": gpus
-            }
-    s3.put_json("azure/" + str(datetime.datetime.utcnow()) +
-                ".json", hardware)
+def save_as_json(s3, data):
+    s3.put_json("azure/hardware_feature.json", data)
 
 
 def none_to_str(data):
-    for i in range(len(data)):
-        if data[i] is None:
-            data[i] = "None"
-    return data
+    return "None" if data is None else data
 
 
-def put_csv(s3, data):
-    csv = [",".join(["region", "instance_type", "cpu",
-                    "mem", "iops", "family", "gpu"])]
-    for i in data["value"]:
-        if i["resourceType"] != "virtualMachines":
-            continue
-        tmp = {}
-        for j in i["capabilities"]:
-            tmp[j["name"]] = j["value"]
+def save_as_csv(s3, data):
+    keys = [*data[[*data.keys()][0]].keys()]
 
-        cpus, mem, iops, family, gpus = tmp.get("vCPUs"), tmp.get(
-            "MemoryGB"), tmp.get("UncachedDiskIOPS"), i["family"], tmp.get("GPUs")
-
-        for region in i["locations"]:
-            region = region.lower()
-            instance_type = i["name"].lower()
-            csv.append(
-                ",".join(none_to_str([region, instance_type, cpus, mem, iops, family, gpus])))
+    csv = [",".join(["instance_type", *keys])]
+    for instance_type in data:
+        tmp = [instance_type]
+        for key in keys:
+            tmp.append(none_to_str(data[instance_type][key]))
+        csv.append(",".join(tmp))
 
     csv = "\n".join(csv)
-    s3.put("azure/" + str(datetime.datetime.utcnow()) + ".csv", csv)
+    s3.put("azure/hardware_feature.csv", csv)
 
 
 def lambda_handler(event, context):
@@ -70,8 +39,24 @@ def lambda_handler(event, context):
             headers={"Authorization": "Bearer " + token}
         ).json()
 
-        # put_json(s3, resp)
-        put_csv(s3, resp)
+        data = {}
+        for i in resp["value"]:
+            if i["resourceType"] != "virtualMachines":
+                continue
+            tmp = {}
+            for j in i["capabilities"]:
+                tmp[j["name"]] = j["value"]
+
+            cpus, mem, iops, family, gpus = tmp.get("vCPUs"), tmp.get(
+                "MemoryGB"), tmp.get("UncachedDiskIOPS"), i["family"], tmp.get("GPUs")
+            instance_type = i["name"].lower()
+
+            data[instance_type] = {
+                "cpu": cpus, "mem": mem, "iops": iops, "family": family, "gpu": gpus
+            }
+
+        save_as_json(s3, data)
+        save_as_csv(s3, data)
 
     except:
         requests.post(SLACK_WEBHOOK_URL, json={

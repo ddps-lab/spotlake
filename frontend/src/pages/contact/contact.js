@@ -60,7 +60,7 @@ function Contact () {
                                     color={"github"}
                                     variant="contained"
                                     onClick={() => {window.open('https://github.com/wynter122')}}
-                                >Github @HyeonYoung-Lee</CustomButton>
+                                >Github @wynter122</CustomButton>
                             </ThemeProvider>
                         </li>
                         <li>

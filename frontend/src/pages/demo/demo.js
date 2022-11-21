@@ -168,22 +168,22 @@ function Demo () {
             <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/awsIcon.png'} alt="awsIcon"/>
             <style.vendorTitle>Amazon Web Services</style.vendorTitle>
           </style.vendorBtn>
-          <style.vendorBtn
-            onClick={() => {setVendor('GCP')}}
-            clicked={vendor==='GCP'}
-            disabled={progress[vendor].loading}
-          >
-            <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/gcpIcon.png'} alt="awsIcon"/>
-            <style.vendorTitle>Google Cloud Platform</style.vendorTitle>
-          </style.vendorBtn>
-          <style.vendorBtn
-            onClick={() => {setVendor('AZURE')}}
-            clicked={vendor==='AZURE'}
-            disabled={progress[vendor].loading}
-          >
-            <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/azureIcon.png'} alt="awsIcon"/>
-            <style.vendorTitle>Microsoft Azure</style.vendorTitle>
-          </style.vendorBtn>
+          {/*<style.vendorBtn*/}
+          {/*  onClick={() => {setVendor('GCP')}}*/}
+          {/*  clicked={vendor==='GCP'}*/}
+          {/*  disabled={progress[vendor].loading}*/}
+          {/*>*/}
+          {/*  <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/gcpIcon.png'} alt="awsIcon"/>*/}
+          {/*  <style.vendorTitle>Google Cloud Platform</style.vendorTitle>*/}
+          {/*</style.vendorBtn>*/}
+          {/*<style.vendorBtn*/}
+          {/*  onClick={() => {setVendor('AZURE')}}*/}
+          {/*  clicked={vendor==='AZURE'}*/}
+          {/*  disabled={progress[vendor].loading}*/}
+          {/*>*/}
+          {/*  <style.vendorIcon src={process.env.PUBLIC_URL + '/icon/azureIcon.png'} alt="awsIcon"/>*/}
+          {/*  <style.vendorTitle>Microsoft Azure</style.vendorTitle>*/}
+          {/*</style.vendorBtn>*/}
         </style.vendor>
         <Query
             vendor={vendor}

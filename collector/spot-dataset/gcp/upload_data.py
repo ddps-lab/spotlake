@@ -6,6 +6,7 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 import pandas as pd
 import json
+from utility import slack_msg_sender
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
@@ -26,10 +27,12 @@ def submit_batch(records, counter, recursive):
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:
+            slack_msg_sender.send_slack_message({rr['Reason']})
             print(rr['Reason'])
             re_records.append(records[rr["RecordIndex"]])
         submit_batch(re_records, counter, recursive + 1)
     except Exception as err:
+        slack_msg_sender.send_slack_message(err)
         print(err)
         exit()
 

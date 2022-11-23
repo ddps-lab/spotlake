@@ -7,6 +7,7 @@ import os
 import gzip
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
+from utility import slack_msg_sender
 
 
 BUCKET_NAME = "spotlake"
@@ -61,6 +62,7 @@ def bin_packing(weights, capacity, algorithm):
                     bin_index_list.append((bin_items, bin_weight))
         return bin_index_list
     else:
+        slack_msg_sender.send_slack_message("The problem does not have an optimal solution.")
         print('The problem does not have an optimal solution.')
 
 

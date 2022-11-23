@@ -10,6 +10,7 @@ from load_vminstance_pricing import get_url_list, get_table, extract_price
 from upload_data import save_raw, update_latest, upload_timestream
 from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
+from utility import slack_msg_sender
 
 API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
@@ -75,6 +76,7 @@ def gcp_collect(timestamp) :
             upload_timestream(df_current, timestamp)
             return
         else:
+            slack_msg_sender.send_slack_message(e)
             print(e)
     
     # get previous latest_data from s3

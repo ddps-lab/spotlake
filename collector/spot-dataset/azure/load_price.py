@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from utility import slack_msg_sender
 
 
 API_LINK = 'https://prices.azure.com:443/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27%20and%20priceType%20eq%20%27Consumption%27%20and%20unitOfMeasure%20eq%20%271%20Hour%27&$skip='
@@ -61,6 +62,7 @@ def get_price(skip_num):
             response = requests.get(get_link)
 
     if response.status_code != 200:
+        slack_msg_sender.send_slack_message(response.status_code)
         raise Exception(f"api response status code is {response.status_code}")
 
     price_data = list(response.json()['Items'])

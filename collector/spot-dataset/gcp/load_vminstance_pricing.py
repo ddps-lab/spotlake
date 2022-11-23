@@ -18,8 +18,13 @@ def get_url_list(page_url):
         iframe_list = soup.select('devsite-iframe')
 
         for iframe in iframe_list:
-            url_list.append(iframe.select_one(
-                'iframe').get_attribute_list('src')[0])
+            url = iframe.select_one(
+                'iframe').get_attribute_list('src')[0]
+            
+            if url.find('https://cloud.google.com') == -1:
+                url = 'https://cloud.google.com' + url
+            url_list.append(url)
+
     else:
         logging.error(response.status_code)
 
@@ -31,7 +36,7 @@ def get_table(url):
     # input : url of iframe
     # output : table
 
-    response = requests.get('https://cloud.google.com' + url)
+    response = requests.get(url)
     if response.status_code == 200:
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')

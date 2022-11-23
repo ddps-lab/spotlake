@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+from utility import slack_msg_sender
 
 # compare previous collected workload with current collected workload
 # return changed workload
@@ -35,6 +35,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 prev_idx += 1
                 continue
             else:
+                slack_msg_sender.send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 raise Exception('workload error')
             break
         elif prev_idx == len(previous_indices):
@@ -45,6 +46,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 curr_idx += 1
                 continue
             else:
+                slack_msg_sender.send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 raise Exception('workload error')
             break
 
@@ -61,6 +63,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 prev_idx += 1
                 continue
             else:
+                slack_msg_sender.send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 raise Exception('workload error')
         else:
             if prev_feature != curr_feature:

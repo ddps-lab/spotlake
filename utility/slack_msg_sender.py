@@ -24,9 +24,9 @@ def send_slack_message(msg):
 def get_webhook_url():
     try:
         ssm = boto3.client('ssm')
-        parameter = ssm.get_parameter(Name="error-notification-slack-webhook-url", WithDecryption=False)
+        parameter = ssm.get_parameter(Name="error_notification_slack_webhook_url", WithDecryption=False)
         url = parameter['Parameter']['Value']
     except:
-        url = os.environ.get('error-notification-slack-webhook-url')
+        url = os.environ.get('error_notification_slack_webhook_url')
 
     return url

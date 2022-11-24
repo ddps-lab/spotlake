@@ -5,13 +5,14 @@ import boto3
 import pickle
 import os
 import gzip
+import argparse
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 from utility import slack_msg_sender
 
 
 BUCKET_NAME = "spotlake"
-LOCAL_PATH = "/home/ubuntu/spot-score/collection/aws/ec2_collector"
+LOCAL_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector"
 
 
 # create object of bin packing input data
@@ -130,3 +131,14 @@ def get_binpacked_workload(filedate):
     pickle.dump(user_cred, open(f"{LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
 
     return user_queries_list
+
+if __name__=="__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--timestamp', dest='timestamp', action='store')
+    args = parser.parse_arg()
+    timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+    date = args.timestamp.split("T")[0]
+
+    workload = get_binpacked_workload(date)
+    pickle.dump(workload, open(f"{LOCAL_PATH}/workload.pkl", "wb"))
+

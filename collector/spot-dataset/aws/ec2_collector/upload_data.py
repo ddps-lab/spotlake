@@ -14,7 +14,7 @@ write_client = session.client('timestream-write', config=Config(read_timeout=20,
 BUCKET_NAME = 'spotlake'
 DATABASE_NAME = 'spotlake'
 TABLE_NAME = 'aws'
-LOCAL_PATH = '/home/ubuntu/spot-score/collection/aws/ec2_collector'
+LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
 
 
 # Submit Batch To Timestream
@@ -96,7 +96,7 @@ def save_raw(data, timestamp):
     session = boto3.Session()
     s3 = session.client('s3')
     s3_dir_name = timestamp.strftime("%Y/%m/%d")
-    s3_obj_name = timestamp.strftime("%H:%M:%S")
+    s3_obj_name = timestamp.strftime("%H-%M-%S")
 
     with open(SAVE_FILENAME, 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/aws/{s3_dir_name}/{s3_obj_name}.csv.gz")

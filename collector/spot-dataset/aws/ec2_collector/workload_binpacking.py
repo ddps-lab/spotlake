@@ -140,5 +140,5 @@ if __name__=="__main__":
     date = args.timestamp.split("T")[0]
 
     workload = get_binpacked_workload(date)
-    pickle.dump(workload, open(f"{LOCAL_PATH}/workload.pkl", "wb"))
+    pickle.dump(workload, open(f"{LOCAL_PATH}/workloads.pkl", "wb"))
 

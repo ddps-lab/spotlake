@@ -1,4 +1,5 @@
 import boto3
+import botocore
 import pickle
 import pandas as pd
 import argparse
@@ -14,6 +15,7 @@ from load_spotinfo import get_spotinfo
 from compare_data import compare
 from upload_data import upload_timestream, update_latest, save_raw
 from join_data import build_join_df
+from slack_msg_sender import send_slack_message
 
 NUM_CPU = 2
 LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
@@ -29,9 +31,10 @@ date = args.timestamp.split("T")[0]
 
 # need to change file location
 try:
-    workload = pickle.load(s3.Object(BUCKET_NAME, f'monitoring/{"/".join(date.split("-"))}/workloads.pkl')..get()['Body'].read())
-except:
-    workload = pickle.load(open(f"{LOCAL_PATH}/workload.pkl", "rb"))
+    workload = pickle.load(s3.Object(BUCKET_NAME, f'monitoring/{"/".join(date.split("-"))}/workloads.pkl').get()['Body'])
+except botocore.exceptions.ClientError as e:
+    send_slack_message(e)
+    workload = pickle.load(open(f"{LOCAL_PATH}/workloads.pkl", "rb"))
 
 credentials = pickle.load(open(f'{LOCAL_PATH}/user_cred_df_100_199.pkl', 'rb'))
 
@@ -75,3 +78,4 @@ changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature
 
 upload_timestream(changed_df, timestamp)
 upload_timestream(removed_df, timestamp)
+

@@ -2,13 +2,18 @@
 # https://developers.google.com/optimization/bin/bin_packing
 
 import boto3
+import botocore
 import pickle
+import sys
 import os
 import gzip
 import argparse
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
-from utility import slack_msg_sender
+
+sys.path.append('/home/ubuntu/spotlake/utility')
+
+from slack_msg_sender import send_slack_message
 
 
 BUCKET_NAME = "spotlake"
@@ -63,7 +68,7 @@ def bin_packing(weights, capacity, algorithm):
                     bin_index_list.append((bin_items, bin_weight))
         return bin_index_list
     else:
-        slack_msg_sender.send_slack_message("The problem does not have an optimal solution.")
+        send_slack_message("The problem does not have an optimal solution.")
         print('The problem does not have an optimal solution.')
 
 
@@ -138,7 +143,10 @@ if __name__=="__main__":
     args = parser.parse_arg()
     timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     date = args.timestamp.split("T")[0]
-
-    workload = get_binpacked_workload(date)
+    
+    try:
+        workload = get_binpacked_workload(date)
+    except botocore.exceptions.ClientError as e:
+        send_slack_message(e)
     pickle.dump(workload, open(f"{LOCAL_PATH}/workloads.pkl", "wb"))
 

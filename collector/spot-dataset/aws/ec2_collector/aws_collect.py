@@ -6,6 +6,7 @@ import argparse
 import sys
 import os
 import time
+import gzip
 from datetime import datetime, timedelta
 from multiprocessing import Pool
 
@@ -35,7 +36,7 @@ date = args.timestamp.split("T")[0]
 
 # need to change file location
 try:
-    workload = pickle.load(s3.Object(BUCKET_NAME, f'monitoring/{"/".join(date.split("-"))}/workloads.pkl').get()['Body'])
+    workload = pickle.load(gzip.open(s3.Object(BUCKET_NAME, f'rawdata/aws/workloads/{"/".join(date.split("-"))}/binpacked_workloads.pkl.gz').get()['Body']))
 except botocore.exceptions.ClientError as e:
     send_slack_message(e)
     workload = pickle.load(open(f"{LOCAL_PATH}/workloads.pkl", "rb"))

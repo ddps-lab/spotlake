@@ -2,18 +2,22 @@ import boto3
 import time
 import pandas as pd
 import pickle
+import sys
 import os
 from botocore.config import Config
-from utility import slack_msg_sender
 from botocore.exceptions import ClientError
+
+sys.path.append('/home/ubuntu/spotlake/utility')
+
+from slack_msg_sender import send_slack_message
 
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
-BUCKET_NAME = 'spotlake'
-DATABASE_NAME = 'spotlake'
-TABLE_NAME = 'aws'
+BUCKET_NAME = 'spotlake-test'
+DATABASE_NAME = 'spotlake-test'
+TABLE_NAME = 'aws-test'
 LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
 
 
@@ -26,12 +30,12 @@ def submit_batch(records, counter, recursive):
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:
-            slack_msg_sender.send_slack_message(rr['Reason'])
+            send_slack_message(rr['Reason'])
             print(rr['Reason'])
             re_records.append(records[rr["RecordIndex"]])
         submit_batch(re_records, counter, recursive + 1)
     except Exception as err:
-        slack_msg_sender.send_slack_message(err)
+        send_slack_message(err)
         print(err)
         exit()
 
@@ -104,3 +108,4 @@ def save_raw(data, timestamp):
     for filename in os.listdir(f"{LOCAL_PATH}/"):
         if "spotlake_" in filename:
             os.remove(f"{LOCAL_PATH}/{filename}")
+

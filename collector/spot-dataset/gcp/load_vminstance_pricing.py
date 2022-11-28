@@ -5,6 +5,24 @@ from bs4 import BeautifulSoup
 from gcp_metadata import region_mapping
 from utility import slack_msg_sender
 
+def check_collecting_instance_type(instance_type):
+    ignore_family_list = ['m2', 't2a', 'm3']
+    ignore_type_list = ['a2-ultragpu']
+
+    # check instance family
+    instance_family = instance_type.split('-')[0]
+    if instance_family in ignore_family_list :
+        print(instance_type)
+        return False
+
+    # check instance type except size
+    tmp_type = instance_type.split('-')[0] + '-' + instance_type.split('-')[1]
+    if tmp_type in ignore_type_list:
+        print(instance_type)
+        return False
+    
+    return True
+
 
 def get_url_list(page_url):
     # get iframe url list from VM Instance Pricing page
@@ -19,8 +37,13 @@ def get_url_list(page_url):
         iframe_list = soup.select('devsite-iframe')
 
         for iframe in iframe_list:
-            url_list.append(iframe.select_one(
-                'iframe').get_attribute_list('src')[0])
+            url = iframe.select_one(
+                'iframe').get_attribute_list('src')[0]
+            
+            if url.find('https://cloud.google.com') == -1:
+                url = 'https://cloud.google.com' + url
+            url_list.append(url)
+
     else:
         slack_msg_sender.send_slack_message(response.status_code)
         logging.error(response.status_code)
@@ -32,22 +55,28 @@ def get_table(url):
     # get necessary table from html of iframe
     # input : url of iframe
     # output : table
-
-    response = requests.get('https://cloud.google.com' + url)
+    
+    try :
+        global response 
+        response = requests.get(url)
+        
+    except Exception as e:
+        slack_msg_sender.send_slack_message('Error in getting VM Instance Pricing iframe\n' + str(url))
+        
     if response.status_code == 200:
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
         table = soup.select_one('table')
 
         if table.select_one('thead > tr > th').get_text() == 'Machine type':
-            sample_type = table.select_one('tbody > tr > td').get_text()
-            sample_type = sample_type.split('-')[0]
-            if sample_type not in ('m2', 't2a'):
+            instance_type = table.select_one('tbody > tr > td').get_text()
+
+            if check_instance_type(instance_type):
                 return table
-            else:
+            else :
                 return None
     else:
-        slack_msg_sender.send_slack_message(response.status_code)
+        slack_msg_sender.send_slack_message('Connecton Error in VM instnace pricing iframe\n' + str(url))
         logging.error(response.status_code)
         logging.error(url)
 
@@ -118,7 +147,7 @@ def extract_price(table, output):
                 pass
 
             except Exception as e:
-                slack_msg_sender.send_slack_message(e)
+                slack_msg_sender.send_slack_message('New InstaneType is detected : ' + str(e))
                 logging.error(e)
 
     return output

@@ -93,9 +93,11 @@ def update_latest(data, timestamp):
     s3 = session.client('s3')
     with open(f"{LOCAL_PATH}/{filename}", 'rb') as f:
         s3.upload_fileobj(f, BUCKET_NAME, s3_path)
-    s3 = session.resource('s3')
-    object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
-    response = object_acl.put(ACL='public-read')
+        
+    ## temporary blocking of access
+    # s3 = session.resource('s3')
+    # object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
+    # response = object_acl.put(ACL='public-read')
 
 
 def save_raw(data, timestamp):
@@ -104,7 +106,7 @@ def save_raw(data, timestamp):
     session = boto3.Session()
     s3 = session.client('s3')
     s3_dir_name = timestamp.strftime("%Y/%m/%d")
-    s3_obj_name = timestamp.strftime("%H:%M:%S")
+    s3_obj_name = timestamp.strftime("%H-%M-%S")
     with open(SAVE_FILENAME, 'rb') as f:
         s3.upload_fileobj(
             f, BUCKET_NAME, f"rawdata/gcp/{s3_dir_name}/{s3_obj_name}.csv.gz")

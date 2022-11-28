@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from gcp_metadata import region_mapping
 from utility import slack_msg_sender
 
-def check_instance_type(instance_type):
+def check_collecting_instance_type(instance_type):
     ignore_family_list = ['m2', 't2a', 'm3']
     ignore_type_list = ['a2-ultragpu']
 

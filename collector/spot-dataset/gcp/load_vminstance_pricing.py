@@ -71,7 +71,7 @@ def get_table(url):
         if table.select_one('thead > tr > th').get_text() == 'Machine type':
             instance_type = table.select_one('tbody > tr > td').get_text()
 
-            if check_instance_type(instance_type):
+            if check_collecting_instance_type(instance_type):
                 return table
             else :
                 return None

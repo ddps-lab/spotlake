@@ -2,16 +2,22 @@
 # https://developers.google.com/optimization/bin/bin_packing
 
 import boto3
+import botocore
 import pickle
+import sys
 import os
 import gzip
+import argparse
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
-from utility import slack_msg_sender
+
+sys.path.append('/home/ubuntu/spotlake/utility')
+
+from slack_msg_sender import send_slack_message
 
 
 BUCKET_NAME = "spotlake"
-LOCAL_PATH = "/home/ubuntu/spot-score/collection/aws/ec2_collector"
+LOCAL_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector"
 
 
 # create object of bin packing input data
@@ -62,7 +68,7 @@ def bin_packing(weights, capacity, algorithm):
                     bin_index_list.append((bin_items, bin_weight))
         return bin_index_list
     else:
-        slack_msg_sender.send_slack_message("The problem does not have an optimal solution.")
+        send_slack_message("The problem does not have an optimal solution.")
         print('The problem does not have an optimal solution.')
 
 
@@ -130,3 +136,17 @@ def get_binpacked_workload(filedate):
     pickle.dump(user_cred, open(f"{LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
 
     return user_queries_list
+
+if __name__=="__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--timestamp', dest='timestamp', action='store')
+    args = parser.parse_arg()
+    timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+    date = args.timestamp.split("T")[0]
+    
+    try:
+        workload = get_binpacked_workload(date)
+    except botocore.exceptions.ClientError as e:
+        send_slack_message(e)
+    pickle.dump(workload, open(f"{LOCAL_PATH}/workloads.pkl", "wb"))
+

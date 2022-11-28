@@ -4,7 +4,7 @@ import pickle
 import subprocess
 
 
-LOCAL_PATH = '/home/ubuntu/spot-score/collection/aws/ec2_collector'
+LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
 
 
 # get info of interrupt frequency at spotinfo

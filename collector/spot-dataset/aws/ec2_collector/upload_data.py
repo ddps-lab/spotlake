@@ -15,9 +15,9 @@ from slack_msg_sender import send_slack_message
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
-BUCKET_NAME = 'spotlake-test'
-DATABASE_NAME = 'spotlake-test'
-TABLE_NAME = 'aws-test'
+BUCKET_NAME = 'spotlake'
+DATABASE_NAME = 'spotlake'
+TABLE_NAME = 'aws'
 LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
 
 

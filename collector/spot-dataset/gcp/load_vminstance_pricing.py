@@ -3,7 +3,25 @@ import requests
 from bs4 import BeautifulSoup
 
 from gcp_metadata import region_mapping
-from utility import slack_msg_sender
+import slack_msg_sender
+
+def check_instance_type(instance_type):
+    ignore_family_list = ['m2', 't2a', 'm3']
+    ignore_type_list = ['a2-ultragpu']
+
+    # check instance family
+    instance_family = instance_type.split('-')[0]
+    if instance_family in ignore_family_list :
+        print(instance_type)
+        return False
+
+    # check instance type except size
+    tmp_type = instance_type.split('-')[0] + '-' + instance_type.split('-')[1]
+    if tmp_type in ignore_type_list:
+        print(instance_type)
+        return False
+    
+    return True
 
 
 def get_url_list(page_url):
@@ -52,13 +70,10 @@ def get_table(url):
 
         if table.select_one('thead > tr > th').get_text() == 'Machine type':
             instance_type = table.select_one('tbody > tr > td').get_text()
-            sample_type = instance_type.split('-')[0]
-            if sample_type not in ('m2', 't2a', 'm3'):
-                if sample_type + '-' + instance_type.split('-')[1] == 'a2-ultragpu':
-                    return None
-                else:
-                    return table
-            else:
+
+            if check_instance_type(instance_type):
+                return table
+            else :
                 return None
     else:
         slack_msg_sender.send_slack_message('Connecton Error in VM instnace pricing iframe\n' + str(url))

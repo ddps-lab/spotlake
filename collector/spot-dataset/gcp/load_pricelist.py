@@ -161,13 +161,13 @@ def get_price(pricelist):
 
     # M3
     # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-RAM']
+    cpu_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-CORE']
+    ram_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-RAM']
     calculate_price(cpu_data, ram_data, m3, 'ondemand')
 
     # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-RAM-PREEMPTIBLE']
+    cpu_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-CORE-PREEMPTIBLE']
+    ram_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-RAM-PREEMPTIBLE']
     calculate_price(cpu_data, ram_data, m3, 'preemptible')
 
     # A2

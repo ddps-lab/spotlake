@@ -16,12 +16,15 @@ machine_type_list = [
     'n2d-highmem-2', 'n2d-highmem-4', 'n2d-highmem-8', 'n2d-highmem-16', 'n2d-highmem-32', 'n2d-highmem-48', 'n2d-highmem-64', 'n2d-highmem-80', 'n2d-highmem-96',
     'n2d-highcpu-2', 'n2d-highcpu-4', 'n2d-highcpu-8', 'n2d-highcpu-16', 'n2d-highcpu-32', 'n2d-highcpu-48', 'n2d-highcpu-64', 'n2d-highcpu-80', 'n2d-highcpu-96', 'n2d-highcpu-128', 'n2d-highcpu-224',
     't2d-standard-1', 't2d-standard-2', 't2d-standard-4', 't2d-standard-8', 't2d-standard-16', 't2d-standard-32', 't2d-standard-48', 't2d-standard-60',
+    't2a-standard-1', 't2a-standard-2', 't2a-standard-4', 't2a-standard-8', 't2a-standard-16', 't2a-standard-32', 't2a-standard-48',
     'c2-standard-4', 'c2-standard-8', 'c2-standard-16', 'c2-standard-30', 'c2-standard-60',
     'c2d-standard-2', 'c2d-standard-4', 'c2d-standard-8', 'c2d-standard-16', 'c2d-standard-32', 'c2d-standard-56', 'c2d-standard-112',
     'c2d-highcpu-2', 'c2d-highcpu-4', 'c2d-highcpu-8', 'c2d-highcpu-16', 'c2d-highcpu-32', 'c2d-highcpu-56', 'c2d-highcpu-112',
     'c2d-highmem-2', 'c2d-highmem-4', 'c2d-highmem-8', 'c2d-highmem-16', 'c2d-highmem-32', 'c2d-highmem-56', 'c2d-highmem-112',
     'm1-ultramem-40', 'm1-ultramem-80', 'm1-ultramem-160', 'm1-megamem-96',
-    'a2-highgpu-1g', 'a2-highgpu-2g', 'a2-highgpu-4g', 'a2-highgpu-8g', 'a2-megagpu-16g'
+    'm3-ultramem-32', 'm3-ultramem-64', 'm3-ultramem-128', 'm3-megamem-64', 'm3-megamem-128',
+    'a2-highgpu-1g', 'a2-highgpu-2g', 'a2-highgpu-4g', 'a2-highgpu-8g', 'a2-megagpu-16g', 
+    'a2-ultragpu-1g', 'a2-ultragpu-2g', 'a2-ultragpu-4g', 'a2-ultragpu-8g',
 ]
 
 # https://cloud.google.com/compute/docs/regions-zones
@@ -176,6 +179,16 @@ t2d = {
     't2d-standard-60': {'cpu': 60, 'ram': 240}
 }
 
+t2a = {
+    't2a-standard-1': {'cpu': 1, 'ram': 4},
+    't2a-standard-2': {'cpu': 2, 'ram': 8},
+    't2a-standard-4': {'cpu': 4, 'ram': 16},
+    't2a-standard-8': {'cpu': 8, 'ram': 32},
+    't2a-standard-16': {'cpu': 16, 'ram': 64},
+    't2a-standard-32': {'cpu': 32, 'ram': 128},
+    't2a-standard-48': {'cpu': 48, 'ram': 192}
+}
+
 c2 = {
     'c2-standard-4': {'cpu': 4, 'ram': 16},
     'c2-standard-8': {'cpu': 8, 'ram': 32},
@@ -215,10 +228,23 @@ m1 = {
     'm1-megamem-96': {'cpu': 96.0, 'ram': 1433.6}
 }
 
+m3 = {
+    'm3-ultramem-32': {'cpu': 32, 'ram': 976}, 
+    'm3-ultramem-64': {'cpu': 64, 'ram': 1952},
+    'm3-ultramem-128': {'cpu': 128, 'ram': 3904},
+    'm3-megamem-64': {'cpu': 64, 'ram': 976}, 
+    'm3-megamem-128': {'cpu': 128, 'ram': 1952},
+
+}
+
 a2 = {
     'a2-highgpu-1g': {'cpu': 12, 'ram': 85, 'gpu': 1},
     'a2-highgpu-2g': {'cpu': 24, 'ram': 170, 'gpu': 2},
     'a2-highgpu-4g': {'cpu': 48, 'ram': 340, 'gpu': 4},
     'a2-highgpu-8g': {'cpu': 96, 'ram': 680, 'gpu': 8},
-    'a2-megagpu-16g': {'cpu': 96, 'ram': 1360, 'gpu': 16}
+    'a2-megagpu-16g': {'cpu': 96, 'ram': 1360, 'gpu': 16},
+    'a2-ultragpu-1g': {'cpu': 12, 'ram': 170, 'gpu': 1, 'ssd' : 1},         # 1 ssd == 375 GiB
+    'a2-ultragpu-2g': {'cpu': 24, 'ram': 340, 'gpu': 2, 'ssd' : 2},
+    'a2-ultragpu-4g': {'cpu': 48, 'ram': 680, 'gpu': 4, 'ssd' : 4},
+    'a2-ultragpu-8g': {'cpu': 96, 'ram': 1360, 'gpu': 8, 'ssd' : 8},
 }

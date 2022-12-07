@@ -6,8 +6,8 @@ from gcp_metadata import region_mapping
 from utility import slack_msg_sender
 
 def check_collecting_instance_type(instance_type):
-    ignore_family_list = ['m2', 't2a', 'm3']
-    ignore_type_list = ['a2-ultragpu']
+    ignore_family_list = ['m2']
+    ignore_type_list = []
 
     # check instance family
     instance_family = instance_type.split('-')[0]
@@ -125,8 +125,12 @@ def extract_price(table, output):
 
                 for abbr, region in region_mapping.items():
                     attr = abbr + '-hourly'
-                    ondemand_str = ondemand_regional_price[attr]
-                    preemptible_str = preemptible_regional_price[attr]
+                    try :
+                        ondemand_str = ondemand_regional_price[attr]
+                        preemptible_str = preemptible_regional_price[attr]
+                    except :
+                        continue
+
                     ondemand_prc = ''
                     preemptible_prc = ''
 

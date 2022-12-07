@@ -1,4 +1,4 @@
-from gcp_metadata import region_list, machine_type_list, n1, e2, n2, n2d, t2d, c2, c2d, m1, a2
+from gcp_metadata import region_list, machine_type_list, n1, e2, n2, n2d, t2d, t2a, c2, c2d, m1, m3, a2
 
 # This code is referenced from "https://github.com/doitintl/gcpinstances.info/blob/master/scraper.py"
 
@@ -115,6 +115,17 @@ def get_price(pricelist):
     ram_data = pricelist['CP-COMPUTEENGINE-T2D-PREDEFINED-VM-RAM-PREEMPTIBLE']
     calculate_price(cpu_data, ram_data, t2d, 'preemptible')
 
+    # T2A
+    # ondemand
+    cpu_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-CORE']
+    ram_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-RAM']
+    calculate_price(cpu_data, ram_data, t2a, 'ondemand')
+
+    # preemptible
+    cpu_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-CORE-PREEMPTIBLE']
+    ram_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-RAM-PREEMPTIBLE']
+    calculate_price(cpu_data, ram_data, t2a, 'preemptible')
+
     # C2
     # ondemand
     cpu_data = pricelist['CP-COMPUTEENGINE-C2-PREDEFINED-VM-CORE']
@@ -148,36 +159,61 @@ def get_price(pricelist):
     ram_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-RAM-PREEMPTIBLE']
     calculate_price(cpu_data, ram_data, m1, 'preemptible')
 
+    # M3
+    # ondemand
+    cpu_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-CORE']
+    ram_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-RAM']
+    calculate_price(cpu_data, ram_data, m3, 'ondemand')
+
+    # preemptible
+    cpu_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-CORE-PREEMPTIBLE']
+    ram_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-RAM-PREEMPTIBLE']
+    calculate_price(cpu_data, ram_data, m3, 'preemptible')
+
     # A2
     # ondemand
     cpu_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-CORE']
     ram_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-RAM']
     gpu_data = pricelist['GPU_NVIDIA_TESLA_A100']
+    ssd_ondemand_price = 0.04
     for machine_type, feature in a2.items():
         cpu_quantity = feature['cpu']
         ram_quantity = feature['ram']
         gpu_quantity = feature['gpu']
+        ssd_quantity = 0
+        try:
+            ssd_quantity = feature['ssd']
+            gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB']
+        except KeyError as e:
+            pass
         for cpu_region, cpu_price in cpu_data.items():
             for ram_region, ram_price in ram_data.items():
                 for gpu_region, gpu_price in gpu_data.items():
                     if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
-                        output[machine_type][cpu_region]['ondemand'] = cpu_quantity * \
-                            cpu_price + ram_quantity*ram_price + gpu_quantity*gpu_price
+                        output[machine_type][cpu_region]['ondemand'] = cpu_quantity*cpu_price + \
+                            ram_quantity*ram_price + gpu_quantity*gpu_price + ssd_quantity*ssd_ondemand_price
     # preemptible
     cpu_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-CORE-PREEMPTIBLE']
     ram_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-RAM-PREEMPTIBLE']
     gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-PREEMPTIBLE']
+    ssd_preemptible_price = 0.02
     for machine_type, feature in a2.items():
         cpu_quantity = feature['cpu']
         ram_quantity = feature['ram']
         gpu_quantity = feature['gpu']
+        ssd_quantity = 0
+        try:
+            ssd_quantity = feature['ssd']
+            gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB-PREEMPTIBLE']
+        except KeyError as e:
+            pass
         for cpu_region, cpu_price in cpu_data.items():
             for ram_region, ram_price in ram_data.items():
                 for gpu_region, gpu_price in gpu_data.items():
                     if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
                         if output[machine_type][cpu_region]['ondemand'] != -1:
-                            output[machine_type][cpu_region]['preemptible'] = cpu_quantity * \
-                                cpu_price + ram_quantity*ram_price + gpu_quantity*gpu_price
+                            output[machine_type][cpu_region]['preemptible'] = cpu_quantity*cpu_price + \
+                                ram_quantity*ram_price + gpu_quantity*gpu_price + ssd_quantity*ssd_preemptible_price
     return output
 
 

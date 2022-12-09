@@ -5,12 +5,10 @@ from utility import slack_msg_sender
 # compare previous collected workload with current collected workload
 # return changed workload
 def compare(previous_df, current_df, workload_cols, feature_cols):
-    previous_df = previous_df.fillna(value=np.nan)
-
-    previous_df = previous_df.drop(['id'], axis=1)
-
-    previous_df = previous_df.drop_duplicates()
-    current_df = current_df.drop_duplicates()
+    previous_df['OndemandPrice'] = previous_df['OndemandPrice'].fillna(-1)
+    current_df['OndemandPrice'] = current_df['OndemandPrice'].fillna(-1)
+    previous_df['Savings'] = previous_df['Savings'].fillna(-1)
+    current_df['Savings'] = current_df['Savings'].fillna(-1)
 
     previous_df.loc[:, 'Workload'] = previous_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
     previous_df.loc[:, 'Feature'] = previous_df[feature_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)

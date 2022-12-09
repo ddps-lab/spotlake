@@ -84,7 +84,7 @@ def get_ondemand_price_region(region, pricing_client):
         response = pricing_client.get_products(ServiceCode='AmazonEC2', Filters=filters, NextToken=response["NextToken"]) 
         response_list.extend(response['PriceList'])
 
-        json.loads(response['PriceList'][0])['product']['attributes']['instanceType']
+        # json.loads(response['PriceList'][0])['product']['attributes']['instanceType']
                 
     return response_list
 

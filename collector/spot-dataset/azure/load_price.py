@@ -63,7 +63,7 @@ def get_price(skip_num):
 
     if response.status_code != 200:
         slack_msg_sender.send_slack_message(response.status_code)
-        raise Exception(f"api response status code is {response.status_code}")
+        event.set()
 
     price_data = list(response.json()['Items'])
 

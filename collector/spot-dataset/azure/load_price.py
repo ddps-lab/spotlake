@@ -9,6 +9,7 @@ from utility import slack_msg_sender
 API_LINK = 'https://prices.azure.com:443/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27%20and%20priceType%20eq%20%27Consumption%27%20and%20unitOfMeasure%20eq%20%271%20Hour%27&$skip='
 FILTER_LOCATIONS = ['GOV', 'EUAP', 'ATT', 'SLV', '']
 price_list = []
+response_dict = {}
 MAX_SKIP = 2000
 SKIP_NUM_LIST = [i*100 for i in range(MAX_SKIP)]
 event = threading.Event()
@@ -62,8 +63,8 @@ def get_price(skip_num):
             response = requests.get(get_link)
 
     if response.status_code != 200:
-        slack_msg_sender.send_slack_message(response.status_code)
-        event.set()
+        response_dict[response.status_code] = response_dict.get(response.status_code, 0) + 1
+
 
     price_data = list(response.json()['Items'])
 
@@ -126,6 +127,10 @@ def collect_price_with_multithreading():
             future = executor.submit(get_price, skip_num)
         event.wait()
         executor.shutdown(wait=True, cancel_futures=True)
+
+    if response_dict:
+        for i in response_dict:
+            slack_msg_sender.send_slack_message(f"{i} respones occurred {response_dict[i]} times")
 
     price_df = pd.DataFrame(price_list)
     savings_df = preprocessing_price(price_df)

@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone 
 import boto3
 import botocore
+from const_config import GcpCollector, Storage
 
 from load_pricelist import get_price, preprocessing_price
 from load_vminstance_pricing import get_url_list, get_table, extract_price
@@ -12,15 +13,12 @@ from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
 from utility import slack_msg_sender
 
-API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
-PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
-BUCKET_NAME = 'spotlake'
-KEY = 'latest_data/latest_gcp.json'
-
+STORAGE_CONST = Storage()
+GCP_CONST = GcpCollector()
 
 def gcp_collect(timestamp) :
     # load pricelist
-    data = requests.get(API_LINK).json()
+    data = requests.get(GCP_CONST.API_LINK).json()
     
     pricelist = data['gcp_price_list']
     
@@ -38,7 +36,7 @@ def gcp_collect(timestamp) :
             output_vminstance_pricing[machine_type][region]['ondemand'] = -1
             output_vminstance_pricing[machine_type][region]['preemptible'] = -1
     
-    url_list = get_url_list(PAGE_URL)
+    url_list = get_url_list(GCP_CONST.PAGE_URL)
     
     table_list = []
     for url in url_list:
@@ -68,7 +66,7 @@ def gcp_collect(timestamp) :
     # check latest_data was in s3
     s3 = boto3.resource('s3')
     try:
-        s3.Object(BUCKET_NAME, KEY).load()
+        s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH).load()
     
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == '404':
@@ -80,7 +78,7 @@ def gcp_collect(timestamp) :
             print(e)
     
     # get previous latest_data from s3
-    object = s3.Object(BUCKET_NAME, KEY)
+    object = s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH)
     response = object.get()
     data = json.load(response['Body'])
     df_previous = pd.DataFrame(data)

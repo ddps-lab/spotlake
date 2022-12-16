@@ -6,24 +6,24 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 import pandas as pd
 import json
+from const_config import Storage
 from utility import slack_msg_sender
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
+STORAGE_CONST = Storage()
 
-BUCKET_NAME = 'spotlake'
-DATABASE_NAME = 'spotlake'
-TABLE_NAME = 'gcp'
+# 22.12.15 17:38 임준호
+# 임시로 데이터를 저장중인 듯 하여 const_config.py에 정의하지 않음
 LOCAL_PATH = '/tmp'
-
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName = TABLE_NAME, Records=records, CommonAttributes={})
+        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME, TableName = STORAGE_CONST.GCP_TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -92,11 +92,11 @@ def update_latest(data, timestamp):
     session = boto3.Session()
     s3 = session.client('s3')
     with open(f"{LOCAL_PATH}/{filename}", 'rb') as f:
-        s3.upload_fileobj(f, BUCKET_NAME, s3_path)
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
         
     ## temporary blocking of access
     # s3 = session.resource('s3')
-    # object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
+    # object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
     # response = object_acl.put(ACL='public-read')
 
 
@@ -109,7 +109,7 @@ def save_raw(data, timestamp):
     s3_obj_name = timestamp.strftime("%H-%M-%S")
     with open(SAVE_FILENAME, 'rb') as f:
         s3.upload_fileobj(
-            f, BUCKET_NAME, f"rawdata/gcp/{s3_dir_name}/{s3_obj_name}.csv.gz")
+            f, STORAGE_CONST.BUCKET_NAME, f"rawdata/gcp/{s3_dir_name}/{s3_obj_name}.csv.gz")
 
     for filename in os.listdir(f"{LOCAL_PATH}/"):
         if "spotlake_" in filename:

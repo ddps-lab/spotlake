@@ -1,16 +1,14 @@
 import aiohttp
 import asyncio
 import requests
+from const_config import AzureCollector
 from util.auth import get_token
 from util.s3 import S3
 import traceback
 
-AZURE_SUBSCRIPTION_ID = ""
-LIMIT = 2000
-SLACK_WEBHOOK_URL = ""
-
 datas = {}
 
+AZURE_CONST = AzureCollector()
 
 def get_hardwaremap():
     s3 = S3("azure-hardware-map")
@@ -20,7 +18,7 @@ def get_hardwaremap():
 async def get_data(token, data, retry=3):
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post("https://s2.billing.ext.azure.com/api/Billing/Subscription/GetSpecsCosts?SpotPricing=true", json=data, headers={"Authorization": "Bearer " + token}) as resp:
+            async with session.post(AZURE_CONST.GET_PRICE_URL, json=data, headers={"Authorization": "Bearer " + token}) as resp:
                 data = await resp.json()
                 for i in data["costs"]:
                     region, size = i["id"].split(",")
@@ -39,12 +37,12 @@ async def run_async(token, spec_resource_sets, specs_to_allow_zero_cost):
         get_data(
             token,
             {
-                "subscriptionId": AZURE_SUBSCRIPTION_ID,
-                "specResourceSets": spec_resource_sets[i:i + LIMIT],
-                "specsToAllowZeroCost": specs_to_allow_zero_cost[i:i + LIMIT],
+                "subscriptionId": AZURE_CONST.AZURE_SUBSCRIPTION_ID,
+                "specResourceSets": spec_resource_sets[i:i + AZURE_CONST.SPEC_RESOURCE_SETS_LIMIT],
+                "specsToAllowZeroCost": specs_to_allow_zero_cost[i:i + AZURE_CONST.SPEC_RESOURCE_SETS_LIMIT],
                 "specType": "Microsoft_Azure_Compute"
             }
-        ) for i in range(0, len(spec_resource_sets), LIMIT)
+        ) for i in range(0, len(spec_resource_sets), AZURE_CONST.SPEC_RESOURCE_SETS_LIMIT)
     ])
 
 
@@ -77,6 +75,6 @@ def lambda_handler(event, context):
 
         return datas
     except Exception as e:
-        requests.post(SLACK_WEBHOOK_URL, json={
+        requests.post(AZURE_CONST.SLACK_WEBHOOK_URL, json={
                       "text": f"get_price_handler\n\n{traceback.format_exc()}"})
         return {}

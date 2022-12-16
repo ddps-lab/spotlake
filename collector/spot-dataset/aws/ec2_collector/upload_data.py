@@ -6,27 +6,24 @@ import sys
 import os
 from botocore.config import Config
 from botocore.exceptions import ClientError
+from const_config import AwsCollector, Storage
 
 sys.path.append('/home/ubuntu/spotlake/utility')
 
 from slack_msg_sender import send_slack_message
 
+STORAGE_CONST = Storage()
+AWS_CONST = AwsCollector()
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
-
-BUCKET_NAME = 'spotlake'
-DATABASE_NAME = 'spotlake'
-TABLE_NAME = 'aws'
-LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
-
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName = TABLE_NAME, Records=records, CommonAttributes={})
+        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME, TableName = STORAGE_CONST.TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -83,19 +80,19 @@ def update_latest(data, timestamp):
     data = data.drop(data[(data['AZ'].isna()) | (data['Region'].isna()) | (data['InstanceType'].isna())].index)
     data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
     data['id'] = data.index+1
-    result = data.to_json(f"{LOCAL_PATH}/{filename}", orient="records")
+    result = data.to_json(f"{AWS_CONST.LOCAL_PATH}/{filename}", orient="records")
     s3_path = f'latest_data/{filename}'
     session = boto3.Session()
     s3 = session.client('s3')
-    with open(f"{LOCAL_PATH}/{filename}", 'rb') as f:
-        s3.upload_fileobj(f, BUCKET_NAME, s3_path)
+    with open(f"{AWS_CONST.LOCAL_PATH}/{filename}", 'rb') as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
     s3 = session.resource('s3')
-    object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
     response = object_acl.put(ACL='public-read')
 
 
 def save_raw(data, timestamp):
-    SAVE_FILENAME = f"{LOCAL_PATH}/spotlake_"+f"{timestamp}.csv.gz"
+    SAVE_FILENAME = f"{AWS_CONST.LOCAL_PATH}/spotlake_"+f"{timestamp}.csv.gz"
     data.to_csv(SAVE_FILENAME, index=False, compression="gzip")
     session = boto3.Session()
     s3 = session.client('s3')
@@ -103,9 +100,9 @@ def save_raw(data, timestamp):
     s3_obj_name = timestamp.strftime("%H-%M-%S")
 
     with open(SAVE_FILENAME, 'rb') as f:
-        s3.upload_fileobj(f, BUCKET_NAME, f"rawdata/aws/{s3_dir_name}/{s3_obj_name}.csv.gz")
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f"rawdata/aws/{s3_dir_name}/{s3_obj_name}.csv.gz")
     
-    for filename in os.listdir(f"{LOCAL_PATH}/"):
+    for filename in os.listdir(f"{AWS_CONST.LOCAL_PATH}/"):
         if "spotlake_" in filename:
-            os.remove(f"{LOCAL_PATH}/{filename}")
+            os.remove(f"{AWS_CONST.LOCAL_PATH}/{filename}")
 

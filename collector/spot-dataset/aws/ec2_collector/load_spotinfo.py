@@ -3,17 +3,17 @@ import os
 import pickle
 import subprocess
 
+from const_config import AwsCollector
 
-LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
-
+AWS_CONST = AwsCollector()
 
 # get info of interrupt frequency at spotinfo
 def get_spotinfo():
     # need to change file location
-    if 'spotinfo' in os.listdir(f'{LOCAL_PATH}/'):
-        command = ['', '', f'{LOCAL_PATH}/spotinfo --output csv --region all']
+    if 'spotinfo' in os.listdir(f'{AWS_CONST.LOCAL_PATH}/'):
+        command = ['', '', f'{AWS_CONST.LOCAL_PATH}/spotinfo --output csv --region all']
     else:
-        command = [f'wget https://github.com/alexei-led/spotinfo/releases/download/1.0.7/spotinfo_linux_amd64 -O {LOCAL_PATH}/spotinfo', f'chmod +x {LOCAL_PATH}/spotinfo', f'{LOCAL_PATH}/spotinfo --output csv --region all']
+        command = [f'wget https://github.com/alexei-led/spotinfo/releases/download/1.0.7/spotinfo_linux_amd64 -O {AWS_CONST.LOCAL_PATH}/spotinfo', f'chmod +x {AWS_CONST.LOCAL_PATH}/spotinfo', f'{AWS_CONST.LOCAL_PATH}/spotinfo --output csv --region all']
     
         process1 = subprocess.Popen(command[0].split(' '), stdout=subprocess.PIPE)
         process1.communicate()

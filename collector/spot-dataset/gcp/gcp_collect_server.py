@@ -3,6 +3,7 @@ import pandas as pd
 import argparse
 import os
 from datetime import datetime
+from const_config import GcpCollector
 
 from load_pricelist import get_price, preprocessing_price
 from load_vminstance_pricing import get_url_list, get_table, extract_price
@@ -10,9 +11,7 @@ from upload_data import save_raw, update_latest, upload_timestream
 from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
 
-API_LINK = "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
-PAGE_URL = "https://cloud.google.com/compute/vm-instance-pricing"
-LOCAL_PATH = "/home/ubuntu/spot-score/collection/gcp"
+GCP_CONST = GcpCollector()
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
@@ -21,7 +20,7 @@ args = parser.parse_args()
 timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 
 # load pricelist
-data = requests.get(API_LINK).json()
+data = requests.get(GCP_CONST.API_LINK).json()
 
 updated_date = data['updated']
 pricelist = data['gcp_price_list']
@@ -39,7 +38,7 @@ for machine_type in machine_type_list:
         output_vminstance_pricing[machine_type][region]['ondemand'] = -1
         output_vminstance_pricing[machine_type][region]['preemptible'] = -1
 
-url_list = get_url_list(PAGE_URL)
+url_list = get_url_list(GCP_CONST.PAGE_URL)
 
 table_list = []
 for url in url_list:
@@ -68,13 +67,13 @@ update_latest(df_current, timestamp)
 save_raw(df_current, timestamp)
 
 # compare latest and current data
-if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):
-    df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+if 'latest_df.pkl' not in os.listdir(f'{GCP_CONST.LOCAL_PATH}/'):
+    df_current.to_pickle(f'{GCP_CONST.LOCAL_PATH}/latest_df.pkl')
     upload_timestream(df_current, timestamp)
     exit()
 
-df_previous = pd.read_pickle(f'{LOCAL_PATH}/latest_df.pkl')
-df_current.to_pickle(f'{LOCAL_PATH}/latest_df.pkl')
+df_previous = pd.read_pickle(f'{GCP_CONST.LOCAL_PATH}/latest_df.pkl')
+df_current.to_pickle(f'{GCP_CONST.LOCAL_PATH}/latest_df.pkl')
 
 workload_cols = ['InstanceType', 'Region']
 feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price']

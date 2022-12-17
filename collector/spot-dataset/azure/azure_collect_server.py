@@ -3,14 +3,11 @@ import pandas as pd
 import datetime
 import os
 from compare_data import compare
+from const_config import AzureCollector
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 
-SAVE_DIR = '/home/ubuntu/spot-score/collection/azure/'
-SAVE_FILENAME = 'latest_azure_df.pkl'
-WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
-FEATURE_COLS = ['OndemandPrice', 'SpotPrice']
-
+AZURE_CONST = AzureCollector()
 
 # get timestamp from argument
 parser = argparse.ArgumentParser()
@@ -24,7 +21,7 @@ current_df = collect_price_with_multithreading()
 
 
 # check first execution
-if SAVE_FILENAME not in os.listdir(SAVE_DIR):
+if AZURE_CONST.SERVER_SAVE_FILENAME not in os.listdir(AZURE_CONST.SERVER_SAVE_DIR):
     update_latest(current_df, timestamp)
     save_raw(current_df, timestamp)
     upload_timestream(current_df, timestamp)
@@ -32,8 +29,8 @@ if SAVE_FILENAME not in os.listdir(SAVE_DIR):
 
 
 # load previous dataframe, save current dataframe
-previous_df = pd.read_pickle(SAVE_DIR + SAVE_FILENAME)
-current_df.to_pickle(SAVE_DIR + SAVE_FILENAME)
+previous_df = pd.read_pickle(AZURE_CONST.SERVER_SAVE_DIR + AZURE_CONST.SERVER_SAVE_FILENAME)
+current_df.to_pickle(AZURE_CONST.SERVER_SAVE_DIR + AZURE_CONST.SERVER_SAVE_FILENAME)
 
 
 # upload latest azure price to s3
@@ -42,7 +39,7 @@ save_raw(current_df, timestamp)
 
 
 # compare and upload changed_df to timestream
-changed_df, removed_df = compare(previous_df, current_df, WORKLOAD_COLS, FEATURE_COLS)
+changed_df, removed_df = compare(previous_df, current_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
 upload_timestream(changed_df, timestamp)
 upload_timestream(removed_df, timestamp)
 

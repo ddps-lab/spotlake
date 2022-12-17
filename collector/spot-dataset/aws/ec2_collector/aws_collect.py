@@ -9,6 +9,7 @@ import time
 import gzip
 from datetime import datetime, timedelta
 from multiprocessing import Pool
+from const_config import AwsCollector, Storage
 
 from workload_binpacking import get_binpacked_workload
 from load_price import get_spot_price, get_ondemand_price, get_regions
@@ -22,9 +23,10 @@ sys.path.append('/home/ubuntu/spotlake/utility')
 
 from slack_msg_sender import send_slack_message
 
+STORAGE_CONST = Storage()
+AWS_CONST = AwsCollector()
+
 NUM_CPU = 2
-LOCAL_PATH = '/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector'
-BUCKET_NAME = 'spotlake'
 s3 = boto3.resource('s3')
 
 # get timestamp from argument
@@ -36,12 +38,12 @@ date = args.timestamp.split("T")[0]
 
 # need to change file location
 try:
-    workload = pickle.load(gzip.open(s3.Object(BUCKET_NAME, f'rawdata/aws/workloads/{"/".join(date.split("-"))}/binpacked_workloads.pkl.gz').get()['Body']))
+    workload = pickle.load(gzip.open(s3.Object(STORAGE_CONST.BUCKET_NAME, f'rawdata/aws/workloads/{"/".join(date.split("-"))}/binpacked_workloads.pkl.gz').get()['Body']))
 except botocore.exceptions.ClientError as e:
     send_slack_message(e)
-    workload = pickle.load(open(f"{LOCAL_PATH}/workloads.pkl", "rb"))
+    workload = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "rb"))
 
-credentials = pickle.load(open(f'{LOCAL_PATH}/user_cred_df_100_199.pkl', 'rb'))
+credentials = pickle.load(open(f'{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl', 'rb'))
 
 mp_workload = []
 for i in range(len(workload)):
@@ -85,16 +87,16 @@ try:
 except botocore.exceptions.ClientError as e:
     send_slack_message(e)
 
-if 'latest_df.pkl' not in os.listdir(f'{LOCAL_PATH}/'):
-    pickle.dump(current_df, open(f"{LOCAL_PATH}/latest_df.pkl", "wb"))
+if 'latest_df.pkl' not in os.listdir(f'{AWS_CONST.LOCAL_PATH}/'):
+    pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb"))
     try:
         upload_timestream(current_df, timestamp)
     except botocore.exceptions.ClientError as e:
         send_slack_message(e)
     exit()
 
-previous_df = pickle.load(open(f"{LOCAL_PATH}/latest_df.pkl", "rb")) # load previous data from local file system
-pickle.dump(current_df, open(f"{LOCAL_PATH}/latest_df.pkl", "wb")) # write current data to local file system
+previous_df = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "rb")) # load previous data from local file system
+pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb")) # write current data to local file system
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']

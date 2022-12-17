@@ -1,11 +1,11 @@
 import json
 import requests
 import time
+from const_config import AzureCollector
 from util.dynamodb import DynamoDB
 import traceback
 
-SLACK_WEBHOOK_URL = ""
-
+AZURE_CONST = AzureCollector()
 
 def request_token(realm, client_id, refresh_token, retry=3):
     try:
@@ -47,5 +47,5 @@ def lambda_handler(event, context):
 
         return access_token
     except Exception as e:
-        requests.post(SLACK_WEBHOOK_URL, json={
+        requests.post(AZURE_CONST.SLACK_WEBHOOK_URL, json={
                       "text": f"auth_handler\n\n{traceback.format_exc()}"})

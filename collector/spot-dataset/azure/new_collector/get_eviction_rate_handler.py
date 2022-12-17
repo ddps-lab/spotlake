@@ -1,15 +1,15 @@
 import json
 import boto3
 import requests
+from const_config import AzureCollector
 from util.auth import get_token
 import traceback
 
-SLACK_WEBHOOK_URL = ""
-
+AZURE_CONST = AzureCollector()
 
 def get_data(token, skip_token, retry=3):
     try:
-        data = requests.post("https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01", headers={
+        data = requests.post(AZURE_CONST.GET_EVICTION_RATE_URL, headers={
             "Authorization": "Bearer " + token
         }, json={
             "query": "spotresources\n| where type =~ \"microsoft.compute/skuspotevictionrate/location\"\n| project location = location, props = parse_json(properties)\n| project location = location, skuName = props.skuName, evictionRate = props.evictionRate\n| where isnotempty(skuName) and isnotempty(evictionRate) and isnotempty(location)",
@@ -47,6 +47,6 @@ def lambda_handler(event, context):
 
         return datas
     except Exception as e:
-        requests.post(SLACK_WEBHOOK_URL, json={
+        requests.post(AZURE_CONST.SLACK_WEBHOOK_URL, json={
                       "text": f"get_eviction_rate_handler\n\n{traceback.format_exc()}"})
         return []

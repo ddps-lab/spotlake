@@ -1,12 +1,13 @@
 import requests
+from const_config import AzureCollector
 from util.s3 import S3
 from util.auth import get_token
 import datetime
 import os
 import traceback
 
-SLACK_WEBHOOK_URL = ""
 
+AZURE_CONST = AzureCollector()
 
 def save_as_json(s3, data):
     s3.put_json("azure/hardware_feature.json", data)
@@ -59,5 +60,5 @@ def lambda_handler(event, context):
         save_as_csv(s3, data)
 
     except:
-        requests.post(SLACK_WEBHOOK_URL, json={
+        requests.post(AZURE_CONST.SLACK_WEBHOOK_URL, json={
                       "text": f"get_hardwaremap_handler\n\n{traceback.format_exc()}"})

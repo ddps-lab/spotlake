@@ -1,15 +1,15 @@
 import requests
 import re
+from const_config import AzureCollector
 from util.s3 import S3
 import traceback
 
-SLACK_WEBHOOK_URL = ""
-
+AZURE_CONST = AzureCollector()
 
 def get_hardwaremap_urls(retry=3):
     try:
         data = requests.get(
-            "https://afd.hosting.portal.azure.net/compute/?environmentjson=true&extensionName=Microsoft_Azure_Compute&l=en&trustedAuthority=portal.azure.com").text
+            AZURE_CONST.GET_HARDWAREMAP_URL).text
         tmp = re.findall(
             r"afd\.hosting\.portal\.azure\.net\/compute\/Content\/Dynamic\/[^\"]{12}\":{\"SpecPicker\/Data\/HardwareMap\.\w+\.Linux\.AzureSpot", data)
 
@@ -56,5 +56,5 @@ def lambda_handler(event, context):
         s3.put_json("hardwaremap.json", hardwaremap)
 
     except Exception as e:
-        requests.post(SLACK_WEBHOOK_URL, json={
+        requests.post(AZURE_CONST.SLACK_WEBHOOK_URL, json={
                       "text": f"get_hardwaremap_handler\n\n{traceback.format_exc()}"})

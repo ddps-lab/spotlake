@@ -7,7 +7,7 @@ import botocore
 from const_config import GcpCollector, Storage
 
 from load_pricelist import get_price, preprocessing_price
-from load_vminstance_pricing import get_url_list, get_table, extract_price
+from load_vminstance_pricing import get_url_list, get_table, extract_price, requests_retry_session
 from upload_data import save_raw, update_latest, upload_timestream
 from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
@@ -18,7 +18,13 @@ GCP_CONST = GcpCollector()
 
 def gcp_collect(timestamp) :
     # load pricelist
-    data = requests.get(GCP_CONST.API_LINK).json()
+    response = requests_retry_session().get(GCP_CONST.API_LINK)
+
+    if response.status_code != 200:
+        slack_msg_sender.send_slack_message(f"GCP get pricelist : status code is {response.status_code}")
+        raise Exception(f"GCP get pricelist : status code is {response.status_code}")
+    
+    data = response.json()
     
     pricelist = data['gcp_price_list']
     

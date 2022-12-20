@@ -79,7 +79,7 @@ def get_table(url):
         response = requests_retry_session().get(url)
     except:
         slack_msg_sender.send_slack_message(f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
-        raise Exception(f"Error in getting VM Instance Pricing iframe\n{str(url)}")
+        raise Exception(f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
         
     if response.status_code == 200:
         html = response.text

@@ -10,7 +10,7 @@ from utility import slack_msg_sender
 def requests_retry_session(
     retries=3,
     backoff_factor=0.3,
-    status_forcelist=(500, 502, 503),
+    status_forcelist=(500, 501, 502, 503, 504),
     session=None
     ):
 

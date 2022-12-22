@@ -85,6 +85,11 @@ def workload_bin_packing(query, capacity, algorithm):
 
 
 def get_binpacked_workload(filedate):
+    # reverse order of credential data
+    user_cred = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "rb"))
+    user_cred = user_cred[::-1]
+    pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
+
     DIRLIST = os.listdir(f"{AWS_CONST.LOCAL_PATH}/")
     if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:
         binpacked_workload = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'rb'))
@@ -128,11 +133,6 @@ def get_binpacked_workload(filedate):
     pickle.dump(user_queries_list, open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'wb'))
     gzip.open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", "rb"))
     s3_client.upload_fileobj(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), STORAGE_CONST.BUCKET_NAME, f"rawdata/aws/workloads/{today}/binpacked_workloads.pkl.gz")
-
-    # reverse order of credential data
-    user_cred = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "rb"))
-    user_cred = user_cred[::-1]
-    pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
 
     return user_queries_list
 

@@ -1,9 +1,26 @@
 import logging
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 from gcp_metadata import region_mapping
 from utility import slack_msg_sender
+
+def requests_retry_session(
+    retries=3,
+    backoff_factor=0.3,
+    status_forcelist=(500, 501, 502, 503, 504),
+    session=None
+    ):
+
+    session = session or requests.Session()
+    retry = Retry(total=retries, read=retries, connect=retries, backoff_factor=backoff_factor, status_forcelist=status_forcelist)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
 
 def check_collecting_instance_type(instance_type):
     ignore_family_list = ['m2']
@@ -30,7 +47,8 @@ def get_url_list(page_url):
     # output : url list containing all iframe's url
     
     url_list = []
-    response = requests.get(page_url)
+    response = requests_retry_session().get(page_url)
+
     if response.status_code == 200:
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
@@ -45,7 +63,7 @@ def get_url_list(page_url):
             url_list.append(url)
 
     else:
-        slack_msg_sender.send_slack_message(response.status_code)
+        slack_msg_sender.send_slack_message(f"GCP get iframe list is failed. the response status code is {response.status_code}.")
         logging.error(response.status_code)
 
     return url_list
@@ -56,12 +74,12 @@ def get_table(url):
     # input : url of iframe
     # output : table
     
-    try :
-        global response 
-        response = requests.get(url)
-        
-    except Exception as e:
-        slack_msg_sender.send_slack_message('Error in getting VM Instance Pricing iframe\n' + str(url))
+    try:
+        global response
+        response = requests_retry_session().get(url)
+    except:
+        slack_msg_sender.send_slack_message(f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
+        raise Exception(f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
         
     if response.status_code == 200:
         html = response.text
@@ -76,9 +94,10 @@ def get_table(url):
             else :
                 return None
     else:
-        slack_msg_sender.send_slack_message('Connecton Error in VM instnace pricing iframe\n' + str(url))
+        slack_msg_sender.send_slack_message(f"Connecton Error in VM instnace pricing iframe\n{str(url)}")
         logging.error(response.status_code)
         logging.error(url)
+        raise Exception(f"Connecton Error in VM instnace pricing iframe\n{str(url)}")
 
 
 def extract_price(table, output):

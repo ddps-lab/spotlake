@@ -1,0 +1,7 @@
+t2a-standard-1
+t2a-standard-16
+t2a-standard-2
+t2a-standard-32
+t2a-standard-4
+t2a-standard-48
+t2a-standard-8

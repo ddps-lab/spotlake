@@ -12,7 +12,7 @@ while read line || [ -n "$line" ] ; do
     --zone=us-central1-a \
     --metadata-from-file=startup-script="./info-collector.sh" \
     --service-account feature-collector@gcp-hw-feature-collector.iam.gserviceaccount.com \
-    --scopes storage-full
+    --scopes=storage-full,compute-rw
 
     ((i+=1))
 done < amd_machinetypes.txt

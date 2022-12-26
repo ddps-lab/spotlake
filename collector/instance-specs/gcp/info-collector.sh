@@ -12,4 +12,4 @@ gcloud storage cp /home/kmubigdatagcp/${MACHINE_TYPE}.txt gs://gcp-cpuinfo/
 sudo dmidecode -t memory > /home/kmubigdatagcp/${MACHINE_TYPE}.txt
 gcloud storage cp /home/kmubigdatagcp/${MACHINE_TYPE}.txt gs://gcp-meminfo/
 
-sudo shutdown -h now
+gcloud compute instances delete e2-medium --zone=us-central1-a --quiet

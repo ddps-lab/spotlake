@@ -12,11 +12,12 @@ AWS_SECRET_ACCESS_KEY = credentials.secret_key
 
 # x86 ami
 ami = 'ami-0a65996d2713f71f1'
+ami_arm = 'ami-0f5eb0adc5237861b'
 
 instance_type = 'c4.xlarge'
 BUCKET_NAME = 'instance-coremark-result'
 result_file = f'{instance_type}_coremark_result.txt'
-core_num = 4
+#core_num = 4
 
 userdata = f'''#!/bin/bash
 apt-get update -y
@@ -33,13 +34,15 @@ cd coremark/
 
 touch {result_file}
 
-make XCFLAGS="-DMULTITHREAD={core_num} -DUSE_PTHREAD -pthread" REBUILD=1
+core_num=$(lscpu | grep -m 1 "CPU(s)" | cut -d ':' -f 2 | sed 's/ //g')
+
+make XCFLAGS="-DMULTITHREAD=$core_num -DUSE_PTHREAD -pthread" REBUILD=1
 cat run1.log | grep "CoreMark 1.0" >> {result_file}
 
-make XCFLAGS="-DMULTITHREAD={core_num} -DUSE_PTHREAD -pthread" REBUILD=1
+make XCFLAGS="-DMULTITHREAD=$core_num -DUSE_PTHREAD -pthread" REBUILD=1
 cat run1.log | grep "CoreMark 1.0" >> {result_file}
 
-make XCFLAGS="-DMULTITHREAD={core_num} -DUSE_PTHREAD -pthread" REBUILD=1
+make XCFLAGS="-DMULTITHREAD=$core_num -DUSE_PTHREAD -pthread" REBUILD=1
 cat run1.log | grep "CoreMark 1.0" >> {result_file}
 
 aws s3 cp {result_file} s3://{BUCKET_NAME}/

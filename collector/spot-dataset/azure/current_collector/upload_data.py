@@ -38,7 +38,7 @@ def submit_batch(records, counter, recursive):
 
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, timestamp):
-    data = data[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice']]
+    data = data[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'EvictionRate']]
 
     time_value = time.strptime(timestamp.strftime("%Y-%m-%d %H:%M"), '%Y-%m-%d %H:%M')
     time_value = time.mktime(time_value)
@@ -60,7 +60,7 @@ def upload_timestream(data, timestamp):
             'Time': time_value
         }
 
-        for column, types in [('OndemandPrice', 'DOUBLE'), ('SpotPrice', 'DOUBLE')]:
+        for column, types in [('OndemandPrice', 'DOUBLE'), ('SpotPrice', 'DOUBLE'), ('EvictionRate', 'DOUBLE')]:
             submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type': types})
 
         records.append(submit_data)
@@ -75,7 +75,7 @@ def upload_timestream(data, timestamp):
 
 def update_latest(data, timestamp):
     data['id'] = data.index + 1
-    data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings']]
+    data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'EvictionRate']]
     data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
     data['Savings'] = data['Savings'].fillna(-1)
     data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')

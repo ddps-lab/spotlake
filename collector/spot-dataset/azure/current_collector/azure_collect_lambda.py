@@ -39,11 +39,9 @@ def azure_collector(timestamp):
         if not changed_df.empty:
             upload_timestream(changed_df, timestamp)
 
-
     except Exception as e:
         result_msg = """AZURE Exception!\n %s""" % (e)
         data = {'text': result_msg}
-        resp = requests.post(url=url, json=data)
         send_slack_message(result_msg)
 
 

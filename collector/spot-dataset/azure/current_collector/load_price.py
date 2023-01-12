@@ -3,14 +3,15 @@ import pandas as pd
 import numpy as np
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from const_config import AzureCollector
-from utility import slack_msg_sender
+from util.slack_msg_sender import send_slack_message
 
-AZURE_CONST = AzureCollector()
 
+API_LINK = 'https://prices.azure.com:443/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27%20and%20priceType%20eq%20%27Consumption%27%20and%20unitOfMeasure%20eq%20%271%20Hour%27&$skip='
+FILTER_LOCATIONS = ['GOV', 'EUAP', 'ATT', 'SLV', '']
 price_list = []
 response_dict = {}
-SKIP_NUM_LIST = [i*100 for i in range(AZURE_CONST.MAX_SKIP)]
+MAX_SKIP = 2000
+SKIP_NUM_LIST = [i*100 for i in range(MAX_SKIP)]
 event = threading.Event()
 
 
@@ -52,7 +53,7 @@ def get_instaceType(armSkuName):
 
 # get price data using the API
 def get_price(skip_num):
-    get_link = AZURE_CONST.GET_PRICE_URL + str(skip_num)
+    get_link = API_LINK + str(skip_num)
     response = requests.get(get_link)
 
     for _ in range(5):
@@ -82,7 +83,7 @@ def preprocessing_price(df):
     df = df[~df['productName'].str.contains('Windows')]
     df = df[~df['meterName'].str.contains('Priority')]
     df = df[~df['meterName'].str.contains('Expired')]
-    df = df[~df['location'].str.split().str[0].isin(AZURE_CONST.FILTER_LOCATIONS)]
+    df = df[~df['location'].str.split().str[0].isin(FILTER_LOCATIONS)]
 
     ondemand_df = df[~df['meterName'].str.contains('Spot')]
     spot_df = df[df['meterName'].str.contains('Spot')]
@@ -112,7 +113,7 @@ def preprocessing_price(df):
     join_df['InstanceTier'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceTier(armSkuName))
     join_df['InstanceType'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceType(armSkuName))
 
-    join_df = join_df.reindex(columns=['InstanceTier', 'InstanceType', 'location', 'OndemandPrice', 'SpotPrice', 'Savings'])
+    join_df = join_df.reindex(columns=['InstanceTier', 'InstanceType', 'location','armRegionName', 'OndemandPrice', 'SpotPrice', 'Savings'])
 
     join_df.rename(columns={'location': 'Region'}, inplace=True)
 
@@ -129,7 +130,7 @@ def collect_price_with_multithreading():
 
     if response_dict:
         for i in response_dict:
-            slack_msg_sender.send_slack_message(f"{i} respones occurred {response_dict[i]} times")
+            send_slack_message(f"{i} respones occurred {response_dict[i]} times")
 
     price_df = pd.DataFrame(price_list)
     savings_df = preprocessing_price(price_df)

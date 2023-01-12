@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from util.slack_msg_sender import send_slack_message
+from utility import slack_msg_sender
 
 # compare previous collected workload with current collected workload
 # return changed workload

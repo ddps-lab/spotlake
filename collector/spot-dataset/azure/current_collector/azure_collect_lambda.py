@@ -9,7 +9,7 @@ from merge_df import merge_df
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 from compare_data import compare
-from util.slack_msg_sender import send_slack_message
+from utility import slack_msg_sender
 
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
@@ -42,7 +42,7 @@ def azure_collector(timestamp):
     except Exception as e:
         result_msg = """AZURE Exception!\n %s""" % (e)
         data = {'text': result_msg}
-        send_slack_message(result_msg)
+        slack_msg_sender.send_slack_message(result_msg)
 
 
 def lambda_handler(event, context):

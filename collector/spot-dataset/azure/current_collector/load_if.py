@@ -3,6 +3,7 @@ import boto3
 import requests
 import pandas as pd
 from util.azure_auth import get_token
+from utility import slack_msg_sender
 
 
 def get_data(token, skip_token, retry=3):
@@ -52,7 +53,6 @@ def load_if():
     except Exception as e:
         result_msg = """AZURE Exception when load_if\n %s""" % (e)
         data = {'text': result_msg}
-        resp = requests.post(url=url, json=data)
         slack_msg_sender.send_slack_message(result_msg)
 
 

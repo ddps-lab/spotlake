@@ -31,7 +31,7 @@ def azure_collector(timestamp):
         previous_df = pd.DataFrame(data)
 
         # upload latest azure price to s3
-        update_latest(current_df, timestamp)
+        update_latest(join_df, timestamp)
         save_raw(join_df, timestamp)
 
         # compare and upload changed_df to timestream

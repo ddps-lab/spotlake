@@ -72,7 +72,7 @@ class AzureCollector(object):
 
     @constant
     def DF_FEATURE_COLS():
-        return ['OndemandPrice', 'SpotPrice']
+        return ['OndemandPrice', 'SpotPrice', 'EvictionRate']
 
     @constant
     def SERVER_SAVE_DIR():

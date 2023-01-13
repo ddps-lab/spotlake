@@ -112,7 +112,7 @@ def preprocessing_price(df):
     join_df['InstanceTier'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceTier(armSkuName))
     join_df['InstanceType'] = join_df['armSkuName'].apply(lambda armSkuName: get_instaceType(armSkuName))
 
-    join_df = join_df.reindex(columns=['InstanceTier', 'InstanceType', 'location', 'OndemandPrice', 'SpotPrice', 'Savings'])
+    join_df = join_df.reindex(columns=['InstanceTier', 'InstanceType', 'location', 'armRegionName', 'OndemandPrice', 'SpotPrice', 'Savings'])
 
     join_df.rename(columns={'location': 'Region'}, inplace=True)
 

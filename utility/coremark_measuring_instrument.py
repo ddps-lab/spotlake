@@ -14,6 +14,7 @@ AWS_SECRET_ACCESS_KEY = credentials.secret_key
 BUCKET_NAME = 'instance-coremark-result'
 FOLDER_NAME = 'aws/test_data_instances_coremark/'
 MAX_MEASURE_NUM_ONCE = 5
+KEY_NAME = 'kh-oregon'
 
 # x86 ami
 ami_x86 = 'ami-0ee93c90bc65c86c2'
@@ -101,13 +102,13 @@ for instance in instance_workloads:
 
         try:
             instances = ec2_resource.create_instances(InstanceType=instance_type, ImageId=ami_x86,
-                                                      MaxCount=1, MinCount=1, KeyName='kh-oregon',
+                                                      MaxCount=1, MinCount=1, KeyName=KEY_NAME,
                                                       SecurityGroups=['SSH'],
                                                       UserData=userdata)
         except botocore.exceptions.ClientError as e1:
             try:
                 instances = ec2_resource.create_instances(InstanceType=instance_type, ImageId=ami_arm,
-                                                          MaxCount=1, MinCount=1, KeyName='kh-oregon',
+                                                          MaxCount=1, MinCount=1, KeyName=KEY_NAME,
                                                           SecurityGroups=['SSH'],
                                                           UserData=userdata)
             except botocore.exceptions.ClientError as e2:

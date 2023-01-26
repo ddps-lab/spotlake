@@ -2,12 +2,15 @@ import boto3
 import botocore
 
 # 설정 값들
-REGION_NAME = 'us-west-2' # 여기에 들어가는 리전은 아래의 aim_info에 리전이름과 ami 정보가 들어있어야한다.
+REGION_NAME = 'us-west-2' # 여기에 들어가는 리전은 아래의 AMI_INFO에 리전이름과 ami 정보가 들어있어야한다.
 BUCKET_NAME = 'instance-coremark-result' # 결과값을 저장할 버킷이름
 FOLDER_NAME = 'aws/test/' # 결과값을 저장할 버킷내에서의 폴더이름, 폴더가 없다면 ''로 비워둔다. 폴더가 있다면 끝은 '/'를 넣어준다.
 MAX_MEASURE_NUM_ONCE = 5 # 한번에 몇개씩 측정할지 개수설정
 KEY_NAME = 'kh-oregon' # 인스턴스를 생성할 때 사용할 키페어이름
 MEASUREMENTS_NUM = 2 # 인스턴스당 코어마크점수 측정 횟수
+AMI_INFO = {
+        'us-west-2': {'x86': 'ami-0ee93c90bc65c86c2', 'arm': 'ami-016b1f9568b08fffb'}
+    } # region name과 ami 정보를 딕셔너리로 구성
 
 session = boto3.session.Session(profile_name='kmubigdata', region_name='us-west-2')
 ec2_client = session.client('ec2')
@@ -18,13 +21,10 @@ credentials = session.get_credentials().get_frozen_credentials()
 AWS_ACCESS_KEY_ID = credentials.access_key
 AWS_SECRET_ACCESS_KEY = credentials.secret_key
 
-# region name과 [x86 ami, arm ami]를 딕셔너리로 구성
-ami_info = {'us-west-2': ['ami-0ee93c90bc65c86c2', 'ami-016b1f9568b08fffb']}
-
 # x86 ami
-ami_x86 = ami_info.get(REGION_NAME)[0]
+ami_x86 = AMI_INFO.get(REGION_NAME).get('x86')
 # arm ami
-ami_arm = ami_info.get(REGION_NAME)[1]
+ami_arm = AMI_INFO.get(REGION_NAME).get('arm')
 
 instance_workloads = []
 

@@ -171,6 +171,12 @@ const ColumnData = () =>{
                 return params.row.spotPrice == -1 ? "N/A" : params.row.SpotPrice;
             }
         },
+        { field: 'IF', headerName: 'IF', flex: 1.3, type: 'number',
+            headerAlign: 'center',
+            valueGetter: (params) => {
+                return params.row.IF == -1 ? "N/A" : params.row.IF;
+            }
+        },
         { field: 'savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {

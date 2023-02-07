@@ -23,6 +23,7 @@ SpotLake system is an integrated data archive service that provides spot instanc
 ## Paper and Demo-Web
 If you are interested in an analysis of the SpotLake datasets or system implementation, check the latest version of the SpotLake paper which is published in IISWC 2022. We also published an older version of the paper through arXiv.
 
+[spotlake-ieee-official.pdf](https://github.com/ddps-lab/spotlake/files/9962402/879800a242.pdf)<br>
 https://ieeexplore.ieee.org/document/9975369
 
 Demo-Web is provided so that users can easily access SpotLake data.

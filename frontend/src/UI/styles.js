@@ -27,6 +27,12 @@ export const theme = createTheme({
             dark : "rgb(1, 8, 128)",
             main : "rgb(67,81,196)",
             contrastText : "#fff",
+        },
+        PDF:{
+            light : "rgb(224, 14, 0)",
+            dark : "rgb(125, 8, 0)",
+            main : "rgb(170,12,0)",
+            contrastText : "#fff",
         }
     }
 })
@@ -73,6 +79,10 @@ export const ContentBox = styled.div`
   }
   & ul.buttonGroup {
     list-style-type: none;
+    > li {
+        display: flex;
+        gap: 10px;
+    }
   }
   & ul.contribute_developers {
     list-style-type: disc;

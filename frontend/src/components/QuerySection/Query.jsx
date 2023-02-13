@@ -163,14 +163,16 @@ const Query = ({
                   // button load false로 설정
                   setLoad(false);
               }).catch((e) => {
-                  console.log(e)
                   setLoad(false);
                   if (e.message === "Network Error") {
                       alert("A network error occurred. Try it again. ")
+                  } else if (e.response.data) {
+                      if (Number(e.response.data['Status']) === 403) alert("Invalid Access");
+                      else if (Number(e.response.data['Status']) === 500) alert("Internal Server Error");
                   } else {
-                      alert(e.message)
+                      alert(e.message);
                   }
-              })
+              });
         }
         else {
             alert("The date range for the query is invalid. Please set the date correctly.");

@@ -20,9 +20,17 @@ function About () {
                                 <CustomButton
                                     color={"IISWC"}
                                     variant="contained"
-                                    onClick={() => {alert("link will be available soon")}}
+                                    onClick={() => {window.open('https://ieeexplore.ieee.org/document/9975369', '_blank')}}
                                 >IISWC 2022 paper</CustomButton>
                             </ThemeProvider>
+                            <ThemeProvider theme={theme}>
+                                <CustomButton
+                                  color={"PDF"}
+                                  variant="contained"
+                                  onClick={() => {window.open('http://leeky.me/publications/spotlake.pdf', '_blank')}}
+                                >PDF paper</CustomButton>
+                            </ThemeProvider>
+
                         </li>
                     </ul>
                     Every source code and the issue of the SpotLake system is maintained through the GitHub repository. Anyone interested in the SpotLake system could contribute to the code. You can check the star button if you are intriguing this open-source project.

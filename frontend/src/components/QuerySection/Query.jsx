@@ -151,7 +151,9 @@ const Query = ({
             await axios.get(url, { params })
               .then((res) => {
                   //get 요청을 통해 받는 리턴값
-                  let parseData = JSON.parse(res.data);
+                  console.log("res : ",res);
+                  let parseData = JSON.parse(res.Data);
+                  // let parseData = JSON.parse(res.data);
                   const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
                   setQueryData(parseData);
                   let dataCnt = parseData.length;
@@ -163,14 +165,16 @@ const Query = ({
                   // button load false로 설정
                   setLoad(false);
               }).catch((e) => {
-                  console.log(e)
                   setLoad(false);
                   if (e.message === "Network Error") {
                       alert("A network error occurred. Try it again. ")
+                  } else if (e.response.data) {
+                      if (Number(e.response.data['Status']) === 403) alert("Invalid Access");
+                      else if (Number(e.response.data['Status']) === 500) alert("Internal Server Error");
                   } else {
-                      alert(e.message)
+                      alert(e.message);
                   }
-              })
+              });
         }
         else {
             alert("The date range for the query is invalid. Please set the date correctly.");

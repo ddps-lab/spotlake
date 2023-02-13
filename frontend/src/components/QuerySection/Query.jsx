@@ -151,8 +151,8 @@ const Query = ({
             await axios.get(url, { params })
               .then((res) => {
                   //get 요청을 통해 받는 리턴값
-                  console.log("res : ",res);
-                  let parseData = JSON.parse(res.Data);
+                  // console.log("res : ",res);
+                  let parseData = JSON.parse(res.data.Data);
                   // let parseData = JSON.parse(res.data);
                   const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
                   setQueryData(parseData);

@@ -152,8 +152,7 @@ const Query = ({
               .then((res) => {
                   //get 요청을 통해 받는 리턴값
                   console.log("res : ",res);
-                  let dataText = JSON.parse(res.data);
-                  let parseData = JSON.parse(dataText.Data);
+                  let parseData = JSON.parse(JSON.parse(res.data.Data));
                   // let parseData = JSON.parse(res.data);
                   const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
                   setQueryData(parseData);

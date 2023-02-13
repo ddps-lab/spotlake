@@ -1,5 +1,6 @@
 from gcp_metadata import region_list, machine_type_list, n1, e2, n2, n2d, t2d, t2a, c2, c2d, m1, m3, a2
 
+
 # This code is referenced from "https://github.com/doitintl/gcpinstances.info/blob/master/scraper.py"
 
 
@@ -28,7 +29,7 @@ def calculate_price(cpu_data, ram_data, machine_series, price_type):
             for ram_region, ram_price in ram_data.items():
                 if cpu_region == ram_region and cpu_region in region_list:
                     output[machine_type][cpu_region][price_type] = cpu_quantity * \
-                        cpu_price + ram_quantity*ram_price
+                                                                   cpu_price + ram_quantity * ram_price
 
 
 def get_price(pricelist):
@@ -190,8 +191,8 @@ def get_price(pricelist):
             for ram_region, ram_price in ram_data.items():
                 for gpu_region, gpu_price in gpu_data.items():
                     if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
-                        output[machine_type][cpu_region]['ondemand'] = cpu_quantity*cpu_price + \
-                            ram_quantity*ram_price + gpu_quantity*gpu_price + ssd_quantity*ssd_ondemand_price
+                        output[machine_type][cpu_region]['ondemand'] = cpu_quantity * cpu_price + \
+                                                                       ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_ondemand_price
     # preemptible
     cpu_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-CORE-PREEMPTIBLE']
     ram_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-RAM-PREEMPTIBLE']
@@ -212,8 +213,8 @@ def get_price(pricelist):
                 for gpu_region, gpu_price in gpu_data.items():
                     if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
                         if output[machine_type][cpu_region]['ondemand'] != -1:
-                            output[machine_type][cpu_region]['preemptible'] = cpu_quantity*cpu_price + \
-                                ram_quantity*ram_price + gpu_quantity*gpu_price + ssd_quantity*ssd_preemptible_price
+                            output[machine_type][cpu_region]['preemptible'] = cpu_quantity * cpu_price + \
+                                                                              ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_preemptible_price
     return output
 
 
@@ -221,7 +222,7 @@ def preprocessing_price(df):
     # make list to struct final dataframe
     # input : dataframe 
     # output : list having Instance type, Region, Ondemand price, Preemptible price
-    
+
     new_list = []
     for machine_type, info in df.items():
         for region, price in info.items():
@@ -233,5 +234,5 @@ def preprocessing_price(df):
                 preemptible = round(preemptible, 4)
 
             new_list.append(
-                 [machine_type, region, ondemand, preemptible])
+                [machine_type, region, ondemand, preemptible])
     return new_list

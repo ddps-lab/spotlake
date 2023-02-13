@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 import json
-from datetime import datetime, timezone 
+from datetime import datetime, timezone
 import boto3
 import botocore
 from const_config import GcpCollector, Storage
@@ -16,23 +16,23 @@ from utility import slack_msg_sender
 STORAGE_CONST = Storage()
 GCP_CONST = GcpCollector()
 
-def gcp_collect(timestamp) :
+
+def gcp_collect(timestamp):
     # load pricelist
     response = requests_retry_session().get(GCP_CONST.API_LINK)
 
     if response.status_code != 200:
         slack_msg_sender.send_slack_message(f"GCP get pricelist : status code is {response.status_code}")
         raise Exception(f"GCP get pricelist : status code is {response.status_code}")
-    
+
     data = response.json()
-    
+
     pricelist = data['gcp_price_list']
-    
+
     # get price from pricelist
     output_pricelist = get_price(pricelist)
     df_pricelist = pd.DataFrame(output_pricelist)
-    
-    
+
     # get price from vm instance pricing page (crawling)
     output_vminstance_pricing = {}
     for machine_type in machine_type_list:
@@ -41,39 +41,37 @@ def gcp_collect(timestamp) :
             output_vminstance_pricing[machine_type][region] = {}
             output_vminstance_pricing[machine_type][region]['ondemand'] = -1
             output_vminstance_pricing[machine_type][region]['preemptible'] = -1
-    
+
     url_list = get_url_list(GCP_CONST.PAGE_URL)
-    
+
     table_list = []
     for url in url_list:
         table = get_table(url)
         if table != None:
             table_list.append(table)
-    
+
     for table in table_list:
         output_vminstance_pricing = extract_price(table, output_vminstance_pricing)
-    
+
     df_vminstance_pricing = pd.DataFrame(output_vminstance_pricing)
-    
-    
+
     # preprocessing
     df_pricelist = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
         'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price'])
     df_vminstance_pricing = pd.DataFrame(preprocessing_price(df_vminstance_pricing), columns=[
         'InstanceType', 'Region', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price'])
-    
-    
+
     # make final dataframe
     df_current = pd.merge(df_pricelist, df_vminstance_pricing)
-    
+
     # save current rawdata
     save_raw(df_current, timestamp)
-    
+
     # check latest_data was in s3
     s3 = boto3.resource('s3')
     try:
         s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH).load()
-    
+
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == '404':
             update_latest(df_current, timestamp)
@@ -82,33 +80,34 @@ def gcp_collect(timestamp) :
         else:
             slack_msg_sender.send_slack_message(e)
             print(e)
-    
+
     # get previous latest_data from s3
     object = s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH)
     response = object.get()
     data = json.load(response['Body'])
     df_previous = pd.DataFrame(data)
-    
+
     # update latest (current data -> latest data)
     update_latest(df_current, timestamp)
-    
+
     # compare previous and current data
     workload_cols = ['InstanceType', 'Region']
-    feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price']
-        
+    feature_cols = ['Calculator OnDemand Price', 'Calculator Preemptible Price', 'VM Instance OnDemand Price',
+                    'VM Instance Preemptible Price']
+
     changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
-        
+
     # wirte timestream
     upload_timestream(changed_df, timestamp)
     upload_timestream(removed_df, timestamp)
 
-    
+
 def lambda_handler(event, context):
     str_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
     timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
-    
+
     gcp_collect(timestamp)
-    
+
     return {
         "statusCode": 200
     }

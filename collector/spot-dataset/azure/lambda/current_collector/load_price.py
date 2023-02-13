@@ -1,15 +1,18 @@
+import os
 import requests
 import pandas as pd
 import numpy as np
 import threading
+from utill.const_config import AzureCollector
 from concurrent.futures import ThreadPoolExecutor
-from const_config import AzureCollector
-from utility import slack_msg_sender
+import slack_msg_sender
 
 AZURE_CONST = AzureCollector()
 
+
 price_list = []
 response_dict = {}
+MAX_SKIP = 2000
 SKIP_NUM_LIST = [i*100 for i in range(AZURE_CONST.MAX_SKIP)]
 event = threading.Event()
 

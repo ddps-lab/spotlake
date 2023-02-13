@@ -1,20 +1,26 @@
-import requests
-import pandas as pd
+import os
 import json
-from datetime import datetime, timezone, timedelta
-from const_config import AzureCollector, Storage
 import boto3
+import slack_msg_sender
+import pandas as pd
+from utill.const_config import AzureCollector, Storage
+from datetime import datetime, timezone
 from load_if import load_if
 from merge_df import merge_df
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw
 from compare_data import compare
-from utility import slack_msg_sender
 
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
-STR_DATETIME = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
-TIMESTAMP = datetime.strptime(STR_DATETIME, "%Y-%m-%dT%H:%M")
+
+BUCKET_NAME = os.environ.get('BUCKET_NAME')
+KEY = os.environ.get('S3_LATEST_DATA_SAVE_PATH')
+WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
+FEATURE_COLS = ['OndemandPrice', 'SpotPrice', 'IF']
+str_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
+timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
+
 
 def azure_collector(timestamp):
     try:
@@ -35,7 +41,7 @@ def azure_collector(timestamp):
         save_raw(join_df, timestamp)
 
         # compare and upload changed_df to timestream
-        changed_df = compare(previous_df, current_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
+        changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
         if not changed_df.empty:
             upload_timestream(changed_df, timestamp)
 
@@ -46,7 +52,7 @@ def azure_collector(timestamp):
 
 
 def lambda_handler(event, context):
-    azure_collector(TIMESTAMP)
+    azure_collector(timestamp)
     return {
         'statusCode': 200,
     }

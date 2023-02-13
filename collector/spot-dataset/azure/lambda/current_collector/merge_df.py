@@ -49,16 +49,15 @@ def merge_df(price_df, eviction_df):
                        right_on=['InstanceType', 'InstanceTier', 'location'],
                        how='outer')
 
-    join_df = join_df[['InstanceTier_x', 'InstanceType_x', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'evictionRate']]
+    join_df = join_df[
+        ['InstanceTier_x', 'InstanceType_x', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'evictionRate']]
 
     join_df = join_df[~join_df['SpotPrice'].isna()]
 
-    join_df.rename(
-        columns={'InstanceTier_x': 'InstanceTier', 'InstanceType_x': 'InstanceType', 'evictionRate': 'EvictionRate'},
-        inplace=True
-    )
+    join_df.rename(columns={'InstanceTier_x': 'InstanceTier', 'InstanceType_x': 'InstanceType', 'evictionRate': 'IF'},
+                   inplace=True)
 
     frequency_map = {'0-5': 3.0, '5-10': 2.5, '10-15': 2.0, '15-20': 1.5, '20+': 1.0}
-    join_df = join_df.replace({'EvictionRate': frequency_map})
+    join_df = join_df.replace({'IF': frequency_map})
 
     return join_df

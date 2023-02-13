@@ -1,7 +1,7 @@
 import json
 import requests
 import time
-from dynamodb import DynamoDB
+from utill.dynamodb import DynamoDB
 
 
 def get_token():

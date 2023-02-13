@@ -3,16 +3,17 @@ import requests
 import pandas as pd
 import numpy as np
 import threading
+from utill.const_config import AzureCollector
 from concurrent.futures import ThreadPoolExecutor
 import slack_msg_sender
 
+AZURE_CONST = AzureCollector()
 
-API_LINK = os.environ.get('API_LINK')
-FILTER_LOCATIONS = ['GOV', 'EUAP', 'ATT', 'SLV', '']
+
 price_list = []
 response_dict = {}
 MAX_SKIP = 2000
-SKIP_NUM_LIST = [i*100 for i in range(MAX_SKIP)]
+SKIP_NUM_LIST = [i*100 for i in range(AZURE_CONST.MAX_SKIP)]
 event = threading.Event()
 
 
@@ -54,7 +55,7 @@ def get_instaceType(armSkuName):
 
 # get price data using the API
 def get_price(skip_num):
-    get_link = API_LINK + str(skip_num)
+    get_link = AZURE_CONST.GET_PRICE_URL + str(skip_num)
     response = requests.get(get_link)
 
     for _ in range(5):
@@ -84,7 +85,7 @@ def preprocessing_price(df):
     df = df[~df['productName'].str.contains('Windows')]
     df = df[~df['meterName'].str.contains('Priority')]
     df = df[~df['meterName'].str.contains('Expired')]
-    df = df[~df['location'].str.split().str[0].isin(FILTER_LOCATIONS)]
+    df = df[~df['location'].str.split().str[0].isin(AZURE_CONST.FILTER_LOCATIONS)]
 
     ondemand_df = df[~df['meterName'].str.contains('Spot')]
     spot_df = df[df['meterName'].str.contains('Spot')]

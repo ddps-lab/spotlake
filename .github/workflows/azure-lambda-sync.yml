@@ -4,7 +4,7 @@ on:
     branches:
       - 'main'
     paths:
-      - 'collector/spot-dataset/gcp/lambda/**'
+      - 'collector/spot-dataset/azure/lambda/current_collector/**'
       - 'utility/slack_msg_sender.py'
       - 'const_config.py'
 
@@ -22,8 +22,11 @@ jobs:
         uses: actions/checkout@v1
       - name: Zip lambda_function code
         run: |
-          zip -r gcp_lambda.zip ./utility/slack_msg_sender.py
-          zip -j gcp_lambda.zip ./collector/spot-dataset/gcp/lambda/* ./const_config.py
+          zip -j ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip ./collector/spot-dataset/azure/lambda/current_collector/* ./const_config.py ./utility/slack_msg_sender.py
+          cd ./collector/spot-dataset/azure/lambda/current_collector/
+          zip -r azure_lambda.zip ./utill/*
+          cd ../../../../../
+          mv ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip ./
       - name: Deploy to lambda
         run: |
-          aws lambda update-function-code --function-name gcp-collector --zip-file fileb://gcp_lambda.zip
+          aws lambda update-function-code --function-name azure-collector --zip-file fileb://azure_lambda.zip

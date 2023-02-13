@@ -151,7 +151,7 @@ const Query = ({
             await axios.get(url, { params })
               .then((res) => {
                   //get 요청을 통해 받는 리턴값
-                  // console.log("res : ",res);
+                  console.log("res : ",res);
                   let dataText = JSON.parse(res.data);
                   let parseData = JSON.parse(dataText.Data);
                   // let parseData = JSON.parse(res.data);
@@ -167,6 +167,7 @@ const Query = ({
                   setLoad(false);
               }).catch((e) => {
                   setLoad(false);
+                  console.log(e);
                   if (e.message === "Network Error") {
                       alert("A network error occurred. Try it again. ")
                   } else if (e.response.data) {

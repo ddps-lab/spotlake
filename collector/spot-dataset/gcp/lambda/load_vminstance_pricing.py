@@ -7,15 +7,16 @@ from requests.packages.urllib3.util.retry import Retry
 from gcp_metadata import region_mapping
 from utility import slack_msg_sender
 
-def requests_retry_session(
-    retries=3,
-    backoff_factor=0.3,
-    status_forcelist=(500, 501, 502, 503, 504),
-    session=None
-    ):
 
+def requests_retry_session(
+        retries=3,
+        backoff_factor=0.3,
+        status_forcelist=(500, 501, 502, 503, 504),
+        session=None
+):
     session = session or requests.Session()
-    retry = Retry(total=retries, read=retries, connect=retries, backoff_factor=backoff_factor, status_forcelist=status_forcelist)
+    retry = Retry(total=retries, read=retries, connect=retries, backoff_factor=backoff_factor,
+                  status_forcelist=status_forcelist)
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
@@ -28,7 +29,7 @@ def check_collecting_instance_type(instance_type):
 
     # check instance family
     instance_family = instance_type.split('-')[0]
-    if instance_family in ignore_family_list :
+    if instance_family in ignore_family_list:
         print(instance_type)
         return False
 
@@ -37,7 +38,7 @@ def check_collecting_instance_type(instance_type):
     if tmp_type in ignore_type_list:
         print(instance_type)
         return False
-    
+
     return True
 
 
@@ -45,7 +46,7 @@ def get_url_list(page_url):
     # get iframe url list from VM Instance Pricing page
     # input : VM Instance Pricing page url
     # output : url list containing all iframe's url
-    
+
     url_list = []
     response = requests_retry_session().get(page_url)
 
@@ -57,13 +58,14 @@ def get_url_list(page_url):
         for iframe in iframe_list:
             url = iframe.select_one(
                 'iframe').get_attribute_list('src')[0]
-            
+
             if url.find('https://cloud.google.com') == -1:
                 url = 'https://cloud.google.com' + url
             url_list.append(url)
 
     else:
-        slack_msg_sender.send_slack_message(f"GCP get iframe list is failed. the response status code is {response.status_code}.")
+        slack_msg_sender.send_slack_message(
+            f"GCP get iframe list is failed. the response status code is {response.status_code}.")
         logging.error(response.status_code)
 
     return url_list
@@ -73,14 +75,16 @@ def get_table(url):
     # get necessary table from html of iframe
     # input : url of iframe
     # output : table
-    
+
     try:
         global response
         response = requests_retry_session().get(url)
     except:
-        slack_msg_sender.send_slack_message(f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
-        raise Exception(f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
-        
+        slack_msg_sender.send_slack_message(
+            f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
+        raise Exception(
+            f"Error in getting VM Instance Pricing iframe. Please check VMInstance Pricing page's html format.\n{str(url)}")
+
     if response.status_code == 200:
         html = response.text
         soup = BeautifulSoup(html, 'html.parser')
@@ -91,7 +95,7 @@ def get_table(url):
 
             if check_collecting_instance_type(instance_type):
                 return table
-            else :
+            else:
                 return None
     else:
         slack_msg_sender.send_slack_message(f"Connecton Error in VM instnace pricing iframe\n{str(url)}")
@@ -144,10 +148,10 @@ def extract_price(table, output):
 
                 for abbr, region in region_mapping.items():
                     attr = abbr + '-hourly'
-                    try :
+                    try:
                         ondemand_str = ondemand_regional_price[attr]
                         preemptible_str = preemptible_regional_price[attr]
-                    except :
+                    except:
                         continue
 
                     ondemand_prc = ''

@@ -10,7 +10,8 @@ from const_config import Storage
 from utility import slack_msg_sender
 
 session = boto3.session.Session(region_name='us-west-2')
-write_client = session.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
+write_client = session.client('timestream-write',
+                              config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
 
 STORAGE_CONST = Storage()
 
@@ -18,12 +19,15 @@ STORAGE_CONST = Storage()
 # 임시로 데이터를 저장중인 듯 하여 const_config.py에 정의하지 않음
 LOCAL_PATH = '/tmp'
 
+
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME, TableName = STORAGE_CONST.GCP_TABLE_NAME, Records=records, CommonAttributes={})
+        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME,
+                                            TableName=STORAGE_CONST.GCP_TABLE_NAME, Records=records,
+                                            CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -52,17 +56,18 @@ def upload_timestream(data, timestamp):
         dimensions = []
         for column in data.columns:
             if column in ['InstanceType', 'Region', 'Ceased']:
-                dimensions.append({'Name':column, 'Value': str(row[column])})
+                dimensions.append({'Name': column, 'Value': str(row[column])})
 
         submit_data = {
-                'Dimensions': dimensions,
-                'MeasureName': 'gcp_values',
-                'MeasureValues': [],
-                'MeasureValueType': 'MULTI',
-                'Time': time_value
+            'Dimensions': dimensions,
+            'MeasureName': 'gcp_values',
+            'MeasureValues': [],
+            'MeasureValueType': 'MULTI',
+            'Time': time_value
         }
-        for column, types in [('Calculator OnDemand Price', 'DOUBLE'), ('Calculator Preemptible Price', 'DOUBLE'), ('VM Instance OnDemand Price', 'DOUBLE'), ('VM Instance Preemptible Price', 'DOUBLE')]:
-            submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type' : types})
+        for column, types in [('Calculator OnDemand Price', 'DOUBLE'), ('Calculator Preemptible Price', 'DOUBLE'),
+                              ('VM Instance OnDemand Price', 'DOUBLE'), ('VM Instance Preemptible Price', 'DOUBLE')]:
+            submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type': types})
         records.append(submit_data)
         counter += 1
         if len(records) == 100:
@@ -71,19 +76,26 @@ def upload_timestream(data, timestamp):
 
     if len(records) != 0:
         submit_batch(records, counter, 0)
-    
+
     print(f"end : {counter}")
 
 
 def update_latest(data, timestamp):
     filename = 'latest_gcp.json'
-    data['Calculator Savings'] = round((data['Calculator OnDemand Price'] - data['Calculator Preemptible Price']) / data['Calculator OnDemand Price'] * 100)
-    data['VM Instance Savings'] = round((data['VM Instance OnDemand Price'] - data['VM Instance Preemptible Price']) / data['VM Instance OnDemand Price'] * 100)
+    data['Calculator Savings'] = round(
+        (data['Calculator OnDemand Price'] - data['Calculator Preemptible Price']) / data[
+            'Calculator OnDemand Price'] * 100)
+    data['VM Instance Savings'] = round(
+        (data['VM Instance OnDemand Price'] - data['VM Instance Preemptible Price']) / data[
+            'VM Instance OnDemand Price'] * 100)
     data = data.replace(-0, -1)
-    data['id'] = data.index+1
-    data = pd.DataFrame(data, columns=['id', 'InstanceType', 'Region', 'Calculator OnDemand Price', 'Calculator Preemptible Price', 'Calculator Savings', 'VM Instance OnDemand Price', 'VM Instance Preemptible Price', 'VM Instance Savings'])
+    data['id'] = data.index + 1
+    data = pd.DataFrame(data, columns=['id', 'InstanceType', 'Region', 'Calculator OnDemand Price',
+                                       'Calculator Preemptible Price', 'Calculator Savings',
+                                       'VM Instance OnDemand Price', 'VM Instance Preemptible Price',
+                                       'VM Instance Savings'])
     data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
-    
+
     data_dict = data.to_dict(orient='records')
     with open(f'{LOCAL_PATH}/{filename}', 'w') as f:
         json.dump(data_dict, f)
@@ -93,15 +105,15 @@ def update_latest(data, timestamp):
     s3 = session.client('s3')
     with open(f"{LOCAL_PATH}/{filename}", 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
-        
+
     ## temporary blocking of access
-    # s3 = session.resource('s3')
-    # object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
-    # response = object_acl.put(ACL='public-read')
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
+    response = object_acl.put(ACL='public-read')
 
 
 def save_raw(data, timestamp):
-    SAVE_FILENAME = f"{LOCAL_PATH}/spotlake_"+f"{timestamp}.csv.gz"
+    SAVE_FILENAME = f"{LOCAL_PATH}/spotlake_" + f"{timestamp}.csv.gz"
     data.to_csv(SAVE_FILENAME, index=False, compression='gzip')
     session = boto3.Session()
     s3 = session.client('s3')

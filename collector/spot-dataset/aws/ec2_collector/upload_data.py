@@ -4,6 +4,7 @@ import pandas as pd
 import pickle
 import sys
 import os
+import json
 from botocore.config import Config
 from botocore.exceptions import ClientError
 from const_config import AwsCollector, Storage
@@ -82,6 +83,21 @@ def update_latest(data, timestamp):
     data['id'] = data.index+1
     result = data.to_json(f"{AWS_CONST.LOCAL_PATH}/{filename}", orient="records")
     s3_path = f'latest_data/{filename}'
+    session = boto3.Session()
+    s3 = session.client('s3')
+    with open(f"{AWS_CONST.LOCAL_PATH}/{filename}", 'rb') as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
+    response = object_acl.put(ACL='public-read')
+
+
+def update_query_selector(changed_df):
+    filename = 'query-selector-aws.json'
+    query_selector_aws = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, 'query-selector/query-selector-aws.json').get()['Body']))
+    query_selector_aws = pd.concat([query_selector_aws, changed_df[['InstanceType', 'Region', 'AZ', 'time']]], axis=0, ignore_index=True).drop_duplicates(['InstanceType', 'Region', 'AZ']).reset_index(drop=True)
+    result = query_selector_aws.to_json(f"{AWS_CONST.LOCAL_PATH}/{filename}", orient="records")
+    s3_path = f'query-selector/{filename}'
     session = boto3.Session()
     s3 = session.client('s3')
     with open(f"{AWS_CONST.LOCAL_PATH}/{filename}", 'rb') as f:

@@ -9,7 +9,6 @@ import time
 import gzip
 from datetime import datetime, timedelta
 from multiprocessing import Pool
-from const_config import AwsCollector, Storage
 
 from workload_binpacking import get_binpacked_workload
 from load_price import get_spot_price, get_ondemand_price, get_regions
@@ -22,6 +21,10 @@ from join_data import build_join_df
 sys.path.append('/home/ubuntu/spotlake/utility')
 
 from slack_msg_sender import send_slack_message
+
+sys.path.append('/home/ubuntu/spotlake')
+
+from const_config import AwsCollector, Storage
 
 STORAGE_CONST = Storage()
 AWS_CONST = AwsCollector()

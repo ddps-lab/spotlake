@@ -94,11 +94,13 @@ def update_latest(data, timestamp):
 
 def update_query_selector(changed_df):
     filename = 'query-selector-aws.json'
-    query_selector_aws = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, 'query-selector/query-selector-aws.json').get()['Body']))
-    query_selector_aws = pd.concat([query_selector_aws, changed_df[['InstanceType', 'Region', 'AZ', 'time']]], axis=0, ignore_index=True).drop_duplicates(['InstanceType', 'Region', 'AZ']).reset_index(drop=True)
-    result = query_selector_aws.to_json(f"{AWS_CONST.LOCAL_PATH}/{filename}", orient="records")
     s3_path = f'query-selector/{filename}'
     session = boto3.Session()
+    s3 = session.resource('s3')
+    query_selector_aws = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, s3_path).get()['Body'].read()))
+    query_selector_aws = pd.concat([query_selector_aws[['InstanceType', 'Region', 'AZ']], changed_df[['InstanceType', 'Region', 'AZ']]], axis=0, ignore_index=True).drop_duplicates(['InstanceType', 'Region', 'AZ']).reset_index(drop=True)
+    print(query_selector_aws)
+    result = query_selector_aws.to_json(f"{AWS_CONST.LOCAL_PATH}/{filename}", orient="records")
     s3 = session.client('s3')
     with open(f"{AWS_CONST.LOCAL_PATH}/{filename}", 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)

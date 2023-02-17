@@ -8,13 +8,16 @@ import sys
 import os
 import gzip
 import argparse
-from const_config import AwsCollector, Storage
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 
 sys.path.append('/home/ubuntu/spotlake/utility')
 
 from slack_msg_sender import send_slack_message
+
+sys.path.append('/home/ubuntu/spotlake')
+
+from const_config import AwsCollector, Storage
 
 STORAGE_CONST = Storage()
 AWS_CONST = AwsCollector()

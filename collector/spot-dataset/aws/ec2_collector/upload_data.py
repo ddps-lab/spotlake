@@ -98,7 +98,7 @@ def update_query_selector(changed_df):
     session = boto3.Session()
     s3 = session.resource('s3')
     query_selector_aws = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, s3_path).get()['Body'].read()))
-    query_selector_aws = pd.concat([query_selector_aws[['InstanceType', 'Region', 'AZ']], changed_df[['InstanceType', 'Region', 'AZ']]], axis=0, ignore_index=True).drop_duplicates(['InstanceType', 'Region', 'AZ']).reset_index(drop=True)
+    query_selector_aws = pd.concat([query_selector_aws[['InstanceType', 'Region', 'AZ']], changed_df[['InstanceType', 'Region', 'AZ']]], axis=0, ignore_index=True).dropna().drop_duplicates(['InstanceType', 'Region', 'AZ']).reset_index(drop=True)
     print(query_selector_aws)
     result = query_selector_aws.to_json(f"{AWS_CONST.LOCAL_PATH}/{filename}", orient="records")
     s3 = session.client('s3')

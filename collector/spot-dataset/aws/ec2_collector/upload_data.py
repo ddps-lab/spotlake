@@ -24,7 +24,7 @@ def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME, TableName = STORAGE_CONST.TABLE_NAME, Records=records, CommonAttributes={})
+        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME, TableName = STORAGE_CONST.AWS_TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:

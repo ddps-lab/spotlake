@@ -142,7 +142,7 @@ def get_binpacked_workload(filedate):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--timestamp', dest='timestamp', action='store')
-    args = parser.parse_arg()
+    args = parser.parse_args()
     timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     date = args.timestamp.split("T")[0]
     

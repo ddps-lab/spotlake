@@ -8,6 +8,7 @@ import sys
 import os
 import gzip
 import argparse
+from datetime import datetime
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 
@@ -15,10 +16,12 @@ sys.path.append('/home/ubuntu/spotlake/utility')
 
 from slack_msg_sender import send_slack_message
 
+sys.path.append('/home/ubuntu/spotlake')
 
-BUCKET_NAME = "spotlake"
-LOCAL_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector"
+from const_config import AwsCollector, Storage
 
+STORAGE_CONST = Storage()
+AWS_CONST = AwsCollector()
 
 # create object of bin packing input data
 def create_data_model(weights, capacity):
@@ -86,21 +89,26 @@ def workload_bin_packing(query, capacity, algorithm):
 
 
 def get_binpacked_workload(filedate):
-    DIRLIST = os.listdir(f"{LOCAL_PATH}/")
+    # reverse order of credential data
+    user_cred = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "rb"))
+    user_cred = user_cred[::-1]
+    pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
+
+    DIRLIST = os.listdir(f"{AWS_CONST.LOCAL_PATH}/")
     if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:
-        binpacked_workload = pickle.load(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'rb'))
+        binpacked_workload = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'rb'))
         return binpacked_workload
     else:
         for filename in DIRLIST:
             if "binpacked_workloads.pkl" in filename:
-                os.remove(f"{LOCAL_PATH}/{filename}")
+                os.remove(f"{AWS_CONST.LOCAL_PATH}/{filename}")
     
     s3_resource = boto3.resource('s3')
 
     workloads = num_az_by_region()
     today = "/".join(filedate.split("-"))
     # need to change file location
-    s3_resource.Object(BUCKET_NAME, f"monitoring/{today}/workloads.pkl").put(Body=pickle.dumps(workloads))
+    s3_resource.Object(STORAGE_CONST.BUCKET_NAME, f"monitoring/{today}/workloads.pkl").put(Body=pickle.dumps(workloads))
 
     result_binpacked = {}
     
@@ -126,21 +134,16 @@ def get_binpacked_workload(filedate):
 
     # need to change file location
     s3_client = boto3.client('s3')
-    pickle.dump(user_queries_list, open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'wb'))
-    gzip.open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", "rb"))
-    s3_client.upload_fileobj(open(f"{LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), BUCKET_NAME, f"rawdata/aws/workloads/{today}/binpacked_workloads.pkl.gz")
-
-    # reverse order of credential data
-    user_cred = pickle.load(open(f"{LOCAL_PATH}/user_cred_df_100_199.pkl", "rb"))
-    user_cred = user_cred[::-1]
-    pickle.dump(user_cred, open(f"{LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
+    pickle.dump(user_queries_list, open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'wb'))
+    gzip.open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", "rb"))
+    s3_client.upload_fileobj(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), STORAGE_CONST.BUCKET_NAME, f"rawdata/aws/workloads/{today}/binpacked_workloads.pkl.gz")
 
     return user_queries_list
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--timestamp', dest='timestamp', action='store')
-    args = parser.parse_arg()
+    args = parser.parse_args()
     timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     date = args.timestamp.split("T")[0]
     
@@ -148,5 +151,5 @@ if __name__=="__main__":
         workload = get_binpacked_workload(date)
     except botocore.exceptions.ClientError as e:
         send_slack_message(e)
-    pickle.dump(workload, open(f"{LOCAL_PATH}/workloads.pkl", "wb"))
+    pickle.dump(workload, open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "wb"))
 

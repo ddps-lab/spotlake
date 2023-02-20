@@ -8,6 +8,7 @@ import sys
 import os
 import gzip
 import argparse
+from datetime import datetime
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 

@@ -24,7 +24,7 @@ def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME, TableName = STORAGE_CONST.TABLE_NAME, Records=records, CommonAttributes={})
+        result = write_client.write_records(DatabaseName=STORAGE_CONST.DATABASE_NAME, TableName = STORAGE_CONST.AWS_TABLE_NAME, Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -40,8 +40,6 @@ def submit_batch(records, counter, recursive):
 
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, timestamp):
-    print(len(data))
-
     time_value = time.strptime(timestamp.strftime("%Y-%m-%d %H:%M"), '%Y-%m-%d %H:%M')
     time_value = time.mktime(time_value)
     time_value = str(int(round(time_value * 1000)))
@@ -72,8 +70,6 @@ def upload_timestream(data, timestamp):
 
     if len(records) != 0:
         submit_batch(records, counter, 0)
-    
-    print(f"end : {counter}")
 
 
 def update_latest(data, timestamp):

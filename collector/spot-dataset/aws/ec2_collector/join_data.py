@@ -33,6 +33,4 @@ def build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df):
 
     join_df = join_df.drop(join_df[(join_df['AZ'].isna()) | (join_df['Region'].isna()) | (join_df['InstanceType'].isna())].index)
 
-    print(join_df.info())
-
     return join_df

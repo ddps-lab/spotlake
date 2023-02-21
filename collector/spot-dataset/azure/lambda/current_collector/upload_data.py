@@ -2,11 +2,9 @@ import os
 import time
 import boto3
 import pickle
-import pandas as pd
 from datetime import datetime
 from botocore.config import Config
-from botocore.exceptions import ClientError
-from utill.const_config import AzureCollector, Storage
+from const_config import AzureCollector, Storage
 import slack_msg_sender
 
 STORAGE_CONST = Storage()

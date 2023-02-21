@@ -3,7 +3,7 @@ import json
 import boto3
 import slack_msg_sender
 import pandas as pd
-from utill.const_config import AzureCollector, Storage
+from const_config import AzureCollector, Storage
 from datetime import datetime, timezone
 from load_if import load_if
 from merge_df import merge_df

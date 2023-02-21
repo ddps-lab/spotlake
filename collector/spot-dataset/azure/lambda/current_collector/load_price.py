@@ -1,9 +1,8 @@
-import os
 import requests
 import pandas as pd
 import numpy as np
 import threading
-from utill.const_config import AzureCollector
+from const_config import AzureCollector
 from concurrent.futures import ThreadPoolExecutor
 import slack_msg_sender
 

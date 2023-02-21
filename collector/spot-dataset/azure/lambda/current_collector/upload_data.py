@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import boto3
 import pickle
@@ -6,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from utill.const_config import AzureCollector, Storage
+from const_config import AzureCollector, Storage
 import slack_msg_sender
 
 STORAGE_CONST = Storage()
@@ -45,7 +46,6 @@ def submit_batch(records, counter, recursive):
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, timestamp):
     data = data[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'IF']]
-
     data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
     data['SpotPrice'] = data['SpotPrice'].fillna(-1)
     data['IF'] = data['IF'].fillna(-1)
@@ -119,3 +119,18 @@ def save_raw(data, timestamp):
     with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f"""rawdata/azure/{s3_dir_name}/{s3_obj_name}.csv.gz""")
     os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz")
+
+def query_selector(data):
+    filename = 'query-selector-azure.json'
+    s3_path = f'query-selector/{filename}'
+    s3 = session.resource('s3')
+    prev_selector_df = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, s3_path).get()['Body'].read()))
+    selector_df = pd.concat([prev_selector_df[['InstanceTier', 'InstanceType', 'Region']], data[['InstanceTier', 'InstanceType', 'Region']]], axis=0, ignore_index=True).dropna().drop_duplicates(['InstanceTier', 'InstanceType', 'Region']).reset_index(drop=True)
+    result = selector_df.to_json(f"{AZURE_CONST.SERVER_SAVE_DIR}/{filename}", orient='records')
+    s3 = session.client('s3')
+    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{filename}", "rb") as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
+    os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{filename}")
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
+    response = object_acl.put(ACL='public-read')

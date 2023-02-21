@@ -28,7 +28,7 @@ def azure_collector(timestamp):
         current_df = collect_price_with_multithreading()
         eviction_df = load_if()
         join_df = merge_df(current_df, eviction_df)
-        
+
         # load previous dataframe
         s3 = boto3.resource('s3')
         object = s3.Object(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_DATA_SAVE_PATH)
@@ -45,7 +45,7 @@ def azure_collector(timestamp):
         if not changed_df.empty:
             query_selector(changed_df)
             upload_timestream(changed_df, timestamp)
-            
+
     except Exception as e:
         result_msg = """AZURE Exception!\n %s""" % (e)
         data = {'text': result_msg}

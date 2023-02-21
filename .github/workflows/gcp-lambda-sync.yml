@@ -1,4 +1,4 @@
-name: deploy to lambda
+name: deploy gcp files to lambda
 on:
   push:
     branches:

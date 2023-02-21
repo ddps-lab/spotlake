@@ -3,12 +3,12 @@ import json
 import boto3
 import slack_msg_sender
 import pandas as pd
-from utill.const_config import AzureCollector, Storage
+from const_config import AzureCollector, Storage
 from datetime import datetime, timezone
 from load_if import load_if
 from merge_df import merge_df
 from load_price import collect_price_with_multithreading
-from upload_data import upload_timestream, update_latest, save_raw
+from upload_data import upload_timestream, update_latest, save_raw, query_selector
 from compare_data import compare
 
 STORAGE_CONST = Storage()
@@ -28,7 +28,7 @@ def azure_collector(timestamp):
         current_df = collect_price_with_multithreading()
         eviction_df = load_if()
         join_df = merge_df(current_df, eviction_df)
-
+        
         # load previous dataframe
         s3 = boto3.resource('s3')
         object = s3.Object(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_DATA_SAVE_PATH)
@@ -43,8 +43,9 @@ def azure_collector(timestamp):
         # compare and upload changed_df to timestream
         changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
         if not changed_df.empty:
+            query_selector(changed_df)
             upload_timestream(changed_df, timestamp)
-
+            
     except Exception as e:
         result_msg = """AZURE Exception!\n %s""" % (e)
         data = {'text': result_msg}

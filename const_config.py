@@ -27,6 +27,14 @@ class Storage(object):
     @constant
     def GCP_TABLE_NAME():
         return "gcp"
+    
+    @constant
+    def QUERY_SELECTOR_PATH():
+        return "query-selector"
+    
+    @constant
+    def AZURE_QUERY_SELECTOR_FILENAME():
+        return "query-selector-azure.json"
 
 class AwsCollector(object):
     @constant

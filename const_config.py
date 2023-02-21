@@ -27,14 +27,6 @@ class Storage(object):
     @constant
     def GCP_TABLE_NAME():
         return "gcp"
-    
-    @constant
-    def QUERY_SELECTOR_PATH():
-        return "query-selector"
-    
-    @constant
-    def AZURE_QUERY_SELECTOR_FILENAME():
-        return "query-selector-azure.json"
 
 class AwsCollector(object):
     @constant
@@ -73,6 +65,14 @@ class AzureCollector(object):
     @constant
     def S3_LATEST_DATA_SAVE_PATH():
         return "latest_data/latest_azure.json"
+    
+    @constant
+    def QUERY_SELECTOR_FILENAME():
+        return "query-selector-azure.json"
+    
+    @constant
+    def S3_QUERY_SELECTOR_SAVE_PATH():
+        return "query-selector/query-selector-azure.json"
 
     @constant
     def DF_WORKLOAD_COLS():

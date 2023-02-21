@@ -121,16 +121,14 @@ def save_raw(data, timestamp):
     os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz")
 
 def query_selector(data):
-    filename = 'query-selector-azure.json'
-    s3_path = f'query-selector/{filename}'
     s3 = session.resource('s3')
-    prev_selector_df = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, s3_path).get()['Body'].read()))
+    prev_selector_df = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, f"{STORAGE_CONST.QUERY_SELECTOR_PATH}/{STORAGE_CONST.AZURE_QUERY_SELECTOR_FILENAME}").get()['Body'].read()))
     selector_df = pd.concat([prev_selector_df[['InstanceTier', 'InstanceType', 'Region']], data[['InstanceTier', 'InstanceType', 'Region']]], axis=0, ignore_index=True).dropna().drop_duplicates(['InstanceTier', 'InstanceType', 'Region']).reset_index(drop=True)
-    result = selector_df.to_json(f"{AZURE_CONST.SERVER_SAVE_DIR}/{filename}", orient='records')
+    result = selector_df.to_json(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_QUERY_SELECTOR_FILENAME}", orient='records')
     s3 = session.client('s3')
-    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{filename}", "rb") as f:
-        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
-    os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{filename}")
+    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_QUERY_SELECTOR_FILENAME}", "rb") as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f"{STORAGE_CONST.QUERY_SELECTOR_PATH}/{STORAGE_CONST.AZURE_QUERY_SELECTOR_FILENAME}")
+    os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_QUERY_SELECTOR_FILENAME}")
     s3 = session.resource('s3')
-    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, f"{STORAGE_CONST.QUERY_SELECTOR_PATH}/{STORAGE_CONST.AZURE_QUERY_SELECTOR_FILENAME}")
     response = object_acl.put(ACL='public-read')

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from load_if import load_if
 from merge_df import merge_df
 from load_price import collect_price_with_multithreading
-from upload_data import upload_timestream, update_latest, save_raw
+from upload_data import upload_timestream, update_latest, save_raw, query_selector
 from compare_data import compare
 
 STORAGE_CONST = Storage()
@@ -43,6 +43,7 @@ def azure_collector(timestamp):
         # compare and upload changed_df to timestream
         changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
         if not changed_df.empty:
+            query_selector(changed_df)
             upload_timestream(changed_df, timestamp)
 
     except Exception as e:

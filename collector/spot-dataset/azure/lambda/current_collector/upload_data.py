@@ -1,3 +1,4 @@
+# Upload collected data to Timestream or S3
 import os
 import json
 import time
@@ -83,6 +84,7 @@ def upload_timestream(data, timestamp):
         submit_batch(records, counter, 0)
 
 
+# Update latest_azure.json in S3
 def update_latest(data, timestamp):
     data['id'] = data.index + 1
     data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
@@ -107,6 +109,7 @@ def update_latest(data, timestamp):
     pickle.dump(data, open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.SERVER_SAVE_FILENAME}", "wb"))
 
 
+# Save raw data in S3
 def save_raw(data, timestamp):
     data.to_csv(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", index=False, compression="gzip")
 
@@ -120,6 +123,8 @@ def save_raw(data, timestamp):
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f"""rawdata/azure/{s3_dir_name}/{s3_obj_name}.csv.gz""")
     os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz")
 
+
+# Update query-selector-azure.json in S3
 def query_selector(data):
     s3 = session.resource('s3')
     prev_selector_df = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, f"{STORAGE_CONST.QUERY_SELECTOR_PATH}/{STORAGE_CONST.AZURE_QUERY_SELECTOR_FILENAME}").get()['Body'].read()))

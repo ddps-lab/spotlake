@@ -7,16 +7,19 @@ SpotLake system is an integrated data archive service that provides spot instanc
 ```
 .
 ├── analysis : analysis spot instance's data
-├── collection : codes to collect spot instance's data (in aws, azure and gcp)
-│   ├── aws
-│   ├── azure
-│   └── gcp
+├── collector : codes to collect spot instance's data (in aws, azure and gcp)
+│   ├── instance-specs : codes for measuring spot instance's hardware specifications
+│   │   ├── aws
+│   │   ├── azure
+│   │   └── gcp
+│   └── spot-dataset : codes to collect spot instance's stability data
+│       ├── aws
+│       ├── azure
+│       └── gcp
 ├── frontend : codes of https://spotlake.ddps.cloud
 │   ├── build
 │   ├── public
 │   └── src
-├── migration : codes to migrate timeseries data from one to other
-├── monitoring : monitoring the collector's status
 ├── preprocessing : preprocess data to analysis
 └── utility : etc tools
 ```

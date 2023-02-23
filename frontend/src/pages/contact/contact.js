@@ -59,8 +59,8 @@ function Contact () {
                                     startIcon={<ButtonICon src={process.env.PUBLIC_URL + "/icon/GitHub-Mark-120px-plus.png"} />}
                                     color={"github"}
                                     variant="contained"
-                                    onClick={() => {window.open('https://github.com/HyeonYoung-Lee')}}
-                                >Github @HyeonYoung-Lee</CustomButton>
+                                    onClick={() => {window.open('https://github.com/wynter122')}}
+                                >Github @wynter122</CustomButton>
                             </ThemeProvider>
                         </li>
                         <li>

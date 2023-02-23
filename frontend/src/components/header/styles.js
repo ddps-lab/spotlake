@@ -5,13 +5,14 @@ export const header = styled.div`
   box-shadow: 1px 1px 3px #777;
   position: absolute;
   top: 0;
-  width: 80%;
+  width: 100%;
   min-width: 800px;
   padding: 0 10%;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: flex-end;
+  box-sizing: border-box;
 `;
 export const title = styled.h2`
   font-size: 2.5em;
@@ -29,4 +30,14 @@ export const navBtn = styled.button`
   font-size: 1.1em;
   box-shadow: none;
   cursor: pointer;
+`;
+export const forkRibbon = styled.a`
+  height: 110%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  & img {
+    height: 100%;
+    width: auto;
+  }
 `;

@@ -1,0 +1,6 @@
+Standard_L80s_v2
+Standard_L64s_v2
+Standard_L16s_v2
+Standard_L32s_v2
+Standard_L8s_v2
+Standard_L48s_v2

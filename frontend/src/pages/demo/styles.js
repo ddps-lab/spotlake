@@ -1,7 +1,6 @@
 import styled from 'styled-components';
 import {LicenseInfo} from "@mui/x-data-grid-pro";
 import { DataGridPro } from '@mui/x-data-grid-pro';
-import { LineChart } from 'recharts';
 import Button from '@mui/material/Button';
 import {InputLabel, MenuItem, Select} from "@mui/material";
 import { LoadingButton } from '@mui/lab';
@@ -16,8 +15,7 @@ export const demo = styled.div`
   padding-top: 10px;
   color: #fff;
 `;
-export const vendor = styled.div`
-  width: 50%;
+export const vendor = styled.div` 
   color: #000;
   margin: 50px auto;
   display: flex;
@@ -26,7 +24,7 @@ export const vendor = styled.div`
   gap: 30px;
 `;
 export const vendorBtn = styled(Button)`
-  width: 30%;
+  width: 180px;
   min-width: max-content !important;
   border: none;
   box-shadow: 0px 0px 4px rgba(0,0,0,0.26);
@@ -65,7 +63,7 @@ export const calimg = styled.img`
 `;
 export const table = styled.div`
   width: 100%;
-  height: 100vh;
+  height: calc(100vh - 60px);
   overflow-x: scroll;
   position: relative;
   margin-bottom: 50px;
@@ -155,61 +153,10 @@ export const chartBtn = styled(LoadingButton)`
     background: ${(props) => (props.vendor==='AWS' ? 'rgba(246, 141, 17, 0.8) !important;' :props.vendor==='GCP'? 'rgba(234, 67, 53, 0.8) !important;' : 'rgba(0, 103, 184, 0.8) !important;')};;
   }
 `;
-export const chartModal = styled.div`
-  width: 100%;
-  height: calc(100% + 30px);
-  background: rgba(255,255,255,0.5);
-  position: absolute;
-  left: 0;
-  z-index: 10;
-`;
-export const chartSection = styled.div`
-  width: 80%;
-  background: #fff;
-  margin: 0 auto;
-  padding: 30px 30px 0 30px;
-  position: relative;
-  border: 1px solid #c4c4c4;
-  border-radius: 3px;
-  top: 20px;
-`;
-export const chartClose = styled.button`
-  color: #4d4d4d;
-  font-size: 25px;
-  padding: 4.5px 0;
-  background: none;
-  width: 40px;
-  height: 40px;
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  border: 1px solid #c4c4c4;
-  border-radius: 3px;
-  &:hover {
-    background: #e7e7e7;
-  }
-`;
-export const chartTitle = styled.p`
-  color: #000;
-  font-size: 20px;
-  font-weight: bold;
-  text-align: center;
-  padding-left: 35px;
-`;
-export const chartSubTitle = styled.p`
-  color: #000;
-  font-size: 15px;
-  margin-left: 20%;
-  text-align: left;
-`;
-export const chart = styled(LineChart)`
-  margin: 0 auto 30px auto;
-  border-bottom: 1px solid #e3e3e3;
-`;
 export const progressBar = styled.div`
   z-index: 1;
   position: absolute;
-  top: 15%;
+  top: 28%;
   right: 10%;
   width: 80%;
   & .MuiLinearProgress-root {
@@ -220,4 +167,9 @@ export const progressBar = styled.div`
   & .MuiLinearProgress-bar {
    background-color: ${(props) => (props.vendor==='AWS' ? '#f68d11' : props.vendor ==='GCP' ? 'rgb(234, 67, 53)': '#0067b8')};
   }
+`;
+export const noticeMsg = styled.p`
+  color: #000;
+  font-size: 14px;
+  margin: 10px 0;
 `;

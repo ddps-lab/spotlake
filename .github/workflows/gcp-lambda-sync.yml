@@ -1,0 +1,29 @@
+name: deploy gcp files to lambda
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'collector/spot-dataset/gcp/lambda/**'
+      - 'utility/slack_msg_sender.py'
+      - 'const_config.py'
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: 'us-west-2'
+
+jobs:
+  deploy_source:
+    name: deploy lambda from source
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v1
+      - name: Zip lambda_function code
+        run: |
+          zip -r gcp_lambda.zip ./utility/slack_msg_sender.py
+          zip -j gcp_lambda.zip ./collector/spot-dataset/gcp/lambda/* ./const_config.py
+      - name: Deploy to lambda
+        run: |
+          aws lambda update-function-code --function-name gcp-collector --zip-file fileb://gcp_lambda.zip

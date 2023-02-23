@@ -1,0 +1,32 @@
+name: deploy azure files to lambda
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'collector/spot-dataset/azure/lambda/current_collector/**'
+      - 'utility/slack_msg_sender.py'
+      - 'const_config.py'
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: 'us-west-2'
+
+jobs:
+  deploy_source:
+    name: deploy lambda from source
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v1
+      - name: Zip lambda_function code
+        run: |
+          zip -j ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip ./collector/spot-dataset/azure/lambda/current_collector/* ./const_config.py ./utility/slack_msg_sender.py
+          cd ./collector/spot-dataset/azure/lambda/current_collector/
+          zip -r azure_lambda.zip ./utill/*
+          cd ../../../../../
+          mv ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip ./
+      - name: Deploy to lambda
+        run: |
+          aws lambda update-function-code --function-name azure-collector --zip-file fileb://azure_lambda.zip

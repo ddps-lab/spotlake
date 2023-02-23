@@ -11,6 +11,12 @@ function Header () {
     }
     return (
         <style.header>
+            <style.forkRibbon href="https://github.com/ddps-lab/spotlake">
+                <img decoding="async" loading="lazy"
+                     src="https://github.blog/wp-content/uploads/2008/12/forkme_left_orange_ff7600.png?resize=149%2C149"
+                     className="attachment-full size-full" alt="Fork me on GitHub"
+                     data-recalc-dims="1" />
+            </style.forkRibbon>
             <style.title>SpotLake</style.title>
             <style.nav>
                 <style.navBtn onClick={linkTo} value='about'>About</style.navBtn>

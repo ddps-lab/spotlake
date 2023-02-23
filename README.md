@@ -7,7 +7,7 @@ SpotLake system is an integrated data archive service that provides spot instanc
 ```
 .
 ├── analysis : analysis spot instance's data
-├── collectior : codes to collect spot instance's data (in aws, azure and gcp)
+├── collector : codes to collect spot instance's data (in aws, azure and gcp)
 │   ├── instance-specs : codes for measuring spot instance's hardware specifications
 │   │   ├── aws
 │   │   ├── azure

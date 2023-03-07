@@ -150,8 +150,13 @@ const Query = ({
             //현재 url = "https://puhs0z1q3l.execute-api.us-west-2.amazonaws.com/default/sungjae-timestream-query";
             await axios.get(url, { params })
               .then((res) => {
-                  //get 요청을 통해 받는 리턴값
-                  console.log("res : ",res);
+                  if (res.data.Status === 403) {
+                      alert("Invalid Access");
+                      return;
+                  } else if (res.data.Status === 500) {
+                      alert("Internal Server Error");
+                      return;
+                  }
                   let parseData = JSON.parse(JSON.parse(res.data.Data));
                   // let parseData = JSON.parse(res.data);
                   const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
@@ -169,11 +174,6 @@ const Query = ({
                   console.log(e);
                   if (e.message === "Network Error") {
                       alert("A network error occurred. Try it again. ")
-                  } else if (e.response.data) {
-                      if (Number(e.response.data['Status']) === 403) alert("Invalid Access");
-                      else if (Number(e.response.data['Status']) === 500) alert("Internal Server Error");
-                  } else {
-                      alert(e.message);
                   }
               });
         }

@@ -152,20 +152,19 @@ const Query = ({
               .then((res) => {
                   if (res.data.Status === 403) {
                       alert("Invalid Access");
-                      return;
                   } else if (res.data.Status === 500) {
                       alert("Internal Server Error");
-                      return;
-                  }
-                  let parseData = JSON.parse(JSON.parse(res.data.Data));
-                  // let parseData = JSON.parse(res.data);
-                  const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
-                  setQueryData(parseData);
-                  let dataCnt = parseData.length;
-                  if (dataCnt < 20000) {
-                      alert("Total " + dataCnt + " data points have been returned")
-                  } else if (dataCnt === 20000) {
-                      alert("The maximum number of data points has been returned (20,000)")
+                  } else { // Status 성공 시,
+                      let parseData = JSON.parse(JSON.parse(res.data.Data));
+                      // let parseData = JSON.parse(res.data);
+                      const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
+                      setQueryData(parseData);
+                      let dataCnt = parseData.length;
+                      if (dataCnt < 20000) {
+                          alert("Total " + dataCnt + " data points have been returned")
+                      } else if (dataCnt === 20000) {
+                          alert("The maximum number of data points has been returned (20,000)")
+                      }
                   }
                   // button load false로 설정
                   setLoad(false);

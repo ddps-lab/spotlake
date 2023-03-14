@@ -153,5 +153,7 @@ if __name__=="__main__":
         workload = get_binpacked_workload(date)
     except botocore.exceptions.ClientError as e:
         send_slack_message(e)
+    s3_client = boto3.client('s3')
     pickle.dump(workload, open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "wb"))
+    s3_client.upload_fileobj(open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "rb"), STORAGE_CONST.BUCKET_NAME, f"rawdata/aws/localfile/workloads.pkl")
 

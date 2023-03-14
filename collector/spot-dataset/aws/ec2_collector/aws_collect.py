@@ -44,7 +44,7 @@ try:
     workload = pickle.load(gzip.open(s3.Object(STORAGE_CONST.BUCKET_NAME, f'rawdata/aws/workloads/{"/".join(date.split("-"))}/binpacked_workloads.pkl.gz').get()['Body']))
 except Exception as e:
     send_slack_message(e)
-    workload = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "rb"))
+    workload = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'rawdata/aws/localfile/workloads.pkl').get()['Body'])
 
 credentials = None
 try:

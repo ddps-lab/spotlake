@@ -83,6 +83,8 @@ def update_latest(data, timestamp):
     s3 = session.client('s3')
     with open(f"{AWS_CONST.LOCAL_PATH}/{filename}", 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
+    with open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", 'rb') as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, 'rawdata/aws/localfile/latest_df.pkl')
     s3 = session.resource('s3')
     object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
     response = object_acl.put(ACL='public-read')

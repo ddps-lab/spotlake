@@ -46,7 +46,11 @@ except Exception as e:
     send_slack_message(e)
     workload = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "rb"))
 
-credentials = pickle.load(open(f'{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl', 'rb'))
+credentials = None
+try:
+    credentials = pickle.load(open(f'{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl', 'rb'))
+except:
+    credentials = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'rawdata/aws/localfile/user_cred_df.pkl').get()['Body'])
 
 mp_workload = []
 for i in range(len(workload)):
@@ -84,22 +88,26 @@ try:
 except Exception as e:
     send_slack_message(e)
 
+if 'latest_df.pkl' not in os.listdir(f'{AWS_CONST.LOCAL_PATH}/'):
+    try:
+        previous_df = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, 'rawdata/aws/localfile/latest_df.pkl').get()['Body'])
+        pickle.dump(previous_df, open(f"{AWS_CONST>LOCAL_PATH}/latest_df.pkl", "rb"))
+    except:
+        pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb"))
+        try:
+            upload_timestream(current_df, timestamp)
+        except Exception as e:
+            send_slack_message(e)
+        exit()
+
+previous_df = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "rb")) # load previous data from local file system
+pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb")) # write current data to local file system
+
 try:
     update_latest(current_df, timestamp) # upload current data to S3
     save_raw(current_df, timestamp)
 except Exception as e:
     send_slack_message(e)
-
-if 'latest_df.pkl' not in os.listdir(f'{AWS_CONST.LOCAL_PATH}/'):
-    pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb"))
-    try:
-        upload_timestream(current_df, timestamp)
-    except Exception as e:
-        send_slack_message(e)
-    exit()
-
-previous_df = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "rb")) # load previous data from local file system
-pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb")) # write current data to local file system
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']

@@ -83,10 +83,14 @@ try:
 except Exception as e:
     send_slack_message(e)
 
+current_df = None
+
 try:
     current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
 except Exception as e:
     send_slack_message(e)
+
+previous_df = None
 
 try:
     previous_df = pd.DataFrame(json.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LATEST_DATA_SAVE_PATH}').get()['Body'].read()))

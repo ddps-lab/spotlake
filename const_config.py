@@ -33,6 +33,18 @@ class AwsCollector(object):
     def LOCAL_PATH():
         return "/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector"
 
+    @constant
+    def S3_LATEST_DATA_SAVE_PATH():
+        return "latest_data/latest_aws.json"
+
+    @constant
+    def S3_LOCAL_FILES_SAVE_PATH():
+        return "rawdata/aws/localfile"
+
+    @constant
+    def S3_WORKLOAD_SAVE_PATH():
+        return "rawdata/aws/workloads"
+
 class AzureCollector(object):
     @constant
     def SLACK_WEBHOOK_URL():

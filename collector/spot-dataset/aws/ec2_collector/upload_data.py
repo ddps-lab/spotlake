@@ -74,7 +74,6 @@ def upload_timestream(data, timestamp):
 
 def update_latest(data, timestamp):
     filename = 'latest_aws.json'
-    data = data.drop(data[(data['AZ'].isna()) | (data['Region'].isna()) | (data['InstanceType'].isna())].index)
     data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
     data['id'] = data.index+1
     result = data.to_json(f"{AWS_CONST.LOCAL_PATH}/{filename}", orient="records")

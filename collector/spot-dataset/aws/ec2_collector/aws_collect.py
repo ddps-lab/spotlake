@@ -95,7 +95,11 @@ except Exception as e:
 
 previous_df = None
 try:
-    previous_df = pd.DataFrame(json.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LATEST_DATA_SAVE_PATH}').get()['Body'].read()))
+    try:
+        previous_df = pd.DataFrame(json.load(open(f"{AWS_CONST.LOCAL_PATH}/latest_aws.json", "r")))
+    except:
+        previous_df = pd.DataFrame(json.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'latset_data/latest_aws.json').get()['Body'].read()))
+    previous_df = previous_df.drop(columns=['id', 'time'])
 except:
     update_latest(current_df, timestamp)
     try:

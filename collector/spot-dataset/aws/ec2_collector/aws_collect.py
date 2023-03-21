@@ -46,9 +46,9 @@ try:
 except Exception as e:
     send_slack_message(e)
     try :
-        workload = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/workloads.pkl').get()['Body'])
-    except:
         workload = pickle.load(open(f'{AWS_CONST.LOCAL_PATH}/workloads.pkl', 'rb'))
+    except:
+        workload = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/workloads.pkl').get()['Body'])
 
 credentials = None
 try:

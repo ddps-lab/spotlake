@@ -4,7 +4,6 @@ from requests.packages.urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 import json
 
-from const_config import GcpCollector, Storage
 from utility import slack_msg_sender
 
 def requests_retry_session(
@@ -22,7 +21,11 @@ def requests_retry_session(
     return session
 
 def get_pricing_data(url):
-    response = requests.get(url)
+    response = response = requests_retry_session().get(url)
+    if response.status_code != 200:
+        slack_msg_sender.send_slack_message(f"GCP get pricing data from VM instance pricing page : status code is {response.status_code}")
+        raise Exception(f"GCP get pricing data : status code is {response.status_code}")
+        
     html = response.text
     soup = BeautifulSoup(html, 'html.parser')
 

@@ -16,6 +16,11 @@ from utility import slack_msg_sender
 STORAGE_CONST = Storage()
 GCP_CONST = GcpCollector()
 
+def drop_negative(df):
+    idx = df[(df['OnDemand Price']==-1.0) | (df['Spot Price'] == -1.0)].index
+    df.drop(idx, inplace=True)
+    return df
+
 
 def gcp_collect(timestamp):
     # load pricelist
@@ -46,6 +51,9 @@ def gcp_collect(timestamp):
         if row['Region'].split('-')[0] + row['Region'].split('-')[1] not in available_region_data[row['InstanceType']]:
             df_current.loc[idx, 'OnDemand Price'] = -1
             df_current.loc[idx, 'Spot Price'] = -1
+
+    # drop negative row
+    drop_negative(df_current)
 
     # save current rawdata
     save_raw(df_current, timestamp)

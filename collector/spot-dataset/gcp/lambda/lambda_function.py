@@ -39,13 +39,13 @@ def gcp_collect(timestamp):
 
     # preprocessing
     df_current = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
-        'InstanceType', 'Region', 'OnDemand Price', 'Preemptible Price'])
+        'InstanceType', 'Region', 'OnDemand Price', 'Spot Price'])
     
     # change unavailable region price into -1
     for idx, row in df_current.iterrows():
         if row['Region'].split('-')[0] + row['Region'].split('-')[1] not in available_region_data[row['InstanceType']]:
             df_current.loc[idx, 'OnDemand Price'] = -1
-            df_current.loc[idx, 'Preemptible Price'] = -1
+            df_current.loc[idx, 'Spot Price'] = -1
 
     # save current rawdata
     save_raw(df_current, timestamp)
@@ -75,7 +75,7 @@ def gcp_collect(timestamp):
 
     # compare previous and current data
     workload_cols = ['InstanceType', 'Region']
-    feature_cols = ['OnDemand Price', 'Preemptible Price']
+    feature_cols = ['OnDemand Price', 'Spot Price']
 
     changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
 

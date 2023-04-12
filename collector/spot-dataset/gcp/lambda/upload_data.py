@@ -65,8 +65,7 @@ def upload_timestream(data, timestamp):
             'MeasureValueType': 'MULTI',
             'Time': time_value
         }
-        for column, types in [('Calculator OnDemand Price', 'DOUBLE'), ('Calculator Preemptible Price', 'DOUBLE'),
-                              ('VM Instance OnDemand Price', 'DOUBLE'), ('VM Instance Preemptible Price', 'DOUBLE')]:
+        for column, types in [('OnDemand Price', 'DOUBLE'), ('Spot Price', 'DOUBLE')]:
             submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type': types})
         records.append(submit_data)
         counter += 1
@@ -82,18 +81,13 @@ def upload_timestream(data, timestamp):
 
 def update_latest(data, timestamp):
     filename = 'latest_gcp.json'
-    data['Calculator Savings'] = round(
-        (data['Calculator OnDemand Price'] - data['Calculator Preemptible Price']) / data[
-            'Calculator OnDemand Price'] * 100)
-    data['VM Instance Savings'] = round(
-        (data['VM Instance OnDemand Price'] - data['VM Instance Preemptible Price']) / data[
-            'VM Instance OnDemand Price'] * 100)
+    data['Savings'] = round(
+        (data['OnDemand Price'] - data['Spot Price']) / data[
+            'OnDemand Price'] * 100)
     data = data.replace(-0, -1)
     data['id'] = data.index + 1
-    data = pd.DataFrame(data, columns=['id', 'InstanceType', 'Region', 'Calculator OnDemand Price',
-                                       'Calculator Preemptible Price', 'Calculator Savings',
-                                       'VM Instance OnDemand Price', 'VM Instance Preemptible Price',
-                                       'VM Instance Savings'])
+    data = pd.DataFrame(data, columns=['id', 'InstanceType', 'Region', 'OnDemand Price',
+                                       'Spot Price', 'Savings'])
     data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
 
     data_dict = data.to_dict(orient='records')

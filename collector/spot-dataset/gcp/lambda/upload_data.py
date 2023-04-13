@@ -84,6 +84,7 @@ def update_latest(data, timestamp):
     data['Savings'] = round(
         (data['OnDemand Price'] - data['Spot Price']) / data[
             'OnDemand Price'] * 100)
+    data.reset_index(drop=True, inplace=True)
     data = data.replace(-0, -1)
     data['id'] = data.index + 1
     data = pd.DataFrame(data, columns=['id', 'InstanceType', 'Region', 'OnDemand Price',

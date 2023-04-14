@@ -88,7 +88,7 @@ const ColumnData = () =>{
                 return params.row['OnDemand Price'] == -1 ? "N/A" : params.row['OnDemand Price'];
             }
         },
-        { field: 'SpotP rice', headerName: 'Spot Price', flex: 1.3, type: 'number',
+        { field: 'Spot Price', headerName: 'Spot Price', flex: 1.3, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {
                 return params.row['Spot Price'] == -1 ? "N/A" : params.row['Spot Price'];

@@ -81,9 +81,6 @@ def upload_timestream(data, timestamp):
 
 def update_latest(data, timestamp):
     filename = 'latest_gcp.json'
-    data['Savings'] = round(
-        (data['OnDemand Price'] - data['Spot Price']) / data[
-            'OnDemand Price'] * 100)
     data.reset_index(drop=True, inplace=True)
     data = data.replace(-0, -1)
     data['id'] = data.index + 1

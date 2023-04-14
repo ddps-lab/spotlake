@@ -54,7 +54,16 @@ const Query = ({
             setRegion(['ALL', ...Object.keys(AZURE_REGION)]);
             setAssoTier(['ALL', ...Object.keys(AZURE_TIER)]);
         } else {
-
+            let list = []
+            let inst = []
+            gcp_association.map((e) => {
+                let key = Object.keys(e)
+                list = list.concat(key)
+                inst = inst.length < e[key].length ? e[key] : inst
+            })
+            setRegion(['ALL'].concat(list))
+            setInstance(inst)
+            setAZ(['ALL'])
         }
     }
     const setFilter = ({ target }) => { //filter value 저장

@@ -106,6 +106,9 @@ def update_latest(data, timestamp):
 
 def save_raw(data, timestamp):
     SAVE_FILENAME = f"{LOCAL_PATH}/spotlake_" + f"{timestamp}.csv.gz"
+    data['Savings'] = round(
+        (data['OnDemand Price'] - data['Spot Price']) / data[
+            'OnDemand Price'] * 100)
     data.to_csv(SAVE_FILENAME, index=False, compression='gzip')
     session = boto3.Session()
     s3 = session.client('s3')

@@ -49,7 +49,19 @@ def load_if():
             if not "$skipToken" in data:
                 break
             skip_token = data["$skipToken"]
-        return pd.DataFrame(datas)
+        eviction_df =  pd.DataFrame(datas)
+        frequency_map = {'0-5': 3.0, '5-10': 2.5, '10-15': 2.0, '15-20': 1.5, '20+': 1.0}
+
+        eviction_df = eviction_df.replace({'evictionRate': frequency_map})
+        eviction_df.rename(columns={'evictionRate': 'IF'}, inplace=True)
+        eviction_df.rename(columns={'location': 'Region'}, inplace=True)
+        eviction_df['OndemandPrice'] = -1.0
+        eviction_df['SpotPrice'] = -1.0
+        eviction_df['Savings'] = 1.0
+        
+        eviction_df = eviction_df[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+    
+        return eviction_df
     except Exception as e:
         result_msg = """AZURE Exception when load_if\n %s""" % (e)
         data = {'text': result_msg}

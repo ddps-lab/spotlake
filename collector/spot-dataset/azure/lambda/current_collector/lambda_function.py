@@ -49,7 +49,7 @@ def azure_collector(timestamp):
         join_df = eviction_df
     elif price_exception_flag and not if_exception_flag:
         current_df['IF'] = -1.0
-        current_df = current_df[['InstanceTier', 'InstanceType', 'Region',	'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+        current_df = current_df[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
         join_df = current_df
     else:
         result_msg = """AZURE PRICE MODULE AND IF MODULE EXCEPTION!"""

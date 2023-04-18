@@ -56,25 +56,29 @@ def azure_collector(timestamp):
         data = {'text': result_msg}
         slack_msg_sender.send_slack_message(result_msg)
         return
+    try:
+        # load previous dataframe
+        s3 = boto3.resource('s3')
+        object = s3.Object(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_DATA_SAVE_PATH)
+        response = object.get()
+        data = json.load(response['Body'])
+        previous_df = pd.DataFrame(data)
 
-    # load previous dataframe
-    s3 = boto3.resource('s3')
-    object = s3.Object(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_DATA_SAVE_PATH)
-    response = object.get()
-    data = json.load(response['Body'])
-    previous_df = pd.DataFrame(data)
+        # upload latest azure price to s3
+        update_latest(join_df, timestamp)
+        save_raw(join_df, timestamp)
 
-    # upload latest azure price to s3
-    update_latest(join_df, timestamp)
-    save_raw(join_df, timestamp)
+        # compare and upload changed_df to timestream
+        changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
+        if not changed_df.empty:
+            query_selector(changed_df)
+            upload_timestream(changed_df, timestamp)
 
-    # compare and upload changed_df to timestream
-    changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
-    if not changed_df.empty:
-        query_selector(changed_df)
-        upload_timestream(changed_df, timestamp)
-
-
+    except Exception as e:
+        result_msg = """AZURE UPLOAD MODULE EXCEPTION!\n %s""" % (e)
+        data = {'text': result_msg}
+        slack_msg_sender.send_slack_message(result_msg)
+        if_exception_flag = False
 
 def lambda_handler(event, context):
     azure_collector(timestamp)

@@ -25,23 +25,24 @@ timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
 def azure_collector(timestamp):
     price_exception_flag = True
     if_exception_flag = True
-
+    
+    # collect azure price data with multithreading
     try:
-        # collect azure price data with multithreading
         current_df = collect_price_with_multithreading()
     except Exception as e:
-        result_msg = """AZURE Exception!\n %s""" % (e)
+        result_msg = """AZURE PRICE MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': result_msg}
         slack_msg_sender.send_slack_message(result_msg)
+        price_exception_flag = False
     
     try:
-        # collect azure IF data
         eviction_df = load_if()
     except Exception as e:
-        result_msg = """AZURE Exception!\n %s""" % (e)
+        result_msg = """AZURE IF MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': result_msg}
         slack_msg_sender.send_slack_message(result_msg)
-    
+        if_exception_flag = False
+
     if price_exception_flag and if_exception_flag:
         join_df = merge_df(current_df, eviction_df)
     elif not price_exception_flag and if_exception_flag:

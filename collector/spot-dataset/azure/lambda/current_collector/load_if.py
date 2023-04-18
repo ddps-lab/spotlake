@@ -49,7 +49,7 @@ def load_if():
             if not "$skipToken" in data:
                 break
             skip_token = data["$skipToken"]
-            
+
         eviction_df =  pd.DataFrame(datas)
 
         eviction_df['InstanceTier'] = eviction_df['skuName'].str.split('_', n=1, expand=True)[0].str.capitalize()
@@ -73,5 +73,3 @@ def load_if():
         result_msg = """AZURE Exception when load_if\n %s""" % (e)
         data = {'text': result_msg}
         slack_msg_sender.send_slack_message(result_msg)
-
-

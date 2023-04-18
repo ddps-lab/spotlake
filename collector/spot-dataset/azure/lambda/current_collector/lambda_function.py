@@ -56,6 +56,7 @@ def azure_collector(timestamp):
         data = {'text': result_msg}
         slack_msg_sender.send_slack_message(result_msg)
         return
+    
     try:
         # load previous dataframe
         s3 = boto3.resource('s3')

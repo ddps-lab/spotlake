@@ -23,8 +23,8 @@ timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
 
 
 def azure_collector(timestamp):
-    price_exception_flag = True
-    if_exception_flag = True
+    is_price_fetch_success = True
+    is_if_fetch_success = True
     
     # collect azure price data with multithreading
     try:
@@ -33,7 +33,7 @@ def azure_collector(timestamp):
         result_msg = """AZURE PRICE MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': result_msg}
         slack_msg_sender.send_slack_message(result_msg)
-        price_exception_flag = False
+        is_price_fetch_success = False
     
     try:
         eviction_df = load_if()
@@ -41,13 +41,13 @@ def azure_collector(timestamp):
         result_msg = """AZURE IF MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': result_msg}
         slack_msg_sender.send_slack_message(result_msg)
-        if_exception_flag = False
+        is_if_fetch_success = False
 
-    if price_exception_flag and if_exception_flag:
+    if is_price_fetch_success and is_if_fetch_success:
         join_df = merge_df(current_df, eviction_df)
-    elif not price_exception_flag and if_exception_flag:
+    elif not is_price_fetch_success and is_if_fetch_success:
         join_df = eviction_df
-    elif price_exception_flag and not if_exception_flag:
+    elif is_price_fetch_success and not is_if_fetch_success:
         current_df['IF'] = -1.0
         current_df = current_df[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
         join_df = current_df

@@ -51,6 +51,11 @@ def azure_collector(timestamp):
         current_df['IF'] = -1.0
         current_df = current_df[['InstanceTier', 'InstanceType', 'Region',	'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
         join_df = current_df
+    else:
+        result_msg = """AZURE PRICE MODULE AND IF MODULE EXCEPTION!"""
+        data = {'text': result_msg}
+        slack_msg_sender.send_slack_message(result_msg)
+        return
 
     # load previous dataframe
     s3 = boto3.resource('s3')

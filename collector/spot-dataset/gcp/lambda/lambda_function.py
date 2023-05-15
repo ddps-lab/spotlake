@@ -40,7 +40,7 @@ def gcp_collect(timestamp):
     available_region_lists, df_instance_metadata = parsing_data_from_aggragated_list(df_raw_metadata)
 
     # get price from pricelist
-    output_pricelist = get_price(pricelist)
+    output_pricelist = get_price(pricelist, df_instance_metadata, available_region_lists)
     df_pricelist = pd.DataFrame(output_pricelist)
 
     # get pricing data from vm instance pricing tabale

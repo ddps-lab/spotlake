@@ -8,6 +8,7 @@ from const_config import GcpCollector, Storage
 
 from load_pricelist import get_price, preprocessing_price
 from load_available_region_data import get_pricing_data, get_available_region_data, requests_retry_session
+from get_metadata import get_aggregated_list, parsing_data_from_aggragated_list
 from upload_data import save_raw, update_latest, upload_timestream
 from compare_data import compare
 from gcp_metadata import machine_type_list, region_list
@@ -33,6 +34,10 @@ def gcp_collect(timestamp):
     data = response.json()
 
     pricelist = data['gcp_price_list']
+
+    # get instance metadata
+    df_raw_metadata = get_aggregated_list()
+    available_region_lists, df_instance_metadata = parsing_data_from_aggragated_list(df_raw_metadata)
 
     # get price from pricelist
     output_pricelist = get_price(pricelist)

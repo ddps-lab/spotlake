@@ -43,9 +43,10 @@ def gcp_collect(timestamp):
     output_pricelist = get_price(pricelist, df_instance_metadata, available_region_lists)
     df_pricelist = pd.DataFrame(output_pricelist)
 
-    # get pricing data from vm instance pricing tabale
-    pricing_data = get_pricing_data(GCP_CONST.PAGE_URL)
-    available_region_data = get_available_region_data(pricing_data)
+    ##### Maybe, it doesn't need #####
+    # # get pricing data from vm instance pricing tabale
+    # pricing_data = get_pricing_data(GCP_CONST.PAGE_URL)
+    # available_region_data = get_available_region_data(pricing_data)
 
     # preprocessing
     df_current = pd.DataFrame(preprocessing_price(df_pricelist), columns=[

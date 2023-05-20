@@ -257,7 +257,7 @@ def preprocessing_price(df):
                 ondemand = price['ondemand']
                 preemptible = price['preemptible']
             except TypeError :
-                pass
+                continue
 
             if ondemand != -1 and preemptible != -1:
                 ondemand = round(ondemand, 4)

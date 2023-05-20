@@ -180,7 +180,7 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
     ram_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-RAM-PREEMPTIBLE']
     calculate_price(cpu_data, ram_data, 'm3', 'preemptible')
 
-    ############### need to fix #############
+
     # A2
     # ondemand
     cpu_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-CORE']
@@ -241,6 +241,52 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
                             if cpu_region == ram_region and cpu_region == gpu_region and cpu_region == region:
                                 output[instance_type][region]['preemptible'] = cpu_quantity * cpu_price + \
                                                                                 ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_preemptible_price
+
+
+    # G2
+    # ondemand
+    cpu_data = pricelist['CP-COMPUTEENGINE-G2-PREDEFINED-VM-CORE']
+    ram_data = pricelist['CP-COMPUTEENGINE-G2-PREDEFINED-VM-RAM']
+    gpu_data = pricelist['GPU_NVIDIA_TESLA_L4']
+
+    instance_spec = df_instance_metadata[df_instance_metadata['instance_type'].str.contains('g2')]
+    for k, v in instance_spec.iterrows():
+        instance_type = v['instance_type']
+        cpu_quantity = v['guest_cpus']
+        ram_quantity = v['memoryGB']
+        gpu_quantity = v['guest_accerlator_count']
+
+        for region, av_instance in available_region_lists.items():
+            if instance_type not in av_instance:
+                continue
+            for cpu_region, cpu_price in cpu_data.items():
+                for ram_region, ram_price in ram_data.items():
+                    for gpu_region, gpu_price in gpu_data.items():
+                        if cpu_region == ram_region and cpu_region == gpu_region and cpu_region == region:
+                                output[instance_type][region]['ondemand'] = cpu_quantity * cpu_price + \
+                                                                        ram_quantity * ram_price + gpu_quantity * gpu_price
+
+    # preemptible
+    cpu_data = pricelist['CP-COMPUTEENGINE-G2-PREDEFINED-VM-CORE-PREEMPTIBLE']
+    ram_data = pricelist['CP-COMPUTEENGINE-G2-PREDEFINED-VM-RAM-PREEMPTIBLE']
+    gpu_data = pricelist['GPU_NVIDIA_TESLA_L4-PREEMPTIBLE']
+
+    instance_spec = df_instance_metadata[df_instance_metadata['instance_type'].str.contains('g2')]
+    for k, v in instance_spec.iterrows():
+            instance_type = v['instance_type']
+            cpu_quantity = v['guest_cpus']
+            ram_quantity = v['memoryGB']
+            gpu_quantity = v['guest_accerlator_count']
+
+            for region, av_instance in available_region_lists.items():
+                if instance_type not in av_instance:
+                    continue
+                for cpu_region, cpu_price in cpu_data.items():
+                    for ram_region, ram_price in ram_data.items():
+                        for gpu_region, gpu_price in gpu_data.items():
+                            if cpu_region == ram_region and cpu_region == gpu_region and cpu_region == region:
+                                output[instance_type][region]['preemptible'] = cpu_quantity * cpu_price + \
+                                                                                ram_quantity * ram_price + gpu_quantity * gpu_price
 
     return output
 

@@ -1,4 +1,4 @@
-import requests
+import json
 import pandas as pd
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
@@ -59,13 +59,24 @@ def parsing_data_from_aggragated_list(df):
 
                 # add instance spec in instance metadata
                 spec = {'instance_type' : instance['name'],
-                    'guestCpus' : instance['guestCpus'],
+                    'guest_cpus' : instance['guestCpus'],
                     'memoryGB' : round((instance['memoryMb'] / 1024), 2)      # convert Mebibyte to Gibigyte
                     }
+                if 'accelerators' in instance:
+                    spec['guest_accerlator_type'] = instance['accelerators'][0]['guestAcceleratorType']
+                    spec['guest_accerlator_count'] = instance['accelerators'][0]['guestAcceleratorCount']
+                    if 'ultragpu' in instance['name']:
+                        spec['ssd'] = instance['accelerators'][0]['guestAcceleratorCount']
+                
                 instance_metadata.append(spec)
     
     df_instance_metadata = pd.DataFrame(instance_metadata)
     df_instance_metadata.drop_duplicates(subset=['instance_type'], keep='first', inplace=True, ignore_index=True )
+    
+    ### have to save S3
     df_instance_metadata.to_json('instance_metadata.json', indent=4)
-        
+
+    with open('available_region.json', 'w') as f:
+        f.write(json.dumps(available_region_lists, indent=4))        
+    
     return available_region_lists, df_instance_metadata

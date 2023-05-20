@@ -54,7 +54,7 @@ def gcp_collect(timestamp):
     
     # change unavailable region price into -1
     for idx, row in df_current.iterrows():
-        if row['Region'].split('-')[0] + row['Region'].split('-')[1] not in available_region_data[row['InstanceType']]:
+        if row['Region'].split('-')[0] + row['Region'].split('-')[1] not in available_region_lists[row['InstanceType']]:
             df_current.loc[idx, 'OnDemand Price'] = -1
             df_current.loc[idx, 'Spot Price'] = -1
 

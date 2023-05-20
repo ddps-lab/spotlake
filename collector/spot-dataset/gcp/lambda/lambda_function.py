@@ -1,4 +1,3 @@
-import requests
 import pandas as pd
 import json
 from datetime import datetime, timezone
@@ -7,11 +6,10 @@ import botocore
 from const_config import GcpCollector, Storage
 
 from load_pricelist import get_price, preprocessing_price
-from load_available_region_data import get_pricing_data, get_available_region_data, requests_retry_session
+from load_available_region_data import requests_retry_session
 from get_metadata import get_aggregated_list, parsing_data_from_aggragated_list
 from upload_data import save_raw, update_latest, upload_timestream
 from compare_data import compare
-from gcp_metadata import machine_type_list, region_list
 from utility import slack_msg_sender
 
 STORAGE_CONST = Storage()
@@ -43,23 +41,12 @@ def gcp_collect(timestamp):
     output_pricelist = get_price(pricelist, df_instance_metadata, available_region_lists)
     df_pricelist = pd.DataFrame(output_pricelist)
 
-    ##### Maybe, it doesn't need #####
-    # # get pricing data from vm instance pricing tabale
-    # pricing_data = get_pricing_data(GCP_CONST.PAGE_URL)
-    # available_region_data = get_available_region_data(pricing_data)
-
     # preprocessing
     df_current = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
         'InstanceType', 'Region', 'OnDemand Price', 'Spot Price'])
     
-    # change unavailable region price into -1
-    for idx, row in df_current.iterrows():
-        if row['Region'].split('-')[0] + row['Region'].split('-')[1] not in available_region_lists[row['InstanceType']]:
-            df_current.loc[idx, 'OnDemand Price'] = -1
-            df_current.loc[idx, 'Spot Price'] = -1
-
     # drop negative row
-    drop_negative(df_current)
+    df_current = drop_negative(df_current)
 
     # save current rawdata
     save_raw(df_current, timestamp)
@@ -107,4 +94,3 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200
     } 
-    

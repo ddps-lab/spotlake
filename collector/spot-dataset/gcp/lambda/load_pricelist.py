@@ -1,4 +1,3 @@
-from gcp_metadata import region_list, a2
 import json
 import pandas as pd
 
@@ -28,7 +27,7 @@ def calculate_price(cpu_data, ram_data, machine_series, price_type):
     # output : None, but save price into final output data
     instance_spec = df_instance_metadata[df_instance_metadata['instance_type'].str.contains(machine_series)]
     for k, v in instance_spec.iterrows():
-        cpu_quantity = v['guestCpus']
+        cpu_quantity = v['guest_cpus']
         ram_quantity = v['memoryGB']
         instance_type = v['instance_type']
         for region, av_instance in available_region_lists.items():
@@ -188,45 +187,61 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
     ram_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-RAM']
     gpu_data = pricelist['GPU_NVIDIA_TESLA_A100']
     ssd_ondemand_price = 0.04
-    for machine_type, feature in a2.items():
-        cpu_quantity = feature['cpu']
-        ram_quantity = feature['ram']
-        gpu_quantity = feature['gpu']
-        ssd_quantity = 0
-        try:
-            ssd_quantity = feature['ssd']
-            gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB']
-        except KeyError as e:
-            pass
 
-        for cpu_region, cpu_price in cpu_data.items():
-            for ram_region, ram_price in ram_data.items():
-                for gpu_region, gpu_price in gpu_data.items():
-                    if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
-                        output[machine_type][cpu_region]['ondemand'] = cpu_quantity * cpu_price + \
-                                                                       ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_ondemand_price
+    instance_spec = df_instance_metadata[df_instance_metadata['instance_type'].str.contains('a2')]
+    for k, v in instance_spec.iterrows():
+        instance_type = v['instance_type']
+        cpu_quantity = v['guest_cpus']
+        ram_quantity = v['memoryGB']
+        gpu_quantity = v['guest_accerlator_count']
+
+        # handle a2-ultragpu
+        ssd_quantity = v['ssd']
+        if pd.isna(ssd_quantity):
+            ssd_quantity = 0
+        else :
+            gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB']
+
+        for region, av_instance in available_region_lists.items():
+            if instance_type not in av_instance:
+                continue
+            for cpu_region, cpu_price in cpu_data.items():
+                for ram_region, ram_price in ram_data.items():
+                    for gpu_region, gpu_price in gpu_data.items():
+                        if cpu_region == ram_region and cpu_region == gpu_region and cpu_region == region:
+                                output[instance_type][region]['ondemand'] = cpu_quantity * cpu_price + \
+                                                                        ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_ondemand_price
+
     # preemptible
     cpu_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-CORE-PREEMPTIBLE']
     ram_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-RAM-PREEMPTIBLE']
     gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-PREEMPTIBLE']
     ssd_preemptible_price = 0.02
-    for machine_type, feature in a2.items():
-        cpu_quantity = feature['cpu']
-        ram_quantity = feature['ram']
-        gpu_quantity = feature['gpu']
-        ssd_quantity = 0
-        try:
-            ssd_quantity = feature['ssd']
-            gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB-PREEMPTIBLE']
-        except KeyError as e:
-            pass
-        for cpu_region, cpu_price in cpu_data.items():
-            for ram_region, ram_price in ram_data.items():
-                for gpu_region, gpu_price in gpu_data.items():
-                    if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
-                        if output[machine_type][cpu_region]['ondemand'] != -1:
-                            output[machine_type][cpu_region]['preemptible'] = cpu_quantity * cpu_price + \
-                                                                              ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_preemptible_price
+
+    instance_spec = df_instance_metadata[df_instance_metadata['instance_type'].str.contains('a2')]
+    for k, v in instance_spec.iterrows():
+            instance_type = v['instance_type']
+            cpu_quantity = v['guest_cpus']
+            ram_quantity = v['memoryGB']
+            gpu_quantity = v['guest_accerlator_count']
+
+            # handle a2-ultragpu
+            ssd_quantity = v['ssd']
+            if pd.isna(ssd_quantity):
+                ssd_quantity = 0
+            else :
+                gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB-PREEMPTIBLE']
+
+            for region, av_instance in available_region_lists.items():
+                if instance_type not in av_instance:
+                    continue
+                for cpu_region, cpu_price in cpu_data.items():
+                    for ram_region, ram_price in ram_data.items():
+                        for gpu_region, gpu_price in gpu_data.items():
+                            if cpu_region == ram_region and cpu_region == gpu_region and cpu_region == region:
+                                output[instance_type][region]['preemptible'] = cpu_quantity * cpu_price + \
+                                                                                ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_preemptible_price
+
     return output
 
 

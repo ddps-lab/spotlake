@@ -63,8 +63,8 @@ def parsing_data_from_aggragated_list(df):
                     'memoryGB' : round((instance['memoryMb'] / 1024), 2)      # convert Mebibyte to Gibigyte
                     }
                 if 'accelerators' in instance:
-                    spec['guest_accerlator_type'] = instance['accelerators'][0]['guestAcceleratorType']
-                    spec['guest_accerlator_count'] = instance['accelerators'][0]['guestAcceleratorCount']
+                    spec['guest_accelerator_type'] = instance['accelerators'][0]['guestAcceleratorType']
+                    spec['guest_accelerator_count'] = instance['accelerators'][0]['guestAcceleratorCount']
                     if 'ultragpu' in instance['name']:
                         spec['ssd'] = instance['accelerators'][0]['guestAcceleratorCount']
                 

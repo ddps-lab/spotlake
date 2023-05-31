@@ -12,7 +12,7 @@ with open('available_region.json', 'r') as f:
 
 df_instance_metadata = pd.read_json('instance_metadata.json')
 ##### ------------------------------- #####
-df_instance_metadata['guest_accerlator_count'] = df_instance_metadata['guest_accerlator_count'].fillna(0)
+df_instance_metadata['guest_accelerator_count'] = df_instance_metadata['guest_accelerator_count'].fillna(0)
 df_instance_metadata['ssd'] = df_instance_metadata['ssd'].fillna(0)
 
 def extract_price(machine_type, price_data, price_type):
@@ -36,7 +36,7 @@ def calculate_price(cpu_data, ram_data, gpu_data, instance_type, price_type):
         instance_type = v['instance_type']
         cpu_quantity = v['guest_cpus']
         ram_quantity = v['memoryGB']
-        gpu_quantity = v['guest_accerlator_count']
+        gpu_quantity = v['guest_accelerator_count']
         ssd_quantity = v['ssd']
 
         for region, av_instance in available_region_lists.items():
@@ -86,7 +86,7 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
             # get gpu data
             gpu_data = None
             gpu_data_preemptible = None
-            accelerator = df_instance_metadata[df_instance_metadata['instance_type'] == instance_type]['guest_accerlator_type'].values[0]
+            accelerator = df_instance_metadata[df_instance_metadata['instance_type'] == instance_type]['guest_accelerator_type'].values[0]
 
             if pd.isna(accelerator) == False:
                 accelerator = accelerator.upper().replace('-', '_')

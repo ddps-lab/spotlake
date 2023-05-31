@@ -25,20 +25,19 @@ def extract_price(machine_type, price_data, price_type):
             output[machine_type][region][price_type] = price
 
 
-def calculate_price(cpu_data, ram_data, gpu_data, machine_series, price_type):
+def calculate_price(cpu_data, ram_data, gpu_data, instance_type, price_type):
     # get regional price of each unit and calculate workload price
-    # input : regional cpu & ram price of workload, machine series, price type (ondemand or preemptible)
+    # input : regional cpu, ram, gpu price of workload, instance_type, price type (ondemand or preemptible)
     # output : None, but save price into final output data
 
     ssd_price = 0.04 if price_type == 'ondemand' else 0.02
-    instance_spec = df_instance_metadata[df_instance_metadata['instance_type'].str.contains(machine_series)]
+    instance_spec = df_instance_metadata[df_instance_metadata['instance_type'] == instance_type]
     for k, v in instance_spec.iterrows():
         instance_type = v['instance_type']
         cpu_quantity = v['guest_cpus']
         ram_quantity = v['memoryGB']
         gpu_quantity = v['guest_accerlator_count']
         ssd_quantity = v['ssd']
-        print(f'{instance_type} : cpu : {cpu_quantity}, ram : {ram_quantity}, gpu : {gpu_quantity}, ssd : {ssd_quantity}, gpudata = {type(gpu_data)}')
 
         for region, av_instance in available_region_lists.items():
             if instance_type not in av_instance:
@@ -104,12 +103,12 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
                 # ondemand
                 cpu_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-CORE']
                 ram_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-RAM']
-                calculate_price(cpu_data, ram_data, gpu_data, series, 'ondemand')
+                calculate_price(cpu_data, ram_data, gpu_data, instance_type, 'ondemand')
                     
                 # preemptible
                 cpu_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-CORE-PREEMPTIBLE']
                 ram_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-RAM-PREEMPTIBLE']
-                calculate_price(cpu_data, ram_data, gpu_data_preemptible, series, 'preemptible')
+                calculate_price(cpu_data, ram_data, gpu_data_preemptible, instance_type, 'preemptible')
 
             except KeyError:
                 # C3 series doesn't exsist in pricelist.json

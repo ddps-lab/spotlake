@@ -3,6 +3,9 @@ import pandas as pd
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
+from upload_data import upload_metadata
+
+LOCAL_PATH = 'tmp/'
 
 def trim_region(before_trim):
     region = before_trim
@@ -72,11 +75,12 @@ def parsing_data_from_aggragated_list(df):
     
     df_instance_metadata = pd.DataFrame(instance_metadata)
     df_instance_metadata.drop_duplicates(subset=['instance_type'], keep='first', inplace=True, ignore_index=True )
+    df_instance_metadata['guest_accelerator_type'] = df_instance_metadata['guest_accelerator_type'].fillna(0)
+    df_instance_metadata['ssd'] = df_instance_metadata['ssd'].fillna(0)
     
-    ### have to save S3
-    df_instance_metadata.to_json('instance_metadata.json', indent=4)
-
-    with open('available_region.json', 'w') as f:
-        f.write(json.dumps(available_region_lists, indent=4))        
+    df_instance_metadata.to_json(f'{LOCAL_PATH}/instance_metadata.json')    
+    with open(f'{LOCAL_PATH}/available_region_lists.json', 'w') as f:
+        f.write(json.dumps(available_region_lists))     
     
-    return available_region_lists, df_instance_metadata
+    upload_metadata('available_region_lists')
+    upload_metadata('instance_metadata')

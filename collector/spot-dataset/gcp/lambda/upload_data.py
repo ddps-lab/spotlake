@@ -122,3 +122,10 @@ def save_raw(data, timestamp):
         if "spotlake_" in filename:
             os.remove(f"{LOCAL_PATH}/{filename}")
 
+
+def upload_metadata(filename):
+    session = boto3.Session()
+    s3 = session.client('s3')
+    with open(f'{LOCAL_PATH}/{filename}.json', 'rb') as f:
+        s3.upload_fileobj(
+            f, STORAGE_CONST.BUCKET_NAME, f'gcp_metadata/{filename}.json')

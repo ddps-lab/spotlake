@@ -6,9 +6,8 @@ import botocore
 from const_config import GcpCollector, Storage
 
 from load_pricelist import get_price, preprocessing_price
-from load_available_region_data import requests_retry_session
 from get_metadata import get_aggregated_list, parsing_data_from_aggragated_list
-from upload_data import save_raw, update_latest, upload_timestream
+from upload_data import save_raw, update_latest, upload_timestream, load_metadata
 from compare_data import compare
 from utility import slack_msg_sender
 
@@ -30,12 +29,14 @@ def gcp_collect(timestamp):
         raise Exception(f"GCP get pricelist : status code is {response.status_code}")
 
     data = response.json()
-
     pricelist = data['gcp_price_list']
 
-    # get instance metadata
+    # get instance metadata and upload to s3
     df_raw_metadata = get_aggregated_list()
-    available_region_lists, df_instance_metadata = parsing_data_from_aggragated_list(df_raw_metadata)
+    parsing_data_from_aggragated_list(df_raw_metadata)
+
+    df_instance_metadata = pd.DataFrame(load_metadata('instance_metadata'))
+    available_region_lists = load_metadata('available_region_lists')
 
     # get price from pricelist
     output_pricelist = get_price(pricelist, df_instance_metadata, available_region_lists)

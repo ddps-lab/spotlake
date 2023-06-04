@@ -1,19 +1,4 @@
-import json
 import pandas as pd
-
-# This code is referenced from "https://github.com/doitintl/gcpinstances.info/blob/master/scraper.py"
-
-global available_region_lists
-global df_instance_metadata
-
-##### Need to changed -> load from S3 #####
-with open('available_region.json', 'r') as f:
-    available_region_lists = json.load(f)
-
-df_instance_metadata = pd.read_json('instance_metadata.json')
-##### ------------------------------- #####
-df_instance_metadata['guest_accelerator_count'] = df_instance_metadata['guest_accelerator_count'].fillna(0)
-df_instance_metadata['ssd'] = df_instance_metadata['ssd'].fillna(0)
 
 def extract_price(machine_type, price_data, price_type):
     # get price from pricelist and put into output data (for N1 : f1-micro, g1-small)
@@ -25,9 +10,9 @@ def extract_price(machine_type, price_data, price_type):
             output[machine_type][region][price_type] = price
 
 
-def calculate_price(cpu_data, ram_data, gpu_data, instance_type, price_type):
+def calculate_price(cpu_data, ram_data, gpu_data, instance_type, price_type, df_instance_metadata, available_region_lists):
     # get regional price of each unit and calculate workload price
-    # input : regional cpu, ram, gpu price of workload, instance_type, price type (ondemand or preemptible)
+    # input : regional cpu & ram price of workload, machine series, price type (ondemand or preemptible), metadata, available lists
     # output : None, but save price into final output data
 
     ssd_price = 0.04 if price_type == 'ondemand' else 0.02
@@ -57,7 +42,7 @@ def calculate_price(cpu_data, ram_data, gpu_data, instance_type, price_type):
 
 def get_price(pricelist, df_instance_metadata, available_region_lists):
     # put prices of workloads into output data
-    # input : pricelist of compute engine unit, instace metadata, available region lists
+    # input : pricelist of compute engine unit, metadata, available lists
     # output : dictionary data of calculated price
 
     global output
@@ -103,12 +88,12 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
                 # ondemand
                 cpu_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-CORE']
                 ram_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-RAM']
-                calculate_price(cpu_data, ram_data, gpu_data, instance_type, 'ondemand')
+                calculate_price(cpu_data, ram_data, gpu_data, instance_type, 'ondemand', df_instance_metadata, available_region_lists)
                     
                 # preemptible
                 cpu_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-CORE-PREEMPTIBLE']
                 ram_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-RAM-PREEMPTIBLE']
-                calculate_price(cpu_data, ram_data, gpu_data_preemptible, instance_type, 'preemptible')
+                calculate_price(cpu_data, ram_data, gpu_data_preemptible, instance_type, 'preemptible', df_instance_metadata, available_region_lists)
 
             except KeyError:
                 # C3 series doesn't exsist in pricelist.json

@@ -6,7 +6,7 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 import pandas as pd
 import json
-from const_config import Storage
+from const_config import Storage, GcpCollector
 from utility import slack_msg_sender
 
 session = boto3.session.Session(region_name='us-west-2')
@@ -14,11 +14,7 @@ write_client = session.client('timestream-write',
                               config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
 
 STORAGE_CONST = Storage()
-
-# 22.12.15 17:38 임준호
-# 임시로 데이터를 저장중인 듯 하여 const_config.py에 정의하지 않음
-LOCAL_PATH = '/tmp'
-
+LOCAL_PATH = GcpCollector.LOCAL_PATH
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):

@@ -7,7 +7,7 @@ from const_config import GcpCollector, Storage
 
 from load_pricelist import get_price, preprocessing_price
 from get_metadata import get_aggregated_list, parsing_data_from_aggragated_list
-from upload_data import save_raw, update_latest, upload_timestream, load_metadata
+from s3_management import save_raw, update_latest, upload_timestream, load_metadata
 from compare_data import compare
 from utility import slack_msg_sender
 

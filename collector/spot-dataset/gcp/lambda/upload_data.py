@@ -129,3 +129,17 @@ def upload_metadata(filename):
     with open(f'{LOCAL_PATH}/{filename}.json', 'rb') as f:
         s3.upload_fileobj(
             f, STORAGE_CONST.BUCKET_NAME, f'gcp_metadata/{filename}.json')
+
+
+def load_metadata(filename):
+    obj_file = f'gcp_metadata/{filename}.json'
+    save_file = f'tmp/{filename}.json'
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(STORAGE_CONST.BUCKET_NAME)
+    bucket.download_file(obj_file, save_file)
+    
+    data = None
+    with open(save_file, 'r') as f:
+        data = json.load(f)
+        
+    return data

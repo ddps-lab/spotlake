@@ -120,14 +120,10 @@ class GcpCollector(object):
         return "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 
     @constant
-    def PAGE_URL():
-        return "https://cloud.google.com/compute/vm-instance-pricing"
-
-    @constant
     def S3_LATEST_DATA_SAVE_PATH():
         return "latest_data/latest_gcp.json"
 
     @constant
     def LOCAL_PATH():
-        return "/home/ubuntu/spot-score/collection/gcp"
+        return "/tmp"
         

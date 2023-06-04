@@ -3,9 +3,10 @@ import pandas as pd
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
+from const_config import GcpCollector
 from upload_data import upload_metadata
 
-LOCAL_PATH = 'tmp/'
+LOCAL_PATH = GcpCollector.LOCAL_PATH
 
 def trim_region(before_trim):
     region = before_trim

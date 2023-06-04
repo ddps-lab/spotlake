@@ -3,9 +3,12 @@ import json
 from datetime import datetime, timezone
 import boto3
 import botocore
-from const_config import GcpCollector, Storage
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
-from load_pricelist import get_price, preprocessing_price
+from const_config import GcpCollector, Storage
+from load_pricelist import get_price, preprocessing_price, drop_negative
 from get_metadata import get_aggregated_list, parsing_data_from_aggragated_list
 from s3_management import save_raw, update_latest, upload_timestream, load_metadata
 from compare_data import compare
@@ -14,10 +17,19 @@ from utility import slack_msg_sender
 STORAGE_CONST = Storage()
 GCP_CONST = GcpCollector()
 
-def drop_negative(df):
-    idx = df[(df['OnDemand Price']==-1.0) | (df['Spot Price'] == -1.0)].index
-    df.drop(idx, inplace=True)
-    return df
+def requests_retry_session(
+        retries=3,
+        backoff_factor=0.3,
+        status_forcelist=(500, 501, 502, 503, 504),
+        session=None
+):
+    session = session or requests.Session()
+    retry = Retry(total=retries, read=retries, connect=retries, backoff_factor=backoff_factor,
+                  status_forcelist=status_forcelist)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
 
 
 def gcp_collect(timestamp):

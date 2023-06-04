@@ -73,7 +73,7 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
             gpu_data_preemptible = None
             accelerator = df_instance_metadata[df_instance_metadata['instance_type'] == instance_type]['guest_accelerator_type'].values[0]
 
-            if pd.isna(accelerator) == False:
+            if accelerator != 0:
                 accelerator = accelerator.upper().replace('-', '_')
                 if 'TESLA' not in accelerator :
                     accelerator = accelerator.replace('NVIDIA', 'NVIDIA_TESLA', 1)

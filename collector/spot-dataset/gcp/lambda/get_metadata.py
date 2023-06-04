@@ -6,7 +6,7 @@ from oauth2client.client import GoogleCredentials
 from const_config import GcpCollector
 from s3_management import upload_metadata
 
-LOCAL_PATH = GcpCollector.LOCAL_PATH
+LOCAL_PATH = GcpCollector().LOCAL_PATH
 
 def trim_region(before_trim):
     region = before_trim

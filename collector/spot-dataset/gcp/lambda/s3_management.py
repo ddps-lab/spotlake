@@ -14,7 +14,7 @@ write_client = session.client('timestream-write',
                               config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
 
 STORAGE_CONST = Storage()
-LOCAL_PATH = GcpCollector.LOCAL_PATH
+LOCAL_PATH = GcpCollector().LOCAL_PATH
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
@@ -129,7 +129,7 @@ def upload_metadata(filename):
 
 def load_metadata(filename):
     obj_file = f'gcp_metadata/{filename}.json'
-    save_file = f'tmp/{filename}.json'
+    save_file = f'{LOCAL_PATH}/{filename}.json'
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(STORAGE_CONST.BUCKET_NAME)
     bucket.download_file(obj_file, save_file)

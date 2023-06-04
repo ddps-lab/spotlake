@@ -125,3 +125,9 @@ def preprocessing_price(df):
                 [machine_type, region, ondemand, preemptible])
     
     return new_list
+
+
+def drop_negative(df):
+    idx = df[(df['OnDemand Price']==-1.0) | (df['Spot Price'] == -1.0)].index
+    df.drop(idx, inplace=True)
+    return df

@@ -4,7 +4,7 @@ from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
 from const_config import GcpCollector
-from upload_data import upload_metadata
+from s3_management import upload_metadata
 
 LOCAL_PATH = GcpCollector.LOCAL_PATH
 

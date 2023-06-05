@@ -5,6 +5,7 @@ from oauth2client.client import GoogleCredentials
 
 from const_config import GcpCollector
 from s3_management import upload_metadata
+from utility import slack_msg_sender
 
 LOCAL_PATH = GcpCollector().LOCAL_PATH
 
@@ -48,40 +49,44 @@ def parsing_data_from_aggragated_list(df):
     available_region_lists = {}
     instance_metadata = []
 
-    for idx, value in df.iterrows():
-        # trim region
-        region = trim_region(value['scope'])
+    try:
+        for idx, value in df.iterrows():
+            # trim region
+            region = trim_region(value['scope'])
 
-        # check content is 'WARNING' or 'MACHINETYPES'
-        data = value['content'].get('machineTypes')
-        if data != None:
-            for instance in data:
-                # add instance type in available region
-                if region not in available_region_lists:
-                    available_region_lists[region] = []
-                available_region_lists[region].append(instance['name'])
+            # check content is 'WARNING' or 'MACHINETYPES'
+            data = value['content'].get('machineTypes')
+            if data != None:
+                for instance in data:
+                    # add instance type in available region
+                    if region not in available_region_lists:
+                        available_region_lists[region] = []
+                    available_region_lists[region].append(instance['name'])
 
-                # add instance spec in instance metadata
-                spec = {'instance_type' : instance['name'],
-                    'guest_cpus' : instance['guestCpus'],
-                    'memoryGB' : round((instance['memoryMb'] / 1024), 2)      # convert Mebibyte to Gibigyte
-                    }
-                if 'accelerators' in instance:
-                    spec['guest_accelerator_type'] = instance['accelerators'][0]['guestAcceleratorType']
-                    spec['guest_accelerator_count'] = instance['accelerators'][0]['guestAcceleratorCount']
-                    if 'ultragpu' in instance['name']:
-                        spec['ssd'] = instance['accelerators'][0]['guestAcceleratorCount']
-                
-                instance_metadata.append(spec)
-    
-    df_instance_metadata = pd.DataFrame(instance_metadata)
-    df_instance_metadata.drop_duplicates(subset=['instance_type'], keep='first', inplace=True, ignore_index=True )
-    df_instance_metadata['guest_accelerator_type'] = df_instance_metadata['guest_accelerator_type'].fillna(0)
-    df_instance_metadata['ssd'] = df_instance_metadata['ssd'].fillna(0)
-    
-    df_instance_metadata.to_json(f'{LOCAL_PATH}/instance_metadata.json')    
-    with open(f'{LOCAL_PATH}/available_region_lists.json', 'w') as f:
-        f.write(json.dumps(available_region_lists))     
+                    # add instance spec in instance metadata
+                    spec = {'instance_type' : instance['name'],
+                        'guest_cpus' : instance['guestCpus'],
+                        'memoryGB' : round((instance['memoryMb'] / 1024), 2)      # convert Mebibyte to Gibigyte
+                        }
+                    if 'accelerators' in instance:
+                        spec['guest_accelerator_type'] = instance['accelerators'][0]['guestAcceleratorType']
+                        spec['guest_accelerator_count'] = instance['accelerators'][0]['guestAcceleratorCount']
+                        if 'ultragpu' in instance['name']:
+                            spec['ssd'] = instance['accelerators'][0]['guestAcceleratorCount']
+                    
+                    instance_metadata.append(spec)
+        
+        df_instance_metadata = pd.DataFrame(instance_metadata)
+        df_instance_metadata.drop_duplicates(subset=['instance_type'], keep='first', inplace=True, ignore_index=True )
+        df_instance_metadata['guest_accelerator_type'] = df_instance_metadata['guest_accelerator_type'].fillna(0)
+        df_instance_metadata['ssd'] = df_instance_metadata['ssd'].fillna(0)
+        
+        df_instance_metadata.to_json(f'{LOCAL_PATH}/instance_metadata.json')    
+        with open(f'{LOCAL_PATH}/available_region_lists.json', 'w') as f:
+            f.write(json.dumps(available_region_lists))
+    except:
+        slack_msg_sender.send_slack_message("Error : GCP collector - get_metadata.py")
+        return
     
     upload_metadata('available_region_lists')
     upload_metadata('instance_metadata')

@@ -8,6 +8,7 @@ import sys
 import os
 import gzip
 import argparse
+from datetime import datetime
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 
@@ -89,9 +90,15 @@ def workload_bin_packing(query, capacity, algorithm):
 
 def get_binpacked_workload(filedate):
     # reverse order of credential data
-    user_cred = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "rb"))
+    user_cred = None
+    try:
+        user_cred = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", "rb"))
+    except:
+        user_cred = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl').get()['Body'])
     user_cred = user_cred[::-1]
-    pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl", "wb"))
+    pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", "wb"))
+    with open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", 'rb') as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl')
 
     DIRLIST = os.listdir(f"{AWS_CONST.LOCAL_PATH}/")
     if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:
@@ -142,7 +149,7 @@ def get_binpacked_workload(filedate):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--timestamp', dest='timestamp', action='store')
-    args = parser.parse_arg()
+    args = parser.parse_args()
     timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     date = args.timestamp.split("T")[0]
     
@@ -150,5 +157,7 @@ if __name__=="__main__":
         workload = get_binpacked_workload(date)
     except botocore.exceptions.ClientError as e:
         send_slack_message(e)
+    s3_client = boto3.client('s3')
     pickle.dump(workload, open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "wb"))
+    s3_client.upload_fileobj(open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "rb"), STORAGE_CONST.BUCKET_NAME, f"{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/workloads.pkl")
 

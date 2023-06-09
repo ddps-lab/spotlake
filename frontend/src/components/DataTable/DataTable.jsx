@@ -14,7 +14,7 @@ const DataTable = ({
     setSelectedData
 }) => {
     const [pageSize, setPageSize] = useState(1000);
-    const {columns,GCPcolumns,GCPcolumnGroup,AZUREcolumns} = ColumnData();
+    const {columns,GCPcolumns,AZUREcolumns} = ColumnData();
     const toolBarComponent = () =>(
         toolBar
     )
@@ -22,7 +22,6 @@ const DataTable = ({
         <DataGridTable
             rows={rowData}
             columns={vendor==='AWS' ? columns : vendor === 'GCP' ? GCPcolumns : AZUREcolumns}
-            columnGroupingModel={GCPcolumnGroup}
             experimentalFeatures={{ columnGrouping: true }}
             checkboxSelection
             onSelectionModelChange = {(newSelectionModel) => {

@@ -1,4 +1,4 @@
-name: deploy to lambda
+name: deploy azure files to lambda
 on:
   push:
     branches:

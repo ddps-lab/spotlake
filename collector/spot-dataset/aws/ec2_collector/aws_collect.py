@@ -3,6 +3,7 @@ import botocore
 import pickle
 import pandas as pd
 import argparse
+import json
 import sys
 import os
 import time
@@ -40,13 +41,21 @@ timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 date = args.timestamp.split("T")[0]
 
 # need to change file location
+workload = None
 try:
-    workload = pickle.load(gzip.open(s3.Object(STORAGE_CONST.BUCKET_NAME, f'rawdata/aws/workloads/{"/".join(date.split("-"))}/binpacked_workloads.pkl.gz').get()['Body']))
+    workload = pickle.load(gzip.open(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_WORKLOAD_SAVE_PATH}/{"/".join(date.split("-"))}/binpacked_workloads.pkl.gz').get()['Body']))
 except Exception as e:
     send_slack_message(e)
-    workload = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/workloads.pkl", "rb"))
+    try :
+        workload = pickle.load(open(f'{AWS_CONST.LOCAL_PATH}/workloads.pkl', 'rb'))
+    except:
+        workload = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/workloads.pkl').get()['Body'])
 
-credentials = pickle.load(open(f'{AWS_CONST.LOCAL_PATH}/user_cred_df_100_199.pkl', 'rb'))
+credentials = None
+try:
+    credentials = pickle.load(open(f'{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl', 'rb'))
+except:
+    credentials = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl').get()['Body'])
 
 mp_workload = []
 for i in range(len(workload)):
@@ -79,27 +88,32 @@ try:
 except Exception as e:
     send_slack_message(e)
 
+current_df = None
 try:
     current_df = build_join_df(spot_price_df, ondemand_price_df, spotinfo_df, sps_df)
 except Exception as e:
     send_slack_message(e)
 
+previous_df = None
 try:
-    update_latest(current_df, timestamp) # upload current data to S3
-    save_raw(current_df, timestamp)
-except Exception as e:
-    send_slack_message(e)
-
-if 'latest_df.pkl' not in os.listdir(f'{AWS_CONST.LOCAL_PATH}/'):
-    pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb"))
+    try:
+        previous_df = pd.DataFrame(json.load(open(f"{AWS_CONST.LOCAL_PATH}/latest_aws.json", "r")))
+    except:
+        previous_df = pd.DataFrame(json.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LATEST_DATA_SAVE_PATH}').get()['Body'].read()))
+    previous_df = previous_df.drop(columns=['id', 'time'])
+except:
+    update_latest(current_df, timestamp)
     try:
         upload_timestream(current_df, timestamp)
     except Exception as e:
         send_slack_message(e)
     exit()
 
-previous_df = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "rb")) # load previous data from local file system
-pickle.dump(current_df, open(f"{AWS_CONST.LOCAL_PATH}/latest_df.pkl", "wb")) # write current data to local file system
+try:
+    update_latest(current_df, timestamp) # upload current data to S3
+    save_raw(current_df, timestamp)
+except Exception as e:
+    send_slack_message(e)
 
 workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']

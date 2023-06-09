@@ -14,7 +14,7 @@ const ColumnData = () =>{
                 return params.row.Region == -1 ? "N/A" : params.row.Region;
             }
         },
-        { field: 'AZ', headerName: 'AZ', flex: 0.5, type: 'number', description: 'Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html',
+        { field: 'AZ', headerName: 'AZ', flex: 0.5, description: 'Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html',
             headerAlign: 'center',
             valueGetter: (params) => {
                 return params.row.AZ == -1 ? "N/A" : params.row.AZ;
@@ -82,61 +82,28 @@ const ColumnData = () =>{
                 return params.row.Region == -1 ? "N/A" : params.row.Region;
             }
         },
-        { field: 'Calculator OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
+        { field: 'OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {
-                return params.row['Calculator OnDemand Price'] == -1 ? "N/A" : params.row['Calculator OnDemand Price'];
+                return params.row['OnDemand Price'] == -1 ? "N/A" : params.row['OnDemand Price'];
             }
         },
-        { field: 'Calculator Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number',
+        { field: 'Spot Price', headerName: 'Spot Price', flex: 1.3, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {
-                return params.row['Calculator Preemptible Price'] == -1 ? "N/A" : params.row['Calculator Preemptible Price'];
+                return params.row['Spot Price'] == -1 ? "N/A" : params.row['Spot Price'];
             }
         },
-        { field: 'Calculator Savings', headerName: 'Savings', flex: 1, type: 'number',
+        { field: 'Savings', headerName: 'Savings (%)', flex: 1.3, type: 'number',
             headerAlign: 'center',
             valueGetter: (params) => {
-                if (!params.row['Calculator OnDemand Price'] || !params.row['Calculator Preemptible Price']) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
-                else if (params.row['Calculator OnDemand Price'] == -1 || params.row['Calculator Preemptible Price'] == -1) return "N/A";  // 값이 -1일 경우 (string, num...)
-                let savings = Math.round((params.row['Calculator OnDemand Price'] - params.row['Calculator Preemptible Price']) / params.row['Calculator OnDemand Price'] * 100)
-                return isNaN(savings) ? "N/A" : savings;
-            }
-        },
-        { field: 'VM Instance OnDemand Price', headerName: 'OnDemand Price', flex: 1, type: 'number',
-            headerAlign: 'center',
-            valueGetter: (params) => {
-                return params.row['VM Instance OnDemand Price'] == -1 ? "N/A" : params.row['VM Instance OnDemand Price'];
-            }
-        },
-        { field: 'VM Instance Preemptible Price', headerName: 'Preemptible Price', flex: 1, type: 'number',
-            headerAlign: 'center',
-            valueGetter: (params) => {
-                return params.row['VM Instance Preemptible Price'] == -1 ? "N/A" : params.row['VM Instance Preemptible Price'];
-            }
-        },
-        { field: 'VM Instance Savings', headerName: 'Savings', flex: 1, type: 'number',
-            headerAlign: 'center',
-            valueGetter: (params) => {
-                if (!params.row['VM Instance Preemptible Price'] || !params.row['VM Instance OnDemand Price']) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
-                else if (params.row['VM Instance Preemptible Price'] == -1 || params.row['VM Instance OnDemand Price'] == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
-                let savings = Math.round((params.row['VM Instance OnDemand Price'] - params.row['VM Instance Preemptible Price']) / params.row['VM Instance OnDemand Price'] * 100)
+                if (!params.row['OnDemand Price'] || !params.row['Spot Price']) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+                else if (params.row['OnDemand Price'] == -1 || params.row['Spot Price'] == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
+                let savings = Math.round((params.row['OnDemand Price'] - params.row['Spot Price']) / params.row['OnDemand Price'] * 100)
                 return isNaN(savings) ? "N/A" : savings;
             }
         },
         {field: 'time', headerName: 'Date', type: 'date', flex: 2, headerAlign: 'center', }
-    ];
-    const GCPcolumnGroup = [
-        {
-            groupId: 'Caculator',
-            description: '',
-            children: [{ field: 'Calculator OnDemand Price' }, {field: 'Calculator Preemptible Price'},{field: 'Calculator Savings'}],
-        },
-        {
-            groupId: 'VM Instance',
-            description: '',
-            children: [{ field: 'VM Instance OnDemand Price' }, {field: 'VM Instance Preemptible Price'},{field: 'VM Instance Savings'}],
-        }
     ];
     //AZURE columns
     const AZUREcolumns = [
@@ -181,7 +148,7 @@ const ColumnData = () =>{
             headerAlign: 'center',
             valueGetter: (params) => {
                 if (!params.row.OndemandPrice || !params.row.SpotPrice) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
-                else if (params.row.OndemandPrice == -1 || params.row.OndemandPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
+                else if (params.row.OndemandPrice == -1 || params.row.SpotPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
                 let savings = Math.round((params.row.OndemandPrice - params.row.SpotPrice) / params.row.OndemandPrice * 100)
                 return isNaN(savings) ? "N/A" : savings;
             }
@@ -190,7 +157,6 @@ const ColumnData = () =>{
     ];
     return {
         columns,
-        GCPcolumnGroup,
         GCPcolumns,
         AZUREcolumns
     }

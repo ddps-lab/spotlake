@@ -1,12 +1,13 @@
+# Upload collected data to Timestream or S3
 import os
+import json
 import time
 import boto3
 import pickle
 import pandas as pd
 from datetime import datetime
 from botocore.config import Config
-from botocore.exceptions import ClientError
-from utill.const_config import AzureCollector, Storage
+from const_config import AzureCollector, Storage
 import slack_msg_sender
 
 STORAGE_CONST = Storage()
@@ -45,7 +46,6 @@ def submit_batch(records, counter, recursive):
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, timestamp):
     data = data[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'IF']]
-
     data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
     data['SpotPrice'] = data['SpotPrice'].fillna(-1)
     data['IF'] = data['IF'].fillna(-1)
@@ -83,6 +83,7 @@ def upload_timestream(data, timestamp):
         submit_batch(records, counter, 0)
 
 
+# Update latest_azure.json in S3
 def update_latest(data, timestamp):
     data['id'] = data.index + 1
     data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
@@ -107,7 +108,10 @@ def update_latest(data, timestamp):
     pickle.dump(data, open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.SERVER_SAVE_FILENAME}", "wb"))
 
 
+# Save raw data in S3
 def save_raw(data, timestamp):
+    data = data[['InstanceTier','InstanceType','Region','OndemandPrice','SpotPrice','Savings',"IF"]]
+
     data.to_csv(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", index=False, compression="gzip")
 
     session = boto3.Session()
@@ -119,3 +123,18 @@ def save_raw(data, timestamp):
     with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f"""rawdata/azure/{s3_dir_name}/{s3_obj_name}.csv.gz""")
     os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz")
+
+
+# Update query-selector-azure.json in S3
+def query_selector(data):
+    s3 = session.resource('s3')
+    prev_selector_df = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH).get()['Body'].read()))
+    selector_df = pd.concat([prev_selector_df[['InstanceTier', 'InstanceType', 'Region']], data[['InstanceTier', 'InstanceType', 'Region']]], axis=0, ignore_index=True).dropna().drop_duplicates(['InstanceTier', 'InstanceType', 'Region']).reset_index(drop=True)
+    result = selector_df.to_json(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.QUERY_SELECTOR_FILENAME}", orient='records')
+    s3 = session.client('s3')
+    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.QUERY_SELECTOR_FILENAME}", "rb") as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH)
+    os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.QUERY_SELECTOR_FILENAME}")
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH)
+    response = object_acl.put(ACL='public-read')

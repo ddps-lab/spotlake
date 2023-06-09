@@ -2,9 +2,15 @@ import * as style from "../../pages/demo/styles";
 import { FormControl } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import aws_association from "../../pages/demo/aws_association.json";
 import gcp_association from "../../pages/demo/gcp_association.json";
-import azure_association from "../../pages/demo/azure_association.json";
+
+const AWS_INSTANCE = {};
+const AWS_REGION = {};
+const AWS_AZ = {};
+
+const AZURE_INSTANCE = {};
+const AZURE_REGION = {};
+const AZURE_TIER = {};
 
 const Query = ({
   vendor,
@@ -39,30 +45,17 @@ const Query = ({
     }
     const filterSort = (V) => {
         // V : vendor
-        let list = []
-        let inst = []
         if (V === 'AWS') {
-            aws_association.map((e) => {
-                let key = Object.keys(e)
-                list = list.concat(key)
-                inst = inst.length < e[key]['InstanceType'].length ? e[key]['InstanceType'] : inst
-            })
-            setRegion(['ALL'].concat(list))
-            setInstance(inst)
-            setAZ(['ALL'])
+           setInstance(Object.keys(AWS_INSTANCE));
+           setRegion(['ALL', ...Object.keys(AWS_REGION)]);
+           setAZ(['ALL']);
         } else if (V === 'AZURE') {
-            let tier = []
-            azure_association.map((e) => {
-                let key = Object.keys(e)
-                inst = inst.concat(key)
-                list = list.length < e[key]['Region'].length ? e[key]['Region'] : list
-                tier = tier.length < e[key]['InstanceTier'].length ? e[key]['InstanceTier'] : tier
-            })
-            console.log(list)
-            setRegion(['ALL'].concat(list))
-            setInstance(inst)
-            setAssoTier(['ALL'].concat(tier))
+            setInstance(Object.keys(AZURE_INSTANCE));
+            setRegion(['ALL', ...Object.keys(AZURE_REGION)]);
+            setAssoTier(['ALL', ...Object.keys(AZURE_TIER)]);
         } else {
+            let list = []
+            let inst = []
             gcp_association.map((e) => {
                 let key = Object.keys(e)
                 list = list.concat(key)
@@ -78,51 +71,52 @@ const Query = ({
         // 날짜가 입력 될 경우
         if (name.includes('start_date')) setDate(name, value);
         setSearchFilter({ ...searchFilter, [name]: value });
-        const assoFile = vendor === 'AWS' ? aws_association : vendor === 'GCP' ? gcp_association : azure_association;
         if (value !== "ALL") {
             if (name === 'region' && region.includes(value)) {
                 if (vendor === 'AWS') {
-                    setAssoInstance(assoFile[region.indexOf(value) - 1][value]['InstanceType'])
-                    setAssoAZ(['ALL'].concat(assoFile[region.indexOf(value) - 1][value]['AZ']))
-                } else if (vendor === 'AZURE') {
-                    let includeInstance = []
+                    setAssoInstance([...AWS_REGION[value]]);
                     try {
-                        instance.map((i) => {
-                            if (assoFile[instance.indexOf(i)][i]['Region'].includes(value)) {
-                                includeInstance.push(i)
-                            }
+                        let newAssoAZ = new Set();
+                        [...AWS_REGION[value]].map((instance) => {
+                            newAssoAZ = new Set([...newAssoAZ, ...AWS_INSTANCE[instance]['AZ']]);
+                        });
+                        setAssoAZ(['ALL', ...newAssoAZ]);
+                    } catch (e) { console.log(e); }
+                } else if (vendor === 'AZURE') {
+                    setAssoInstance([...AZURE_REGION[value]]);
+                    try {
+                        let newAssoTier = new Set();
+                        [...AZURE_REGION[value]].map((instance) => {
+                            newAssoTier = new Set([...newAssoTier, ...AZURE_INSTANCE[instance]['InstanceTier']]);
                         })
+                        setAssoTier(['ALL', ...newAssoTier]);
                     } catch (e) { console.log(e) }
-                    setAssoInstance(includeInstance);
                 } else { //gcp
-                    setAssoInstance(assoFile[region.indexOf(value) - 1][value])
+                    setAssoInstance(gcp_association[region.indexOf(value) - 1][value])
                 }
             } else if (name === 'instance') {
                 let includeRegion = []
-                if (vendor === 'AZURE') {
-                    includeRegion = assoFile[instance.indexOf(value)][value]['Region']
-                    setAssoTier(['ALL'].concat(assoFile[instance.indexOf(value)][value]['InstanceTier']))
-                } else {
+                if (vendor === 'AWS') {
+                    includeRegion = [...AWS_INSTANCE[value]['Region']];
+                    setAssoAZ(['ALL', ...AWS_INSTANCE[value]['AZ']]);
+                } else if (vendor === 'AZURE') {
+                    includeRegion = [...AZURE_INSTANCE[value]['Region']];
+                    setAssoTier(['ALL', ...AZURE_INSTANCE[value]['InstanceTier']]);
+                } else { // gcp
                     region.map((r) => {
                         try {
-                            if (vendor === 'AWS') {
-                                if (r !== 'ALL' && assoFile[region.indexOf(r) - 1][r]['InstanceType'].includes(value)) {
-                                    includeRegion.push(r)
-                                }
-                            } else { //gcp
-                                if (r !== 'ALL' && assoFile[region.indexOf(r) - 1][r].includes(value)) {
-                                    includeRegion.push(r)
-                                }
+                            if (r !== 'ALL' && gcp_association[region.indexOf(r) - 1][r].includes(value)) {
+                                includeRegion.push(r)
                             }
                         } catch (e) { console.log(e) }
-                    })
+                    });
                 }
-                setAssoRegion(['ALL'].concat(includeRegion))
+                setAssoRegion(['ALL'].concat(includeRegion));
             }
         } else {
             if (name === 'region') {
-                setAssoInstance(instance)
-                setAssoAZ(['ALL'])
+                setAssoAZ(['ALL']);
+                setAssoTier(['ALL']);
             }
         }
     }
@@ -150,17 +144,21 @@ const Query = ({
             //현재 url = "https://puhs0z1q3l.execute-api.us-west-2.amazonaws.com/default/sungjae-timestream-query";
             await axios.get(url, { params })
               .then((res) => {
-                  //get 요청을 통해 받는 리턴값
-                  console.log("res : ",res);
-                  let parseData = JSON.parse(JSON.parse(res.data.Data));
-                  // let parseData = JSON.parse(res.data);
-                  const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
-                  setQueryData(parseData);
-                  let dataCnt = parseData.length;
-                  if (dataCnt < 20000) {
-                      alert("Total " + dataCnt + " data points have been returned")
-                  } else if (dataCnt === 20000) {
-                      alert("The maximum number of data points has been returned (20,000)")
+                  if (res.data.Status === 403) {
+                      alert("Invalid Access");
+                  } else if (res.data.Status === 500) {
+                      alert("Internal Server Error");
+                  } else { // Status 성공 시,
+                      let parseData = JSON.parse(JSON.parse(res.data.Data));
+                      // let parseData = JSON.parse(res.data);
+                      const setQueryData = vendor === 'AWS' ? setGetdata : (vendor === 'GCP' ? setGCPData : setAZUREData);
+                      setQueryData(parseData);
+                      let dataCnt = parseData.length;
+                      if (dataCnt < 20000) {
+                          alert("Total " + dataCnt + " data points have been returned")
+                      } else if (dataCnt === 20000) {
+                          alert("The maximum number of data points has been returned (20,000)")
+                      }
                   }
                   // button load false로 설정
                   setLoad(false);
@@ -169,11 +167,6 @@ const Query = ({
                   console.log(e);
                   if (e.message === "Network Error") {
                       alert("A network error occurred. Try it again. ")
-                  } else if (e.response.data) {
-                      if (Number(e.response.data['Status']) === 403) alert("Invalid Access");
-                      else if (Number(e.response.data['Status']) === 500) alert("Internal Server Error");
-                  } else {
-                      alert(e.message);
                   }
               });
         }
@@ -187,11 +180,61 @@ const Query = ({
             setSelectedData([]);
         }
     }
+
+    const setFilterData = async () => { // fecth Query Association JSON (now only AWS, AZURE)
+        let assoAWS = await axios.get('https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_aws.json');
+        let assoAzure = await axios.get('https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_azure.json');
+        if (assoAWS && assoAWS.data) {
+            assoAWS = assoAWS.data[0];
+            Object.keys(assoAWS).map((instance) => {
+                AWS_INSTANCE[instance] = {
+                    ...assoAWS[instance],
+                    Region: assoAWS[instance]["Region"].filter((region) => region !== 'nan'),
+                    AZ: assoAWS[instance]["AZ"].filter((AZ) => AZ !== 'nan'),
+                };
+                assoAWS[instance]["Region"].map((region) => {
+                    if (region === 'nan') return;
+                    if (!AWS_REGION[region]) AWS_REGION[region] = new Set();
+                    AWS_REGION[region].add(instance);
+                });
+                assoAWS[instance]["AZ"].map((az) => {
+                    if (az === 'nan') return;
+                    if (!AWS_AZ[az]) AWS_AZ[az] = new Set();
+                    AWS_AZ[az].add(instance);
+                });
+            });
+        }
+        if (assoAzure && assoAzure.data) {
+            assoAzure = assoAzure.data[0];
+            Object.keys(assoAzure).map((instance) => {
+                AZURE_INSTANCE[instance] = {
+                    ...assoAzure[instance],
+                    Region: assoAzure[instance]["Region"].filter((region) => region !== 'nan'),
+                    InstanceTier: assoAzure[instance]["InstanceTier"].filter((tier) => tier !== 'nan'),
+                };
+                assoAzure[instance]["Region"].map((region) => {
+                    if (region === 'nan') return;
+                    if (!AZURE_REGION[region]) AZURE_REGION[region] = new Set();
+                    AZURE_REGION[region].add(instance);
+                });
+                assoAzure[instance]["InstanceTier"].map((InstanceTier) => {
+                    if (InstanceTier === 'nan') return;
+                    if (!AZURE_TIER[InstanceTier]) AZURE_TIER[InstanceTier] = new Set();
+                    AZURE_TIER[InstanceTier].add(instance);
+                });
+            });
+        }
+        filterSort(vendor);
+    }
+
+    useEffect(() => {
+        setFilterData();
+    }, [])
     useEffect(() => {
         setSearchFilter({ instance: '', region: '', start_date: '', end_date: '' })
         setAssoRegion();
         setAssoInstance();
-        setAssoAZ();
+        setAssoAZ(['ALL']);
         filterSort(vendor);
         ResetSelected();
     }, [vendor])

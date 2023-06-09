@@ -33,6 +33,18 @@ class AwsCollector(object):
     def LOCAL_PATH():
         return "/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector"
 
+    @constant
+    def S3_LATEST_DATA_SAVE_PATH():
+        return "latest_data/latest_aws.json"
+
+    @constant
+    def S3_LOCAL_FILES_SAVE_PATH():
+        return "rawdata/aws/localfile"
+
+    @constant
+    def S3_WORKLOAD_SAVE_PATH():
+        return "rawdata/aws/workloads"
+
 class AzureCollector(object):
     @constant
     def SLACK_WEBHOOK_URL():
@@ -65,6 +77,14 @@ class AzureCollector(object):
     @constant
     def S3_LATEST_DATA_SAVE_PATH():
         return "latest_data/latest_azure.json"
+    
+    @constant
+    def QUERY_SELECTOR_FILENAME():
+        return "query-selector-azure.json"
+    
+    @constant
+    def S3_QUERY_SELECTOR_SAVE_PATH():
+        return "query-selector/query-selector-azure.json"
 
     @constant
     def DF_WORKLOAD_COLS():
@@ -72,19 +92,15 @@ class AzureCollector(object):
 
     @constant
     def DF_FEATURE_COLS():
-        return ['OndemandPrice', 'SpotPrice', 'EvictionRate']
+        return ['OndemandPrice', 'SpotPrice', 'IF']
 
     @constant
     def SERVER_SAVE_DIR():
-        return "/home/ubuntu/spot-score/collection/azure/"
+        return "/tmp"
 
     @constant
     def SERVER_SAVE_FILENAME():
         return "latest_azure_df.pkl"
-
-    @constant
-    def DF_FEATURE_COLS():
-        return ['OndemandPrice', 'SpotPrice']
 
     @constant
     def GET_PRICE_URL():
@@ -114,3 +130,4 @@ class GcpCollector(object):
     @constant
     def LOCAL_PATH():
         return "/home/ubuntu/spot-score/collection/gcp"
+        

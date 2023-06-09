@@ -85,6 +85,7 @@ def update_latest(data, timestamp):
     s3 = session.resource('s3')
     object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
     response = object_acl.put(ACL='public-read')
+    data.drop(['id'], axis=1, inplace=True)
 
 
 def update_query_selector(changed_df):

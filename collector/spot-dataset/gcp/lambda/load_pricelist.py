@@ -1,4 +1,5 @@
 import pandas as pd
+from utility import slack_msg_sender
 
 def extract_price(machine_type, price_data, price_type):
     # get price from pricelist and put into output data (for N1 : f1-micro, g1-small)
@@ -60,12 +61,14 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
         series = instance_type.split('-')[0]
 
         if series in ['f1', 'g1'] :  # shared cpu
-            ondemand_data = pricelist[f'CP-COMPUTEENGINE-VMIMAGE-{instance_type.upper()}']
-            extract_price(instance_type, ondemand_data, 'ondemand')
+            try:
+                ondemand_data = pricelist[f'CP-COMPUTEENGINE-VMIMAGE-{instance_type.upper()}']
+                extract_price(instance_type, ondemand_data, 'ondemand')
 
-            # preemptible
-            preemptible_data = pricelist[f'CP-COMPUTEENGINE-VMIMAGE-{instance_type.upper()}-PREEMPTIBLE']
-            extract_price(instance_type, preemptible_data, 'preemptible')  
+                preemptible_data = pricelist[f'CP-COMPUTEENGINE-VMIMAGE-{instance_type.upper()}-PREEMPTIBLE']
+                extract_price(instance_type, preemptible_data, 'preemptible') 
+            except:
+                slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist") 
         
         else :
             # get gpu data
@@ -77,13 +80,19 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
                 accelerator = accelerator.upper().replace('-', '_')
                 if 'TESLA' not in accelerator :
                     accelerator = accelerator.replace('NVIDIA', 'NVIDIA_TESLA', 1)
-                    
-                if '80GB' in accelerator :
-                    accelerator =accelerator.replace ('_80GB', '-80GB', 1)
+            
+                try :
+                    if '80GB' in accelerator :
+                        accelerator =accelerator.replace ('_80GB', '-80GB', 1)
+                except :
+                    slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator naming '80GB' seems to be changed in aggregated API result.")
 
-                gpu_data = pricelist[f'GPU_{accelerator}']
-                gpu_data_preemptible = pricelist[f'GPU_{accelerator}-PREEMPTIBLE']
-
+                try:
+                    gpu_data = pricelist[f'GPU_{accelerator}']
+                    gpu_data_preemptible = pricelist[f'GPU_{accelerator}-PREEMPTIBLE']
+                except:
+                    slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator {accelerator} naming seems to be changed in pricelist.")
+            
             try:
                 # ondemand
                 cpu_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-CORE']
@@ -96,9 +105,9 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
                 calculate_price(cpu_data, ram_data, gpu_data_preemptible, instance_type, 'preemptible', df_instance_metadata, available_region_lists)
 
             except KeyError:
-                # C3 series doesn't exsist in pricelist.json
-                # M3 series doesn't support spot (preemptible)
-                pass
+                # M2 series doesn't support Spot (preemptible)
+                if series not in ['m2']:
+                    slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist")
 
     return output
 
@@ -128,6 +137,6 @@ def preprocessing_price(df):
 
 
 def drop_negative(df):
-    idx = df[(df['OnDemand Price']==-1.0) | (df['Spot Price'] == -1.0)].index
+    idx = df[(df['OnDemand Price'] == -1.0) | (df['Spot Price'] == -1.0)].index
     df.drop(idx, inplace=True)
     return df

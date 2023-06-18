@@ -105,6 +105,9 @@ def save_raw(data, timestamp):
     data['Savings'] = round(
         (data['OnDemand Price'] - data['Spot Price']) / data[
             'OnDemand Price'] * 100)
+    data['Time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
+    data = data[['Time', 'InstanceType', 'Region', 'OnDemand Price', 'Spot Price', 'Savings']]
+    
     data.to_csv(SAVE_FILENAME, index=False, compression='gzip')
     session = boto3.Session()
     s3 = session.client('s3')

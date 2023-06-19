@@ -110,7 +110,8 @@ def update_latest(data, timestamp):
 
 # Save raw data in S3
 def save_raw(data, timestamp):
-    data = data[['InstanceTier','InstanceType','Region','OndemandPrice','SpotPrice','Savings',"IF"]]
+    data['Time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    data = data[['Time','InstanceTier','InstanceType','OndemandPrice','SpotPrice', 'IF', 'Savings']]
 
     data.to_csv(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", index=False, compression="gzip")
 

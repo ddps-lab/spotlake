@@ -1,8 +1,5 @@
-from gcp_metadata import region_list, machine_type_list, n1, e2, n2, n2d, t2d, t2a, c2, c2d, m1, m3, a2
-
-
-# This code is referenced from "https://github.com/doitintl/gcpinstances.info/blob/master/scraper.py"
-
+import pandas as pd
+from utility import slack_msg_sender
 
 def extract_price(machine_type, price_data, price_type):
     # get price from pricelist and put into output data (for N1 : f1-micro, g1-small)
@@ -10,211 +7,108 @@ def extract_price(machine_type, price_data, price_type):
     # output : None, but save price into final output data
 
     for region, price in price_data.items():
-        if region in region_list:
-            if price == 0:
-                output[machine_type][region][price_type] = -1
-            else:
-                output[machine_type][region][price_type] = price
+        if region in output[machine_type].keys():
+            output[machine_type][region][price_type] = price
 
 
-def calculate_price(cpu_data, ram_data, machine_series, price_type):
+def calculate_price(cpu_data, ram_data, gpu_data, instance_type, price_type, df_instance_metadata, available_region_lists):
     # get regional price of each unit and calculate workload price
-    # input : regional cpu & ram price of workload, machine series, price type (ondemand or preemptible)
+    # input : regional cpu & ram price of workload, machine series, price type (ondemand or preemptible), metadata, available lists
     # output : None, but save price into final output data
 
-    for machine_type, feature in machine_series.items():
-        cpu_quantity = feature['cpu']
-        ram_quantity = feature['ram']
-        for cpu_region, cpu_price in cpu_data.items():
-            for ram_region, ram_price in ram_data.items():
-                if cpu_region == ram_region and cpu_region in region_list:
-                    output[machine_type][cpu_region][price_type] = cpu_quantity * \
-                                                                   cpu_price + ram_quantity * ram_price
+    ssd_price = 0.04 if price_type == 'ondemand' else 0.02
+    instance_spec = df_instance_metadata[df_instance_metadata['instance_type'] == instance_type]
+    for k, v in instance_spec.iterrows():
+        instance_type = v['instance_type']
+        cpu_quantity = v['guest_cpus']
+        ram_quantity = v['memoryGB']
+        gpu_quantity = v['guest_accelerator_count']
+        ssd_quantity = v['ssd']
+
+        for region, av_instance in available_region_lists.items():
+            if instance_type not in av_instance:
+                continue
+            for cpu_region, cpu_price in cpu_data.items():
+                for ram_region, ram_price in ram_data.items():
+                    if cpu_region == ram_region and cpu_region == region:
+                        price = cpu_quantity * cpu_price + ram_quantity * ram_price
+                    
+                        if gpu_data != None:
+                            for gpu_region, gpu_price in gpu_data.items():
+                                if gpu_region == region :
+                                    output[instance_type][cpu_region][price_type] = price + gpu_quantity * gpu_price + ssd_quantity * ssd_price
+                        else :
+                            output[instance_type][cpu_region][price_type] = price
 
 
-def get_price(pricelist):
+def get_price(pricelist, df_instance_metadata, available_region_lists):
     # put prices of workloads into output data
-    # input : pricelist of compute engine unit
+    # input : pricelist of compute engine unit, metadata, available lists
     # output : dictionary data of calculated price
 
     global output
     output = {}
-    for machine_type in machine_type_list:
-        output[machine_type] = {}
-        for region in region_list:
-            output[machine_type][region] = {}
-            output[machine_type][region]['ondemand'] = -1
-            output[machine_type][region]['preemptible'] = -1
+    for instance_type in df_instance_metadata['instance_type']:
+        output[instance_type] = {}
+        for region in available_region_lists.keys():
+            if instance_type in available_region_lists[region]:
+                output[instance_type][region] = {}
+                output[instance_type][region]['ondemand'] = -1
+                output[instance_type][region]['preemptible'] = -1
 
-    # N1 : f1-micro
-    # ondemand
-    f1_data_odm = pricelist['CP-COMPUTEENGINE-VMIMAGE-F1-MICRO']
-    extract_price('f1-micro', f1_data_odm, 'ondemand')
 
-    # preemptible
-    f1_data_prmt = pricelist['CP-COMPUTEENGINE-VMIMAGE-F1-MICRO-PREEMPTIBLE']
-    extract_price('f1-micro', f1_data_prmt, 'preemptible')
+    for instance_type in df_instance_metadata['instance_type']:
+        series = instance_type.split('-')[0]
 
-    # N1 : g1-small
-    # ondemand
-    g1_data_odm = pricelist['CP-COMPUTEENGINE-VMIMAGE-G1-SMALL']
-    extract_price('g1-small', g1_data_odm, 'ondemand')
+        if series in ['f1', 'g1'] :  # shared cpu
+            try:
+                ondemand_data = pricelist[f'CP-COMPUTEENGINE-VMIMAGE-{instance_type.upper()}']
+                extract_price(instance_type, ondemand_data, 'ondemand')
 
-    # preemptible
-    g1_data_prmt = pricelist['CP-COMPUTEENGINE-VMIMAGE-G1-SMALL-PREEMPTIBLE']
-    extract_price('g1-small', g1_data_prmt, 'preemptible')
+                preemptible_data = pricelist[f'CP-COMPUTEENGINE-VMIMAGE-{instance_type.upper()}-PREEMPTIBLE']
+                extract_price(instance_type, preemptible_data, 'preemptible') 
+            except:
+                slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist") 
+        
+        else :
+            # get gpu data
+            gpu_data = None
+            gpu_data_preemptible = None
+            accelerator = df_instance_metadata[df_instance_metadata['instance_type'] == instance_type]['guest_accelerator_type'].values[0]
 
-    # N1
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-N1-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-N1-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, n1, 'ondemand')
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-N1-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-N1-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, n1, 'preemptible')
+            if accelerator != 0:
+                accelerator = accelerator.upper().replace('-', '_')
+                if 'TESLA' not in accelerator :
+                    accelerator = accelerator.replace('NVIDIA', 'NVIDIA_TESLA', 1)
+            
+                try :
+                    if '80GB' in accelerator :
+                        accelerator =accelerator.replace ('_80GB', '-80GB', 1)
+                except :
+                    slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator naming '80GB' seems to be changed in aggregated API result.")
 
-    # E2
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-E2-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-E2-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, e2, 'ondemand')
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-E2-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-E2-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, e2, 'preemptible')
+                try:
+                    gpu_data = pricelist[f'GPU_{accelerator}']
+                    gpu_data_preemptible = pricelist[f'GPU_{accelerator}-PREEMPTIBLE']
+                except:
+                    slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator {accelerator} naming seems to be changed in pricelist.")
+            
+            try:
+                # ondemand
+                cpu_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-CORE']
+                ram_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-RAM']
+                calculate_price(cpu_data, ram_data, gpu_data, instance_type, 'ondemand', df_instance_metadata, available_region_lists)
+                    
+                # preemptible
+                cpu_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-CORE-PREEMPTIBLE']
+                ram_data = pricelist[f'CP-COMPUTEENGINE-{series.upper()}-PREDEFINED-VM-RAM-PREEMPTIBLE']
+                calculate_price(cpu_data, ram_data, gpu_data_preemptible, instance_type, 'preemptible', df_instance_metadata, available_region_lists)
 
-    # N2
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-N2-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-N2-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, n2, 'ondemand')
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-N2-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-N2-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, n2, 'preemptible')
+            except KeyError:
+                # M2 series doesn't support Spot (preemptible)
+                if series not in ['m2']:
+                    slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist")
 
-    # N2D
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-N2D-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-N2D-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, n2d, 'ondemand')
-
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-N2D-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-N2D-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, n2d, 'preemptible')
-
-    # T2D
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-T2D-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-T2D-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, t2d, 'ondemand')
-
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-T2D-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-T2D-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, t2d, 'preemptible')
-
-    # T2A
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, t2a, 'ondemand')
-
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-T2A-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, t2a, 'preemptible')
-
-    # C2
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-C2-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-C2-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, c2, 'ondemand')
-
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-C2-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-C2-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, c2, 'preemptible')
-
-    # C2D
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-C2D-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-C2D-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, c2d, 'ondemand')
-
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-C2D-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-C2D-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, c2d, 'preemptible')
-
-    # M1
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, m1, 'ondemand')
-
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-M1-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, m1, 'preemptible')
-
-    # M3
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-RAM']
-    calculate_price(cpu_data, ram_data, m3, 'ondemand')
-
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-M3-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    calculate_price(cpu_data, ram_data, m3, 'preemptible')
-
-    # A2
-    # ondemand
-    cpu_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-CORE']
-    ram_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-RAM']
-    gpu_data = pricelist['GPU_NVIDIA_TESLA_A100']
-    ssd_ondemand_price = 0.04
-    for machine_type, feature in a2.items():
-        cpu_quantity = feature['cpu']
-        ram_quantity = feature['ram']
-        gpu_quantity = feature['gpu']
-        ssd_quantity = 0
-        try:
-            ssd_quantity = feature['ssd']
-            gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB']
-        except KeyError as e:
-            pass
-        for cpu_region, cpu_price in cpu_data.items():
-            for ram_region, ram_price in ram_data.items():
-                for gpu_region, gpu_price in gpu_data.items():
-                    if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
-                        output[machine_type][cpu_region]['ondemand'] = cpu_quantity * cpu_price + \
-                                                                       ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_ondemand_price
-    # preemptible
-    cpu_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-CORE-PREEMPTIBLE']
-    ram_data = pricelist['CP-COMPUTEENGINE-A2-PREDEFINED-VM-RAM-PREEMPTIBLE']
-    gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-PREEMPTIBLE']
-    ssd_preemptible_price = 0.02
-    for machine_type, feature in a2.items():
-        cpu_quantity = feature['cpu']
-        ram_quantity = feature['ram']
-        gpu_quantity = feature['gpu']
-        ssd_quantity = 0
-        try:
-            ssd_quantity = feature['ssd']
-            gpu_data = pricelist['GPU_NVIDIA_TESLA_A100-80GB-PREEMPTIBLE']
-        except KeyError as e:
-            pass
-        for cpu_region, cpu_price in cpu_data.items():
-            for ram_region, ram_price in ram_data.items():
-                for gpu_region, gpu_price in gpu_data.items():
-                    if cpu_region == ram_region and cpu_region == gpu_region and cpu_region in region_list:
-                        if output[machine_type][cpu_region]['ondemand'] != -1:
-                            output[machine_type][cpu_region]['preemptible'] = cpu_quantity * cpu_price + \
-                                                                              ram_quantity * ram_price + gpu_quantity * gpu_price + ssd_quantity * ssd_preemptible_price
     return output
 
 
@@ -226,8 +120,11 @@ def preprocessing_price(df):
     new_list = []
     for machine_type, info in df.items():
         for region, price in info.items():
-            ondemand = price['ondemand']
-            preemptible = price['preemptible']
+            try:
+                ondemand = price['ondemand']
+                preemptible = price['preemptible']
+            except TypeError :
+                continue
 
             if ondemand != -1 and preemptible != -1:
                 ondemand = round(ondemand, 4)
@@ -235,4 +132,11 @@ def preprocessing_price(df):
 
             new_list.append(
                 [machine_type, region, ondemand, preemptible])
+    
     return new_list
+
+
+def drop_negative(df):
+    idx = df[(df['OnDemand Price'] == -1.0) | (df['Spot Price'] == -1.0)].index
+    df.drop(idx, inplace=True)
+    return df

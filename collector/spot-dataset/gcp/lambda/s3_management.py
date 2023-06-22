@@ -6,7 +6,7 @@ from datetime import datetime
 from botocore.exceptions import ClientError
 import pandas as pd
 import json
-from const_config import Storage
+from const_config import Storage, GcpCollector
 from utility import slack_msg_sender
 
 session = boto3.session.Session(region_name='us-west-2')
@@ -14,11 +14,7 @@ write_client = session.client('timestream-write',
                               config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
 
 STORAGE_CONST = Storage()
-
-# 22.12.15 17:38 임준호
-# 임시로 데이터를 저장중인 듯 하여 const_config.py에 정의하지 않음
-LOCAL_PATH = '/tmp'
-
+LOCAL_PATH = GcpCollector().LOCAL_PATH
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
@@ -109,6 +105,9 @@ def save_raw(data, timestamp):
     data['Savings'] = round(
         (data['OnDemand Price'] - data['Spot Price']) / data[
             'OnDemand Price'] * 100)
+    data['Time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
+    data = data[['Time', 'InstanceType', 'Region', 'OnDemand Price', 'Spot Price', 'Savings']]
+    
     data.to_csv(SAVE_FILENAME, index=False, compression='gzip')
     session = boto3.Session()
     s3 = session.client('s3')
@@ -122,3 +121,24 @@ def save_raw(data, timestamp):
         if "spotlake_" in filename:
             os.remove(f"{LOCAL_PATH}/{filename}")
 
+
+def upload_metadata(filename):
+    session = boto3.Session()
+    s3 = session.client('s3')
+    with open(f'{LOCAL_PATH}/{filename}.json', 'rb') as f:
+        s3.upload_fileobj(
+            f, STORAGE_CONST.BUCKET_NAME, f'gcp_metadata/{filename}.json')
+
+
+def load_metadata(filename):
+    obj_file = f'gcp_metadata/{filename}.json'
+    save_file = f'{LOCAL_PATH}/{filename}.json'
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(STORAGE_CONST.BUCKET_NAME)
+    bucket.download_file(obj_file, save_file)
+    
+    data = None
+    with open(save_file, 'r') as f:
+        data = json.load(f)
+        
+    return data

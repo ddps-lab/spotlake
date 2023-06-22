@@ -1,25 +1,35 @@
-import requests
 import pandas as pd
 import json
 from datetime import datetime, timezone
 import boto3
 import botocore
-from const_config import GcpCollector, Storage
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
-from load_pricelist import get_price, preprocessing_price
-from load_available_region_data import get_pricing_data, get_available_region_data, requests_retry_session
-from upload_data import save_raw, update_latest, upload_timestream
+from const_config import GcpCollector, Storage
+from load_pricelist import get_price, preprocessing_price, drop_negative
+from get_metadata import get_aggregated_list, parsing_data_from_aggragated_list
+from s3_management import save_raw, update_latest, upload_timestream, load_metadata
 from compare_data import compare
-from gcp_metadata import machine_type_list, region_list
 from utility import slack_msg_sender
 
 STORAGE_CONST = Storage()
 GCP_CONST = GcpCollector()
 
-def drop_negative(df):
-    idx = df[(df['OnDemand Price']==-1.0) | (df['Spot Price'] == -1.0)].index
-    df.drop(idx, inplace=True)
-    return df
+def requests_retry_session(
+        retries=3,
+        backoff_factor=0.3,
+        status_forcelist=(500, 501, 502, 503, 504),
+        session=None
+):
+    session = session or requests.Session()
+    retry = Retry(total=retries, read=retries, connect=retries, backoff_factor=backoff_factor,
+                  status_forcelist=status_forcelist)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
 
 
 def gcp_collect(timestamp):
@@ -31,29 +41,25 @@ def gcp_collect(timestamp):
         raise Exception(f"GCP get pricelist : status code is {response.status_code}")
 
     data = response.json()
-
     pricelist = data['gcp_price_list']
 
-    # get price from pricelist
-    output_pricelist = get_price(pricelist)
-    df_pricelist = pd.DataFrame(output_pricelist)
+    # get instance metadata and upload to s3
+    df_raw_metadata = get_aggregated_list()
+    parsing_data_from_aggragated_list(df_raw_metadata)
 
-    # get pricing data from vm instance pricing tabale
-    pricing_data = get_pricing_data(GCP_CONST.PAGE_URL)
-    available_region_data = get_available_region_data(pricing_data)
+    df_instance_metadata = pd.DataFrame(load_metadata('instance_metadata'))
+    available_region_lists = load_metadata('available_region_lists')
+
+    # get price from pricelist
+    output_pricelist = get_price(pricelist, df_instance_metadata, available_region_lists)
+    df_pricelist = pd.DataFrame(output_pricelist)
 
     # preprocessing
     df_current = pd.DataFrame(preprocessing_price(df_pricelist), columns=[
         'InstanceType', 'Region', 'OnDemand Price', 'Spot Price'])
     
-    # change unavailable region price into -1
-    for idx, row in df_current.iterrows():
-        if row['Region'].split('-')[0] + row['Region'].split('-')[1] not in available_region_data[row['InstanceType']]:
-            df_current.loc[idx, 'OnDemand Price'] = -1
-            df_current.loc[idx, 'Spot Price'] = -1
-
     # drop negative row
-    drop_negative(df_current)
+    df_current = drop_negative(df_current)
 
     # save current rawdata
     save_raw(df_current, timestamp)
@@ -101,4 +107,3 @@ def lambda_handler(event, context):
     return {
         "statusCode": 200
     } 
-    

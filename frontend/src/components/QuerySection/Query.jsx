@@ -122,8 +122,9 @@ const Query = ({
     }
     const querySubmit = async () => {
         // 쿼리를 날리기 전에 searchFilter에 있는 값들이 비어있지 않은지 확인.
-        const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false)
-        if (invalidQuery) {
+        const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false);
+        const invalidQueryForVendor = (vendor === 'AWS' && !Boolean(searchFilter?.az)) || (vendor === 'AZURE' && !Boolean(searchFilter?.tier));
+        if (invalidQuery || invalidQueryForVendor) {
             alert("The query is invalid. \nPlease check your search option.");
             return;
         }

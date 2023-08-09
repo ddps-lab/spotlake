@@ -100,6 +100,21 @@ def update_latest(data, timestamp):
     response = object_acl.put(ACL='public-read')
 
 
+def update_query_selector(changed_df):
+    filename = 'query-selector-gcp.json'
+    s3_path = f'query-selector/{filename}'
+    s3 = session.resource('s3')
+    query_selector_gcp = pd.DataFrame(json.loads(s3.Object(STORAGE_CONST.BUCKET_NAME, s3_path).get()['Body'].read()))
+    query_selector_gcp = pd.concat([query_selector_gcp[['InstanceType', 'Region']], changed_df[['InstanceType', 'Region']]], axis=0, ignore_index=True).dropna().drop_duplicates(['InstanceType', 'Region']).reset_index(drop=True)
+    result = query_selector_gcp.to_json(f"/tmp/{filename}", orient="records")
+    s3 = session.client('s3')
+    with open(f"/tmp/{filename}", 'rb') as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, s3_path)
+    s3 = session.resource('s3')
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
+    response = object_acl.put(ACL='public-read')
+
+
 def save_raw(data, timestamp):
     SAVE_FILENAME = f"{LOCAL_PATH}/spotlake_" + f"{timestamp}.csv.gz"
     data['Savings'] = round(

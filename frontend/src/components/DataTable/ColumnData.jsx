@@ -14,7 +14,7 @@ const ColumnData = () =>{
                 return params.row.Region == -1 ? "N/A" : params.row.Region;
             }
         },
-        { field: 'AZ', headerName: 'AZ', flex: 0.5, type: 'number', description: 'Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html',
+        { field: 'AZ', headerName: 'AZ', flex: 0.5, description: 'Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html',
             headerAlign: 'center',
             valueGetter: (params) => {
                 return params.row.AZ == -1 ? "N/A" : params.row.AZ;

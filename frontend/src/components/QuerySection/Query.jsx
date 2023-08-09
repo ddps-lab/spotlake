@@ -122,8 +122,9 @@ const Query = ({
     }
     const querySubmit = async () => {
         // 쿼리를 날리기 전에 searchFilter에 있는 값들이 비어있지 않은지 확인.
-        const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false)
-        if (invalidQuery) {
+        const invalidQuery = Object.keys(searchFilter).map((data) => { if (!searchFilter[data]) return false }).includes(false);
+        const invalidQueryForVendor = (vendor === 'AWS' && !Boolean(searchFilter?.az)) || (vendor === 'AZURE' && !Boolean(searchFilter?.tier));
+        if (invalidQuery || invalidQueryForVendor) {
             alert("The query is invalid. \nPlease check your search option.");
             return;
         }
@@ -231,7 +232,10 @@ const Query = ({
         setFilterData();
     }, [])
     useEffect(() => {
-        setSearchFilter({ instance: '', region: '', start_date: '', end_date: '' })
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+        setSearchFilter({ instance: '', region: '', start_date: yesterday.toISOString().split('T')[0], end_date: today.toISOString().split('T')[0] })
         setAssoRegion();
         setAssoInstance();
         setAssoAZ(['ALL']);
@@ -323,11 +327,11 @@ const Query = ({
                 </style.filterSelect>
             </FormControl>
           }
-          <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
+          <FormControl variant="standard" sx={{ m: 1, minWidth: 135 }} className="date-input">
               <style.dataLabel htmlFor="start_date-input">Start date : </style.dataLabel>
               <input type="date" id="start_date-input" name="start_date" onChange={setFilter} value={searchFilter.start_date} max={new Date().toISOString().split('T')[0]} />
           </FormControl>
-          <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }} className="date-input">
+          <FormControl variant="standard" sx={{ m: 1, minWidth: 135 }} className="date-input">
               <style.dataLabel htmlFor="end_date-input">End date : </style.dataLabel>
               <input type="date" id="end_date-input" name="end_date" onChange={setFilter} value={searchFilter.end_date} max={dateRange.max} />
           </FormControl>

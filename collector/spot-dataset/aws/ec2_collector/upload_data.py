@@ -85,6 +85,7 @@ def update_latest(data, timestamp):
     s3 = session.resource('s3')
     object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, s3_path)
     response = object_acl.put(ACL='public-read')
+    data.drop(['id'], axis=1, inplace=True)
 
 
 def update_query_selector(changed_df):
@@ -104,8 +105,10 @@ def update_query_selector(changed_df):
 
 
 def save_raw(data, timestamp):
+    rawdata = data[['time', 'InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'OndemandPrice', 'SpotPrice', 'Savings']]
+    rawdata = rawdata.rename({'time': 'Time'}, axis=1)
     SAVE_FILENAME = f"{AWS_CONST.LOCAL_PATH}/spotlake_"+f"{timestamp}.csv.gz"
-    data.to_csv(SAVE_FILENAME, index=False, compression="gzip")
+    rawdata.to_csv(SAVE_FILENAME, index=False, compression="gzip")
     session = boto3.Session()
     s3 = session.client('s3')
     s3_dir_name = timestamp.strftime("%Y/%m/%d")

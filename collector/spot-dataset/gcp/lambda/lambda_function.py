@@ -10,7 +10,7 @@ from requests.packages.urllib3.util.retry import Retry
 from const_config import GcpCollector, Storage
 from load_pricelist import get_price, preprocessing_price, drop_negative
 from get_metadata import get_aggregated_list, parsing_data_from_aggragated_list
-from s3_management import save_raw, update_latest, upload_timestream, load_metadata
+from s3_management import save_raw, update_latest, upload_timestream, load_metadata, update_query_selector
 from compare_data import compare
 from utility import slack_msg_sender
 
@@ -92,6 +92,8 @@ def gcp_collect(timestamp):
     feature_cols = ['OnDemand Price', 'Spot Price']
 
     changed_df, removed_df = compare(df_previous, df_current, workload_cols, feature_cols)
+
+    update_query_selector(changed_df)
 
     # wirte timestream
     upload_timestream(changed_df, timestamp)

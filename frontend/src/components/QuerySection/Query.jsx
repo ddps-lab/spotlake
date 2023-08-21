@@ -2,7 +2,6 @@ import * as style from "../../pages/demo/styles";
 import { FormControl } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import gcp_association from "../../pages/demo/gcp_association.json";
 
 const AWS_INSTANCE = {};
 const AWS_REGION = {};
@@ -11,6 +10,9 @@ const AWS_AZ = {};
 const AZURE_INSTANCE = {};
 const AZURE_REGION = {};
 const AZURE_TIER = {};
+
+const GCP_INSTANCE = {};
+const GCP_REGION = {};
 
 const Query = ({
   vendor,
@@ -46,24 +48,16 @@ const Query = ({
     const filterSort = (V) => {
         // V : vendor
         if (V === 'AWS') {
-           setInstance(Object.keys(AWS_INSTANCE));
-           setRegion(['ALL', ...Object.keys(AWS_REGION)]);
-           setAZ(['ALL']);
+            setInstance(Object.keys(AWS_INSTANCE));
+            setRegion(['ALL', ...Object.keys(AWS_REGION)]);
+            setAZ(['ALL']);
         } else if (V === 'AZURE') {
             setInstance(Object.keys(AZURE_INSTANCE));
             setRegion(['ALL', ...Object.keys(AZURE_REGION)]);
             setAssoTier(['ALL', ...Object.keys(AZURE_TIER)]);
-        } else {
-            let list = []
-            let inst = []
-            gcp_association.map((e) => {
-                let key = Object.keys(e)
-                list = list.concat(key)
-                inst = inst.length < e[key].length ? e[key] : inst
-            })
-            setRegion(['ALL'].concat(list))
-            setInstance(inst)
-            setAZ(['ALL'])
+        } else { // GCP
+            setInstance(Object.keys(GCP_INSTANCE));
+            setRegion(['ALL', ...Object.keys(GCP_REGION)]);
         }
     }
     const setFilter = ({ target }) => { //filter value 저장
@@ -92,7 +86,7 @@ const Query = ({
                         setAssoTier(['ALL', ...newAssoTier]);
                     } catch (e) { console.log(e) }
                 } else { //gcp
-                    setAssoInstance(gcp_association[region.indexOf(value) - 1][value])
+                    setAssoInstance([...GCP_REGION[value].Instance]);
                 }
             } else if (name === 'instance') {
                 let includeRegion = []
@@ -103,13 +97,7 @@ const Query = ({
                     includeRegion = [...AZURE_INSTANCE[value]['Region']];
                     setAssoTier(['ALL', ...AZURE_INSTANCE[value]['InstanceTier']]);
                 } else { // gcp
-                    region.map((r) => {
-                        try {
-                            if (r !== 'ALL' && gcp_association[region.indexOf(r) - 1][r].includes(value)) {
-                                includeRegion.push(r)
-                            }
-                        } catch (e) { console.log(e) }
-                    });
+                    includeRegion = [...GCP_INSTANCE[value]];
                 }
                 setAssoRegion(['ALL'].concat(includeRegion));
             }
@@ -182,9 +170,10 @@ const Query = ({
         }
     }
 
-    const setFilterData = async () => { // fecth Query Association JSON (now only AWS, AZURE)
+    const setFilterData = async () => { // fecth Query Association JSON
         let assoAWS = await axios.get('https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_aws.json');
         let assoAzure = await axios.get('https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_azure.json');
+        let assoGCP = await axios.get('https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_gcp.json');
         if (assoAWS && assoAWS.data) {
             assoAWS = assoAWS.data[0];
             Object.keys(assoAWS).map((instance) => {
@@ -222,6 +211,19 @@ const Query = ({
                     if (InstanceTier === 'nan') return;
                     if (!AZURE_TIER[InstanceTier]) AZURE_TIER[InstanceTier] = new Set();
                     AZURE_TIER[InstanceTier].add(instance);
+                });
+            });
+        }
+        if (assoGCP && assoGCP.data) {
+            assoGCP = assoGCP.data[0];
+            assoGCP.map((obj) => {
+                let region = Object.keys(obj)[0];
+                GCP_REGION[region] = {
+                    Instance: obj[region],
+                };
+                obj[region].map((instance) => {
+                    if (!GCP_INSTANCE[instance]) GCP_INSTANCE[instance] = new Set();
+                    GCP_INSTANCE[instance].add(region);
                 });
             });
         }

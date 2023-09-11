@@ -1,5 +1,6 @@
 import pandas as pd
 from utility import slack_msg_sender
+from datetime import datetime
 
 def extract_price(machine_type, price_data, price_type):
     # get price from pricelist and put into output data (for N1 : f1-micro, g1-small)
@@ -46,6 +47,8 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
     # input : pricelist of compute engine unit, metadata, available lists
     # output : dictionary data of calculated price
 
+    now_hour = datetime.utcnow().hour
+
     global output
     output = {}
     for instance_type in df_instance_metadata['instance_type']:
@@ -68,7 +71,8 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
                 preemptible_data = pricelist[f'CP-COMPUTEENGINE-VMIMAGE-{instance_type.upper()}-PREEMPTIBLE']
                 extract_price(instance_type, preemptible_data, 'preemptible') 
             except:
-                slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist") 
+                if now_hour == 0:
+                    slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist")
         
         else :
             # get gpu data
@@ -85,13 +89,15 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
                     if '80GB' in accelerator :
                         accelerator =accelerator.replace ('_80GB', '-80GB', 1)
                 except :
-                    slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator naming '80GB' seems to be changed in aggregated API result.")
+                    if now_hour == 0:
+                        slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator naming '80GB' seems to be changed in aggregated API result.")
 
                 try:
                     gpu_data = pricelist[f'GPU_{accelerator}']
                     gpu_data_preemptible = pricelist[f'GPU_{accelerator}-PREEMPTIBLE']
                 except:
-                    slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator {accelerator} naming seems to be changed in pricelist.")
+                    if now_hour == 0:
+                        slack_msg_sender.send_slack_message(f"GCP load pricelist : accelerator {accelerator} naming seems to be changed in pricelist.")
             
             try:
                 # ondemand
@@ -107,7 +113,8 @@ def get_price(pricelist, df_instance_metadata, available_region_lists):
             except KeyError:
                 # M2 series doesn't support Spot (preemptible)
                 if series not in ['m2']:
-                    slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist")
+                    if now_hour == 0:
+                        slack_msg_sender.send_slack_message(f"GCP load pricelist : {instance_type} series is missing in pricelist")
 
     return output
 

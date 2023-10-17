@@ -11,9 +11,9 @@ AZURE_CONST = AzureCollector()
 
 price_list = []
 response_dict = {}
-MAX_SKIP = 2000
-SKIP_NUM_LIST = [i*100 for i in range(AZURE_CONST.MAX_SKIP)]
+SKIP_NUM_LIST = [i*1000 for i in range(AZURE_CONST.MAX_SKIP)]
 event = threading.Event()
+lock = threading.Lock()
 
 
 # get instancetier from armSkuName
@@ -74,7 +74,9 @@ def get_price(skip_num):
 
         return
 
+    lock.acquire()
     price_list.extend(price_data)
+    lock.release()
 
     return
 
@@ -135,5 +137,6 @@ def collect_price_with_multithreading():
 
     price_df = pd.DataFrame(price_list)
     savings_df = preprocessing_price(price_df)
+    savings_df = savings_df.drop_duplicates(subset=['InstanceTier', 'InstanceType', 'Region'], keep='first')
 
     return savings_df

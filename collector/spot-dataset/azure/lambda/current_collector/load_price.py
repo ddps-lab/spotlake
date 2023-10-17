@@ -56,9 +56,6 @@ def get_instaceType(armSkuName):
 
 # get price data using the API
 def get_price(skip_num):
-    sleep_time = random.uniform(0, 5)
-    time.sleep(sleep_time)
-
     get_link = AZURE_CONST.GET_PRICE_URL + str(skip_num)
     response = requests.get(get_link)
 

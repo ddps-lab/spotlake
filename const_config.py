@@ -104,7 +104,7 @@ class AzureCollector(object):
 
     @constant
     def GET_PRICE_URL():
-        return "https://prices.azure.com:443/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27%20and%20priceType%20eq%20%27Consumption%27%20and%20unitOfMeasure%20eq%20%271%20Hour%27&$skip="
+        return "https://prices.azure.com:443/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and priceType eq 'Consumption' and unitOfMeasure eq '1 Hour' and  contains(productName, 'Windows') eq false and contains(meterName, 'Low Priority') eq false  and contains(meterName, 'Expired') eq false and contains(location, 'Gov') eq false and contains(location, 'ATT') eq false &$skip="
     
     @constant
     def FILTER_LOCATIONS():
@@ -112,7 +112,7 @@ class AzureCollector(object):
     
     @constant
     def MAX_SKIP():
-        return 2000
+        return 200
 
 class GcpCollector(object):
     @constant

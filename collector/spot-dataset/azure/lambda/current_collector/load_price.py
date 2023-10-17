@@ -137,6 +137,6 @@ def collect_price_with_multithreading():
 
     price_df = pd.DataFrame(price_list)
     savings_df = preprocessing_price(price_df)
-    savings_df = savings_df.drop_duplicates(subset=['InstanceTier', 'InstanceType', 'Region'], keep='first')
+    savings_df = savings_df.drop_duplicates(subset=['InstanceTier', 'InstanceType', 'Region'], keep='first', inplace=True)
 
     return savings_df

@@ -32,6 +32,24 @@ def requests_retry_session(
     return session
 
 
+def upload_cloudwatch(df_current, timestamp):
+    ondemand_count = len(df_current.drop(columns=['Spot Price', 'Savings']).dropna())
+    spot_count = len(df_current.drop(columns=['OnDemand Price', 'Savings']).dropna())
+    
+    cw_client = boto3.client('logs')
+
+    log_event = {
+        'timestamp': int(timestamp.timestamp()),
+        'message': f'GCPONDEMAND: {ondemand_count} GCPSPOT: {spot_count}'
+    }
+
+    cw_client.put_log_events(
+        logGroupName=GCP_CONST.LOG_GROUP_NAME, 
+        logStreamName=GCP_CONST.LOG_STREAM_NAME, 
+        logEvents=[log_event]
+    )
+
+
 def gcp_collect(timestamp):
     # load pricelist
     response = requests_retry_session().get(GCP_CONST.API_LINK)
@@ -77,6 +95,9 @@ def gcp_collect(timestamp):
         else:
             slack_msg_sender.send_slack_message(e)
             print(e)
+
+    # upload to cloudwatch data count
+    upload_cloudwatch(df_current, timestamp)
 
     # # get previous latest_data from s3
     object = s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH)

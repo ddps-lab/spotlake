@@ -139,3 +139,22 @@ def query_selector(data):
     s3 = session.resource('s3')
     object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH)
     response = object_acl.put(ACL='public-read')
+
+
+def upload_cloudwatch(data, timestamp):
+    ondemand_count = len(data.drop(columns=['SpotPrice', 'Savings']).dropna())
+    spot_count = len(data.drop(columns=['OndemandPrice', 'Savings']).dropna())
+    if_count = len(data.drop(columns=['OndemandPrice', 'SpotPrice', 'Savings']).dropna())
+    
+    cw_client = boto3.client('logs')
+
+    log_event = {
+        'timestamp': int(timestamp.timestamp()),
+        'message': f'AZUREONDEMAND: {ondemand_count} AZURESPOT: {spot_count} AZUREIF: {if_count}'
+    }
+
+    cw_client.put_log_events(
+        logGroupName=AZURE_CONST.LOG_GROUP_NAME, 
+        logStreamName=AZURE_CONST.LOG_STREAM_NAME, 
+        logEvents=[log_event]
+    )

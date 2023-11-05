@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from load_if import load_if
 from merge_df import merge_df
 from load_price import collect_price_with_multithreading
-from upload_data import upload_timestream, update_latest, save_raw, query_selector
+from upload_data import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch
 from compare_data import compare
 
 STORAGE_CONST = Storage()
@@ -68,6 +68,9 @@ def azure_collector(timestamp):
         # upload latest azure price to s3
         update_latest(join_df, timestamp)
         save_raw(join_df, timestamp)
+
+        # upload countlog to cloudwatch
+        upload_cloudwatch(join_df, timestamp)
 
         # compare and upload changed_df to timestream
         changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)

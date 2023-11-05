@@ -126,4 +126,11 @@ class GcpCollector(object):
     @constant
     def LOCAL_PATH():
         return "/tmp"
-        
+    
+    @constant
+    def LOG_GROUP_NAME():
+        return "Collection-Data-Count"
+    
+    @constant
+    def LOG_STREAM_NAME():
+        return "GCP-Count"

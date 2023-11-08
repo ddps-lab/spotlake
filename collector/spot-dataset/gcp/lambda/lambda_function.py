@@ -39,12 +39,12 @@ def upload_cloudwatch(df_current, timestamp):
     cw_client = boto3.client('logs')
 
     log_event = {
-        'timestamp': int(timestamp.timestamp()),
+        'timestamp': int(timestamp.timestamp()) * 1000,
         'message': f'GCPONDEMAND: {ondemand_count} GCPSPOT: {spot_count}'
     }
 
     cw_client.put_log_events(
-        logGroupName=GCP_CONST.LOG_GROUP_NAME, 
+        logGroupName=GCP_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
         logStreamName=GCP_CONST.LOG_STREAM_NAME, 
         logEvents=[log_event]
     )

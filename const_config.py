@@ -128,7 +128,7 @@ class GcpCollector(object):
         return "/tmp"
     
     @constant
-    def LOG_GROUP_NAME():
+    def SPOT_DATA_COLLECTION_LOG_GROUP_NAME():
         return "Collection-Data-Count"
     
     @constant

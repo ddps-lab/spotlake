@@ -114,6 +114,14 @@ class AzureCollector(object):
     def MAX_SKIP():
         return 200
 
+    @constant
+    def SPOT_DATA_COLLECTION_LOG_GROUP_NAME():
+        return "Collection-Data-Count"
+
+    @constant
+    def LOG_STREAM_NAME():
+        return "Azure-Count"
+
 class GcpCollector(object):
     @constant
     def API_LINK():

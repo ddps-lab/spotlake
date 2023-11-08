@@ -5,13 +5,15 @@ def constant(func):
 
     def func_get(self):
         return func()
+
     return property(func_get, func_set)
+
 
 class Storage(object):
     @constant
     def BUCKET_NAME():
         return "spotlake"
-    
+
     @constant
     def DATABASE_NAME():
         return "spotlake"
@@ -27,6 +29,7 @@ class Storage(object):
     @constant
     def GCP_TABLE_NAME():
         return "gcp"
+
 
 class AwsCollector(object):
     @constant
@@ -45,6 +48,7 @@ class AwsCollector(object):
     def S3_WORKLOAD_SAVE_PATH():
         return "rawdata/aws/workloads"
 
+
 class AzureCollector(object):
     @constant
     def SLACK_WEBHOOK_URL():
@@ -57,7 +61,7 @@ class AzureCollector(object):
     @constant
     def GET_HARDWAREMAP_URL():
         return "https://afd.hosting.portal.azure.net/compute/?environmentjson=true&extensionName=Microsoft_Azure_Compute&l=en&trustedAuthority=portal.azure.com"
-    
+
     @constant
     def GET_PRICE_URL():
         return "https://s2.billing.ext.azure.com/api/Billing/Subscription/GetSpecsCosts?SpotPricing=true"
@@ -71,17 +75,17 @@ class AzureCollector(object):
         return 2000
 
     @constant
-    def LATEST_FILENAME ():
+    def LATEST_FILENAME():
         return "latest_azure.json"
 
     @constant
     def S3_LATEST_DATA_SAVE_PATH():
         return "latest_data/latest_azure.json"
-    
+
     @constant
     def QUERY_SELECTOR_FILENAME():
         return "query-selector-azure.json"
-    
+
     @constant
     def S3_QUERY_SELECTOR_SAVE_PATH():
         return "query-selector/query-selector-azure.json"
@@ -105,11 +109,11 @@ class AzureCollector(object):
     @constant
     def GET_PRICE_URL():
         return "https://prices.azure.com:443/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and priceType eq 'Consumption' and unitOfMeasure eq '1 Hour' and  contains(productName, 'Windows') eq false and contains(meterName, 'Low Priority') eq false  and contains(meterName, 'Expired') eq false and contains(location, 'Gov') eq false and contains(location, 'ATT') eq false &$skip="
-    
+
     @constant
     def FILTER_LOCATIONS():
         return ['GOV', 'EUAP', 'ATT', 'SLV', '']
-    
+
     @constant
     def MAX_SKIP():
         return 200
@@ -121,6 +125,7 @@ class AzureCollector(object):
     @constant
     def LOG_STREAM_NAME():
         return "Azure-Count"
+
 
 class GcpCollector(object):
     @constant
@@ -134,11 +139,11 @@ class GcpCollector(object):
     @constant
     def LOCAL_PATH():
         return "/tmp"
-    
+
     @constant
     def SPOT_DATA_COLLECTION_LOG_GROUP_NAME():
         return "Collection-Data-Count"
-    
+
     @constant
     def LOG_STREAM_NAME():
         return "GCP-Count"

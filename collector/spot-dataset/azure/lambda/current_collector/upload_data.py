@@ -142,8 +142,8 @@ def query_selector(data):
 
 
 def upload_cloudwatch(data, timestamp):
-    ondemand_count = len(data.drop(columns=['SpotPrice', 'Savings']).dropna())
-    spot_count = len(data.drop(columns=['OndemandPrice', 'Savings']).dropna())
+    ondemand_count = len(data.drop(columns=['IF', 'SpotPrice', 'Savings']).dropna())
+    spot_count = len(data.drop(columns=['IF', 'OndemandPrice', 'Savings']).dropna())
     if_count = len(data.drop(columns=['OndemandPrice', 'SpotPrice', 'Savings']).dropna())
 
     cw_client = boto3.client('logs')

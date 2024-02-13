@@ -118,6 +118,9 @@ except Exception as e:
 workload_cols = ['InstanceType', 'Region', 'AZ']
 feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']
 
+previous_df['SpotPrice'] = previous_df['SpotPrice'].round(2)
+current_df['SpotPrice'] = current_df['SpotPrice'].round(2)
+
 changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows
 
 try:

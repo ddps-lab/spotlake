@@ -130,7 +130,7 @@ except Exception as e:
 start_time = time()
 try:
     merged_df = sps_df_per_target_capacity[0]
-    key = ['InstanceType', 'Region', 'AZ']
+    key = ['InstanceType', 'AZ']
     for i in range(1, len(sps_df_per_target_capacity)):
         merged_df = pd.merge(merged_df, sps_df_per_target_capacity[i], on=key, how='outer')
     save_data(merged_df, timestamp)

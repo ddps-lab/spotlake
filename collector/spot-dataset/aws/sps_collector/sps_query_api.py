@@ -23,10 +23,9 @@ def query_sps(args):
     )
     ec2 = session.client('ec2', region_name = 'us-west-2')
     
-    sps_column = f"SPS_{target_capacity}"
+    sps_column = f"{target_capacity}"
     sps_dict = {
         "InstanceType" : [],
-        "Region" : [],
         "AZ" : [],
         sps_column : []
     }
@@ -59,7 +58,6 @@ def query_sps(args):
                 
         for score in scores:
             sps_dict["InstanceType"].append(instance_type)
-            sps_dict["Region"].append(score["Region"])
             sps_dict["AZ"].append(score["AvailabilityZoneId"])
             sps_dict[sps_column].append(int(score["Score"]))
     

@@ -36,14 +36,14 @@ print(f"실행 시작 시간 (UTC) : {timestamp}")
 
 total_execution_time_ms = 0
 
-def save_data(df, timestamp, target_capacity):
+def save_data(df, timestamp):
     session = boto3.Session()
     s3 = session.client('s3')
     rounded_minute = (timestamp.minute // 10) * 10 # 분을 10분단위로 내림합니다.
     timestamp = timestamp.replace(minute=rounded_minute, second=0)
     s3_dir_name = timestamp.strftime("%Y/%m/%d/%H/%M")
-    s3_obj_name = timestamp.strftime(f"sps_{target_capacity}.csv.gz")
-    SAVE_FILENAME = f"{CURRENT_PATH}/"+f"{timestamp}_{s3_obj_name}"
+    s3_obj_name = timestamp.strftime(f"sps_1_to_50.csv.gz")
+    SAVE_FILENAME = f"{CURRENT_PATH}/"+f"{s3_obj_name}"
     df.to_csv(SAVE_FILENAME, index=False, compression="gzip")
 
     with open(SAVE_FILENAME, 'rb') as f:
@@ -132,13 +132,27 @@ try:
     for i in range(len(sps_df_per_target_capacity)):
         sps_df = sps_df_per_target_capacity[i]
         target_capacity = target_capacities[i]
-        save_data(sps_df, timestamp, target_capacity)
 except Exception as e:
-    print("Exception at save data")
+    print("Exception at vertical concat")
     send_slack_message(e)
     print(e)
     exit(1)
 end_time = time()
 print_ms(start_time, end_time, "DataFrame 수직적 병합 완료 시간")
+
+start_time = time()
+try:
+    merged_df = sps_df[0]
+    key = ['InstanceType', 'Region', 'AZ']
+    for i in range(1, len(sps_df)):
+        merged_df = pd.merge(merged_df, sps_df[i], on=key)
+    save_data(merged_df, timestamp)
+except Exception as e:
+    print("Exception at horizontal merge")
+    send_slack_message(e)
+    print(e)
+    exit(1)
+end_time = time()
+print_ms(start_time, end_time, "DataFrame 수평적 병합 완료 시간")
 
 print(f"총 실행 시간 합 : {total_execution_time_ms} ms")

@@ -129,23 +129,10 @@ except Exception as e:
 
 start_time = time()
 try:
-    for i in range(len(sps_df_per_target_capacity)):
-        sps_df = sps_df_per_target_capacity[i]
-        target_capacity = target_capacities[i]
-except Exception as e:
-    print("Exception at vertical concat")
-    send_slack_message(e)
-    print(e)
-    exit(1)
-end_time = time()
-print_ms(start_time, end_time, "DataFrame 수직적 병합 완료 시간")
-
-start_time = time()
-try:
     merged_df = sps_df_per_target_capacity[0]
     key = ['InstanceType', 'Region', 'AZ']
     for i in range(1, len(sps_df_per_target_capacity)):
-        merged_df = pd.merge(merged_df, sps_df[i], on=key, how='outer')
+        merged_df = pd.merge(merged_df, sps_df_per_target_capacity[i], on=key, how='outer')
     save_data(merged_df, timestamp)
 except Exception as e:
     print("Exception at horizontal merge")

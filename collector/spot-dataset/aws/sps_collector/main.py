@@ -21,7 +21,7 @@ NUM_THREAD = 26
 CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/sps_collector/"
 WORKLOAD_FILE_PATH = "rawdata/aws/workloads"
 CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
-START_CREDENTIAL_INDEX = 100 + 737
+START_CREDENTIAL_INDEX = 100
 
 bucket_name = "sps-query-data"
 workload_bucket_name = "spotlake"

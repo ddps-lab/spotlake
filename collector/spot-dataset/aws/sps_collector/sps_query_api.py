@@ -1,4 +1,6 @@
 import boto3
+import botocore
+import time
 import pandas as pd
 
 IDX_INSTANCE_TYPE = 0
@@ -32,14 +34,29 @@ def query_sps(args):
     for scenario in scenarios:
         instance_type = scenario[IDX_INSTANCE_TYPE]
         region_names = scenario[IDX_REGION_NAMES]
-        response = ec2.get_spot_placement_scores(
-            InstanceTypes = instance_type,
-            RegionNames = region_names,
-            SingleAvailabilityZone = True,
-            TargetCapacity = target_capacity
-        )
-        scores = response["SpotPlacementScores"]
-        
+
+        # exponential backoff 전략을 사용합니다.
+        retries = 0
+        max_retries = 10
+        while retries <= max_retries:
+            try:
+                response = ec2.get_spot_placement_scores(
+                    InstanceTypes = [instance_type],
+                    RegionNames = region_names,
+                    SingleAvailabilityZone = True,
+                    TargetCapacity = target_capacity
+                )
+                scores = response["SpotPlacementScores"]
+                break
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == "RequestLimitExceeded":
+                    wait_time = 2 ** retries
+                    print(f"RequestLimitExceeded! {wait_time}초 후 재시도합니다.")
+                    time.sleep(wait_time)
+                    retries += 1
+                else:
+                    raise e
+                
         for score in scores:
             sps_dict["InstanceType"].append(instance_type)
             sps_dict["Region"].append(score["Region"])

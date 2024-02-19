@@ -23,7 +23,10 @@ def query_sps(args):
     )
     ec2 = session.client('ec2', region_name = 'us-west-2')
     
-    sps_column = f"SPS_{target_capacity}"
+    if target_capacity < 10:
+        sps_column = f"SPS_0{target_capacity}"
+    else:
+        sps_column = f"SPS_{target_capacity}"
     sps_dict = {
         "InstanceType" : [],
         "Region" : [],

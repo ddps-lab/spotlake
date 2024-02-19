@@ -1,3 +1,3 @@
-date=$(date '+%Y-%m-%dT%H:%M')
+date=$(date -u '+%Y-%m-%dT%H:%M')
 
-python3 ./main.py --timestamp $date &
+python3 ./main.py --timestamp $date 

@@ -145,7 +145,7 @@ try:
     merged_df = sps_df[0]
     key = ['InstanceType', 'Region', 'AZ']
     for i in range(1, len(sps_df)):
-        merged_df = pd.merge(merged_df, sps_df[i], on=key)
+        merged_df = pd.merge(merged_df, sps_df[i], on=key, how='outer')
     save_data(merged_df, timestamp)
 except Exception as e:
     print("Exception at horizontal merge")

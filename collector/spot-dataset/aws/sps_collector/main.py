@@ -7,6 +7,7 @@ import os
 import gzip
 from datetime import datetime
 from sps_query_api import query_sps
+from time import time
 
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
@@ -44,6 +45,12 @@ def save_data(df, timestamp, target_capacity):
         if "_sps_" in filename:
             os.remove(f"{CURRENT_PATH}/{filename}")
 
+def print_ms(start_time, end_time, message):
+    delta_time_ms = (end_time - start_time) * 1000
+    print(f"{message} : {delta_time_ms} ms")
+
+
+start_time = time()
 workload = None
 try:
     key = f"{WORKLOAD_FILE_PATH}/{'-'.join(date.split('-'))}/binpacked_workloads.pkl.gz"
@@ -53,7 +60,10 @@ except Exception as e:
     send_slack_message(e)
     print(e)
     exit(1)
+end_time = time()
+print_ms(start_time, end_time, "workload 파일을 s3에서 load하는 데 걸린 시간")
 
+start_time = time()
 credentials = None
 try:
     csv_content = s3.Object(bucket_name, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
@@ -63,7 +73,10 @@ except Exception as e:
     send_slack_message(e)
     print(e)
     exit(1)
+end_time = time()
+print_ms(start_time, end_time, "credential 파일을 s3에서 load하는 데 걸린 시간")
     
+start_time = time()
 idx_credential = 0
 # 나중에 data frame 합병을 쉽게 하기 위해서 work_per_thread를 이중 리스트로 만들어 놓았습니다.
 # target_capacity별로 리스트가 생성됩니다.
@@ -79,13 +92,21 @@ for target_capacity in target_capacities:
             
             work_per_target_capacity.append((credential, scenarios, target_capacity))
     work_per_thread.append(work_per_target_capacity)
+end_time = time()
+print_ms(start_time, end_time, "workload 내용을 멀티 프로세싱을 할 수 있게 분할하는 데 걸린 시간")
+
 try:
     sps_df_per_target_capacity = []
+    # 출력용 변수입니다.
+    idx_target_capacity = 0
     for work_per_target_capacity in work_per_thread:
+        start_time = time()
         with ThreadPoolExecutor(max_workers=NUM_THREAD) as executor:
             sps_df_list = list(executor.map(query_sps, work_per_target_capacity))
         df_combined = pd.concat(sps_df_list, axis=0, ignore_index=True)
         sps_df_per_target_capacity.append(df_combined)
+        end_time = time()
+        print_ms(start_time, end_time, f"Target Capacity {target_capacities[idx_target_capacity]} 작업 완료 시간")
 except Exception as e:
     print("Exception at query and combine")
     send_slack_message(e)
@@ -93,6 +114,7 @@ except Exception as e:
     exit(1)
 
 
+start_time = time()
 try:
     for i in range(len(sps_df_per_target_capacity)):
         sps_df = sps_df_per_target_capacity[i]
@@ -103,3 +125,5 @@ except Exception as e:
     send_slack_message(e)
     print(e)
     exit(1)
+end_time = time()
+print_ms(start_time, end_time, "DataFrame 수직적 병합 완료 시간")

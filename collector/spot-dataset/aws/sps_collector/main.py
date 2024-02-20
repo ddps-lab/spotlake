@@ -29,20 +29,20 @@ workload_bucket_name = "spotlake"
 parser = argparse.ArgumentParser()
 parser.add_argument('--timestamp', dest='timestamp', action='store')
 args = parser.parse_args()
-timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
-date = args.timestamp.split("T")[0]
+timestamp_utc = datetime.strptime(args.timestamp_utc, "%Y-%m-%dT%H:%M")
+date = args.timestamp_utc.split("T")[0]
 
-print(f"실행 시작 시간 (UTC) : {timestamp}")
+print(f"실행 시작 시간 (UTC) : {timestamp_utc}")
 
 total_execution_time_ms = 0
 
-def save_data(df, timestamp):
+def save_data(df, timestamp_utc):
     session = boto3.Session()
     s3 = session.client('s3')
-    rounded_minute = (timestamp.minute // 10) * 10 # 분을 10분단위로 내림합니다.
-    timestamp = timestamp.replace(minute=rounded_minute, second=0)
-    s3_dir_name = timestamp.strftime("%Y/%m/%d/%H/%M")
-    s3_obj_name = timestamp.strftime(f"sps_1_to_50.csv.gz")
+    rounded_minute = (timestamp_utc.minute // 10) * 10 # 분을 10분단위로 내림합니다.
+    timestamp_utc = timestamp_utc.replace(minute=rounded_minute, second=0)
+    s3_dir_name = timestamp_utc.strftime("%Y/%m/%d/%H/%M")
+    s3_obj_name = timestamp_utc.strftime(f"sps_1_to_50.csv.gz")
     SAVE_FILENAME = f"{CURRENT_PATH}/"+f"{s3_obj_name}"
     df.to_csv(SAVE_FILENAME, index=False, compression="gzip")
 
@@ -130,10 +130,10 @@ except Exception as e:
 start_time = time()
 try:
     merged_df = sps_df_per_target_capacity[0]
-    key = ['InstanceType', 'AZ']
+    key = ['InstanceType', 'Region', 'AZ']
     for i in range(1, len(sps_df_per_target_capacity)):
         merged_df = pd.merge(merged_df, sps_df_per_target_capacity[i], on=key, how='outer')
-    save_data(merged_df, timestamp)
+    save_data(merged_df, timestamp_utc)
 except Exception as e:
     print("Exception at horizontal merge")
     send_slack_message(e)

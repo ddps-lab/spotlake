@@ -25,7 +25,7 @@ CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
 START_CREDENTIAL_INDEX = 100
 LOG_FILENAME = f"{CURRENT_PATH}server.log"
 
-logging.basicConfig(filename=LOG_FILENAME, level=logging.DEBUG)
+logging.basicConfig(filename=LOG_FILENAME, level=logging.INFO)
 
 bucket_name = "sps-query-data"
 workload_bucket_name = "spotlake"
@@ -51,9 +51,7 @@ def upload_data_to_s3(saved_filename, s3_dir_name, s3_obj_name):
     with open(saved_filename, 'rb') as f:
         s3.upload_fileobj(f, bucket_name, f"aws/{s3_dir_name}/{s3_obj_name}")
     
-    for filename in os.listdir(CURRENT_PATH):
-        if "sps_" in filename:
-            os.remove(f"{CURRENT_PATH}{filename}")
+    os.remove(saved_filename)
 
 def log_ms(start_time, end_time, message):
     delta_time_ms = (end_time - start_time) * 1000

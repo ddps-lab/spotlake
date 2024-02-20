@@ -7,4 +7,4 @@ sudo apt-get install -y python3-pip
 # monitoring module
 sudo apt install -y glances
 
-python3 -m pip install -r requirements.txt
+sudo python3 -m pip install -r requirements.txt

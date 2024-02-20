@@ -29,14 +29,14 @@ workload_bucket_name = "spotlake"
 parser = argparse.ArgumentParser()
 parser.add_argument('--timestamp', dest='timestamp', action='store')
 args = parser.parse_args()
-timestamp_utc = datetime.strptime(args.timestamp_utc, "%Y-%m-%dT%H:%M")
-date = args.timestamp_utc.split("T")[0]
+timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+date = args.timestamp.split("T")[0]
 
 print(f"실행 시작 시간 (UTC) : {timestamp_utc}")
 
 total_execution_time_ms = 0
 
-def save_data(df, timestamp_utc):
+def save_data(df, timestamp_utc, s3_obj_name):
     session = boto3.Session()
     s3 = session.client('s3')
     rounded_minute = (timestamp_utc.minute // 10) * 10 # 분을 10분단위로 내림합니다.

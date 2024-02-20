@@ -60,7 +60,7 @@ def query_sps(args):
         for score in scores:
             sps_dict["InstanceType"].append(instance_type)
             sps_dict["Region"].append(score["Region"])
-            formatted_AZ = score["AvailabilityZoneId"].split("-")[0]
+            formatted_AZ = score["AvailabilityZoneId"].split("-")[1]
             sps_dict["AZ"].append(formatted_AZ)
             sps_dict[sps_column].append(int(score["Score"]))
     

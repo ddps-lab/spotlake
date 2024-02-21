@@ -99,7 +99,7 @@ def get_binpacked_workload(filedate):
     user_cred = user_cred[::-1]
     pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", "wb"))
     with open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", 'rb') as f:
-        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl')
+        s3_client.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl')
 
     DIRLIST = os.listdir(f"{AWS_CONST.LOCAL_PATH}/")
     if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:

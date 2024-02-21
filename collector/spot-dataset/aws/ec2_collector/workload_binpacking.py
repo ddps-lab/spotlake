@@ -89,6 +89,7 @@ def workload_bin_packing(query, capacity, algorithm):
 
 
 def get_binpacked_workload(filedate):
+    s3_client = boto3.client('s3')
     # reverse order of credential data
     user_cred = None
     try:
@@ -139,7 +140,6 @@ def get_binpacked_workload(filedate):
         user_queries = []    
 
     # need to change file location
-    s3_client = boto3.client('s3')
     pickle.dump(user_queries_list, open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'wb'))
     gzip.open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", "rb"))
     s3_client.upload_fileobj(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), STORAGE_CONST.BUCKET_NAME, f"rawdata/aws/workloads/{today}/binpacked_workloads.pkl.gz")

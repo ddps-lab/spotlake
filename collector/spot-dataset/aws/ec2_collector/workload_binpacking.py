@@ -90,12 +90,13 @@ def workload_bin_packing(query, capacity, algorithm):
 
 def get_binpacked_workload(filedate):
     s3_client = boto3.client('s3')
+    s3_resource = boto3.resource('s3')
     # reverse order of credential data
     user_cred = None
     try:
         user_cred = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", "rb"))
     except:
-        user_cred = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl').get()['Body'])
+        user_cred = pickle.load(s3_resource.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl').get()['Body'])
     user_cred = user_cred[::-1]
     pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", "wb"))
     with open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", 'rb') as f:
@@ -109,8 +110,6 @@ def get_binpacked_workload(filedate):
         for filename in DIRLIST:
             if "binpacked_workloads.pkl" in filename:
                 os.remove(f"{AWS_CONST.LOCAL_PATH}/{filename}")
-    
-    s3_resource = boto3.resource('s3')
 
     workloads = num_az_by_region()
     today = "/".join(filedate.split("-"))

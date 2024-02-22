@@ -62,6 +62,7 @@ def log_ms(start_time, end_time, message):
 
 idx_credential = START_CREDENTIAL_INDEX
 def get_work_per_thread():
+    global idx_credential
     work_per_thread = []
     for target_capacity in target_capacities:
         work_per_target_capacity = []

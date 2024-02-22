@@ -129,10 +129,10 @@ except Exception as e:
 
 start_time = time()
 try:
-    merged_df = sps_df_per_target_capacity[0]
     key = ['InstanceType', 'Region', 'AZ']
-    for i in range(1, len(sps_df_per_target_capacity)):
-        merged_df = pd.merge(merged_df, sps_df_per_target_capacity[i], on=key, how='outer')
+    merged_df = pd.DataFrame(columns=key)
+    for df in sps_df_per_target_capacity:
+        merged_df = pd.merge(merged_df, df, on=key, how='outer')
     
     csv_object_name = "sps_1_to_50.csv.gz"
     SAVED_FILENAME = f"{CURRENT_PATH}"+f"{csv_object_name}"

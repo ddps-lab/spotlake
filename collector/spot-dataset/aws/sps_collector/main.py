@@ -123,13 +123,13 @@ while True:
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
             logging.error(f"계정당 쿼리 가능한 숫자가 넘었습니다. Target Capacity : {target_capacities[idx_target_capacity]}")
-        logging.error(f"workload의 계정을 재분배합니다.")
-        logging.error(f"재분배 시작 계정 인덱스 : {idx_credential}")
-        for i in range(len(work_per_thread)):
-            for j in range(len(work_per_thread[i])):
-                work_per_thread[i][j][0] = credentials.iloc[idx_credential]
-                idx_credential += 1
-        logging.error(f"재분배 완료 계정 인덱스 : {idx_credential}")
+            logging.error(f"workload의 계정을 재분배합니다.")
+            logging.error(f"재분배 시작 계정 인덱스 : {idx_credential}")
+            for i in range(len(work_per_thread)):
+                for j in range(len(work_per_thread[i])):
+                    work_per_thread[i][j][0] = credentials.iloc[idx_credential]
+                    idx_credential += 1
+            logging.error(f"재분배 완료 계정 인덱스 : {idx_credential}")
     except Exception as e:
         logging.error("Exception at query and combine")
         send_slack_message(e)

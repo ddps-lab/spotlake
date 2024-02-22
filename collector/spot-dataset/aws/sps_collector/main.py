@@ -106,26 +106,35 @@ end_time = time()
 logging.info(f"사용한 계정 개수 : {idx_credential - START_CREDENTIAL_INDEX}")
 log_ms(start_time, end_time, "workload 내용을 멀티 프로세싱을 할 수 있게 분할하는 데 걸린 시간")
 
-try:
-    sps_df_per_target_capacity = []
-    idx_target_capacity = 0 # 출력용 변수입니다.
-    for work_per_target_capacity in work_per_thread:
-        start_time = time()
-        with ThreadPoolExecutor(max_workers=NUM_WORKER) as executor:
-            sps_df_list = list(executor.map(query_sps, work_per_target_capacity))
-        df_combined = pd.concat(sps_df_list, axis=0, ignore_index=True)
-        sps_df_per_target_capacity.append(df_combined)
-        end_time = time()
-        log_ms(start_time, end_time, f"Target Capacity {target_capacities[idx_target_capacity]} 작업 완료 시간")
-        idx_target_capacity += 1
-except botocore.exceptions.ClientError as e:
-    if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
-        logging.error(f"계정당 쿼리 가능한 숫자가 넘었습니다. Target Capacity : {target_capacities[idx_target_capacity]}")
-except Exception as e:
-    logging.error("Exception at query and combine")
-    send_slack_message(e)
-    logging.error(e)
-    exit(1)
+while True:
+    try:
+        sps_df_per_target_capacity = []
+        idx_target_capacity = 0 # 출력용 변수입니다.
+        for work_per_target_capacity in work_per_thread:
+            start_time = time()
+            with ThreadPoolExecutor(max_workers=NUM_WORKER) as executor:
+                sps_df_list = list(executor.map(query_sps, work_per_target_capacity))
+            df_combined = pd.concat(sps_df_list, axis=0, ignore_index=True)
+            sps_df_per_target_capacity.append(df_combined)
+            end_time = time()
+            log_ms(start_time, end_time, f"Target Capacity {target_capacities[idx_target_capacity]} 작업 완료 시간")
+            idx_target_capacity += 1
+        break
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
+            logging.error(f"계정당 쿼리 가능한 숫자가 넘었습니다. Target Capacity : {target_capacities[idx_target_capacity]}")
+        logging.error(f"workload의 계정을 재분배합니다.")
+        logging.error(f"재분배 시작 계정 인덱스 : {idx_credential}")
+        for i in range(len(work_per_thread)):
+            for j in range(len(work_per_thread[i])):
+                work_per_thread[i][j][0] = credentials.iloc[idx_credential]
+                idx_credential += 1
+        logging.error(f"재분배 완료 계정 인덱스 : {idx_credential}")
+    except Exception as e:
+        logging.error("Exception at query and combine")
+        send_slack_message(e)
+        logging.error(e)
+        exit(1)
 
 start_time = time()
 try:

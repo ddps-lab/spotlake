@@ -43,6 +43,7 @@ timestamp_utc = timestamp_utc.replace(minute=rounded_minute, second=0)
 S3_DIR_NAME = timestamp_utc.strftime("%Y/%m/%d/%H/%M")
 
 total_execution_time_ms = 0
+target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 def upload_data_to_s3(saved_filename, s3_dir_name, s3_obj_name):
     session = boto3.Session()
@@ -62,7 +63,6 @@ def log_ms(start_time, end_time, message):
 idx_credential = START_CREDENTIAL_INDEX
 def get_work_per_thread():
     work_per_thread = []
-    target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
     for target_capacity in target_capacities:
         work_per_target_capacity = []
         for scenarios in workload:

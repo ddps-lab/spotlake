@@ -59,6 +59,18 @@ def log_ms(start_time, end_time, message):
     total_execution_time_ms += delta_time_ms
     logging.info(f"{message} : {delta_time_ms} ms")
 
+idx_credential = START_CREDENTIAL_INDEX
+def get_work_per_thread():
+    work_per_thread = []
+    target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+    for target_capacity in target_capacities:
+        work_per_target_capacity = []
+        for scenarios in workload:
+            credential = credentials.iloc[idx_credential]
+            idx_credential += 1
+            work_per_target_capacity.append((credential, scenarios, target_capacity))
+        work_per_thread.append(work_per_target_capacity)
+    return work_per_thread
 
 start_time = time()
 workload = None
@@ -87,21 +99,7 @@ end_time = time()
 log_ms(start_time, end_time, "credential 파일을 s3에서 load하는 데 걸린 시간")
     
 start_time = time()
-# credential은 100번부터 사용합니다.
-# 0번부터 99번까지는 테스트 용도로 사용될 경우가 많기때문에, 나중에 꼬이면 하루동안 쿼리가 불가능합니다.
-idx_credential = START_CREDENTIAL_INDEX
-# 나중에 data frame 합병을 쉽게 하기 위해서 work_per_thread를 이중 리스트로 만들어 놓았습니다.
-# target_capacity별로 리스트가 생성됩니다.
-# 이중 리스트 크기는 11 x (scenario 개수) 입니다.
-work_per_thread = []
-target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-for target_capacity in target_capacities:
-    work_per_target_capacity = []
-    for scenarios in workload:
-        credential = credentials.iloc[idx_credential]
-        idx_credential += 1
-        work_per_target_capacity.append((credential, scenarios, target_capacity))
-    work_per_thread.append(work_per_target_capacity)
+work_per_thread = get_work_per_thread()
 end_time = time()
 logging.info(f"사용한 계정 개수 : {idx_credential - START_CREDENTIAL_INDEX}")
 log_ms(start_time, end_time, "workload 내용을 멀티 프로세싱을 할 수 있게 분할하는 데 걸린 시간")
@@ -125,10 +123,7 @@ while True:
             logging.error(f"계정당 쿼리 가능한 숫자가 넘었습니다. Target Capacity : {target_capacities[idx_target_capacity]}")
             logging.error(f"workload의 계정을 재분배합니다.")
             logging.error(f"재분배 시작 계정 인덱스 : {idx_credential}")
-            for i in range(len(work_per_thread)):
-                for j in range(len(work_per_thread[i])):
-                    work_per_thread[i][j][0] = credentials.iloc[idx_credential]
-                    idx_credential += 1
+            work_per_thread = get_work_per_thread()
             logging.error(f"재분배 완료 계정 인덱스 : {idx_credential}")
     except Exception as e:
         logging.error("Exception at query and combine")

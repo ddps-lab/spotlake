@@ -125,6 +125,9 @@ while True:
             logging.error(f"재분배 시작 계정 인덱스 : {idx_credential}")
             work_per_thread = get_work_per_thread()
             logging.error(f"재분배 완료 계정 인덱스 : {idx_credential}")
+        else:
+            send_slack_message(e)
+            exit(1)
     except Exception as e:
         logging.error("Exception at query and combine")
         send_slack_message(e)

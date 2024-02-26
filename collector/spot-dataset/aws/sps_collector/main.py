@@ -39,8 +39,6 @@ rounded_minute = (timestamp_utc.minute // 10) * 10 # 분을 10분단위로 내�
 timestamp_utc = timestamp_utc.replace(minute=rounded_minute, second=0)
 S3_DIR_NAME = timestamp_utc.strftime("%Y/%m/%d")
 S3_OBJECT_PREFIX = timestamp_utc.strftime("%H-%M")
-print(S3_DIR_NAME)
-print(S3_OBJECT_PREFIX)
 
 total_execution_time_ms = 0
 
@@ -86,10 +84,10 @@ if S3_OBJECT_PREFIX == "00-00":
 sps_df_list = []
 for target_capacity in target_capacities:
     # ------ Start Query Per Target Capacity ------
+    start_time = time()
     while True:
         try:
             print(f"Target Capacity {target_capacity} Query Start")
-            start_time = time()
             works = []
             start_credential_index = current_credential_index
             for scenarios in workload:

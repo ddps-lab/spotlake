@@ -18,8 +18,8 @@ sys.path.append("/home/ubuntu/spotlake/utility")
 from slack_msg_sender import send_slack_message
 
 s3 = boto3.resource("s3")
-s3_client = boto3.client('s3')
-log_client = boto3.client('logs')
+s3_client = boto3.client('s3', region_name='us-west-2')
+log_client = boto3.client('logs', region_name='us-west-2')
 
 NUM_WORKER = 26
 CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/sps_collector/"
@@ -27,6 +27,7 @@ WORKLOAD_FILE_PATH = "rawdata/aws/workloads"
 CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
 BUCKET_NAME = "sps-query-test" #test
 WORKLOAD_BUCKET_NAME = "spotlake"
+CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}start_index.txt"
 
 
 parser = argparse.ArgumentParser()
@@ -36,13 +37,12 @@ timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
 date = args.timestamp.split("T")[0]
 rounded_minute = (timestamp_utc.minute // 10) * 10 # 분을 10분단위로 내림합니다.
 timestamp_utc = timestamp_utc.replace(minute=rounded_minute, second=0)
-S3_DIR_NAME = timestamp_utc.strftime("%Y/%m/%d/")
+S3_DIR_NAME = timestamp_utc.strftime("%Y/%m/%d")
 S3_OBJECT_PREFIX = timestamp_utc.strftime("%H-%M")
 print(S3_DIR_NAME)
 print(S3_OBJECT_PREFIX)
 
 total_execution_time_ms = 0
-
 
 # ------ Load Workload File -------
 start_time = time()
@@ -50,7 +50,7 @@ workload = None
 try:
     key = f"{WORKLOAD_FILE_PATH}/{'/'.join(date.split('-'))}/binpacked_workloads.pkl.gz"
     workload = pickle.load(gzip.open(s3.Object(WORKLOAD_BUCKET_NAME, key).get()["Body"]))
-    s3.download_file(WORKLOAD_BUCKET_NAME, key, "binpacked_workloads.pkl.gz")
+    s3_client.download_file(WORKLOAD_BUCKET_NAME, key, "binpacked_workloads.pkl.gz")
 except Exception as e:
     message = f"bucket : {WORKLOAD_BUCKET_NAME}, object : {key} 가 수집되지 않았습니다.\n 서버에 있는 로컬 workload파일을 불러옵니다."
     send_slack_message(message)
@@ -77,12 +77,18 @@ end_time = time()
 total_execution_time_ms += calculate_execution_ms(start_time, end_time)
 
 target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-current_credential_index = 0
+with open(CREDENTIAL_START_INDEX_FILE_NAME, 'r') as f:
+    current_credential_index = int(f.read().strip())
+if S3_OBJECT_PREFIX == "00-00":
+    current_credential_index = 1800 if current_credential_index == 0 else 0
+    with open(CREDENTIAL_START_INDEX_FILE_NAME, 'w') as f:
+        f.write(str(current_credential_index))
 sps_df_list = []
 for target_capacity in target_capacities:
     # ------ Start Query Per Target Capacity ------
     while True:
         try:
+            print(f"Target Capacity {target_capacity} Query Start")
             start_time = time()
             works = []
             start_credential_index = current_credential_index
@@ -95,8 +101,10 @@ for target_capacity in target_capacities:
             df_combined = pd.concat(df_list, axis=0, ignore_index=True)
             sps_df_list.append(df_combined)
             end_time = time()
-            log_extra(log_client, f"사용한 credential range : ({start_credential_index}, {end_credential_index})")
+            message = f"사용한 credential range : ({start_credential_index}, {end_credential_index})"
+            print(message)
             log_execution_time(log_client, start_time, end_time, f"QUERY_{target_capacity}")
+            break
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
                 continue

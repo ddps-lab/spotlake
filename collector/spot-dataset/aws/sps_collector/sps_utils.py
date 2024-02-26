@@ -45,13 +45,6 @@ def log_execution_time(client, start_time, end_time, message_key):
         raise e
     return response
 
-def log_extra(client, message):
-    try:
-        response = upload_log_event(client, LOG_GROUP_NAME, LOG_STREAM_NAME_EXTRA, message)
-    except Exception as e:
-        raise e
-    return response
-
 def log_amount(client, amount_data):
     message = f"DATA_ROWS {amount_data}"
     try:

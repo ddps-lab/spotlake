@@ -25,7 +25,7 @@ NUM_WORKER = 26
 CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/sps_collector/"
 WORKLOAD_FILE_PATH = "rawdata/aws/workloads"
 CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
-BUCKET_NAME = "sps-query-test" #test
+BUCKET_NAME = "sps-query-test"
 WORKLOAD_BUCKET_NAME = "spotlake"
 CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}start_index.txt"
 
@@ -39,11 +39,9 @@ rounded_minute = (timestamp_utc.minute // 10) * 10 # 분을 10분단위로 내�
 timestamp_utc = timestamp_utc.replace(minute=rounded_minute, second=0)
 S3_DIR_NAME = timestamp_utc.strftime("%Y/%m/%d")
 S3_OBJECT_PREFIX = timestamp_utc.strftime("%H-%M")
-
-total_execution_time_ms = 0
+execution_time_start = time()
 
 # ------ Load Workload File -------
-start_time = time()
 workload = None
 try:
     key = f"{WORKLOAD_FILE_PATH}/{'/'.join(date.split('-'))}/binpacked_workloads.pkl.gz"
@@ -59,11 +57,8 @@ except Exception as e:
         message = f"로컬파일에 workload파일이 존재하지 않습니다."
         send_slack_message(message)
         raise e
-end_time = time()
-total_execution_time_ms += calculate_execution_ms(start_time, end_time)
 
 # ------ Load Credential File ------
-start_time = time()
 credentials = None
 try:
     csv_content = s3.Object(BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
@@ -71,8 +66,6 @@ try:
 except Exception as e:
     send_slack_message(e)
     raise e
-end_time = time()
-total_execution_time_ms += calculate_execution_ms(start_time, end_time)
 
 target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 with open(CREDENTIAL_START_INDEX_FILE_NAME, 'r') as f:
@@ -114,7 +107,6 @@ for target_capacity in target_capacities:
             raise e
         
 # ------ Merge Horizontally Collected DataFrame ------
-start_time = time()
 try:
     key = ['InstanceType', 'Region', 'AZ']
     merged_df = pd.DataFrame(columns=key)
@@ -127,7 +119,7 @@ try:
 except Exception as e:
     send_slack_message(e)
     raise e
-end_time = time()
-total_execution_time_ms += calculate_execution_ms(start_time, end_time)
-log_execution_time(log_client, 0, total_execution_time_ms, "TOTAL_EXECUTION_TIME")
+
+execution_time_end = time()
+log_execution_time(log_client, execution_time_start, execution_time_end, "TOTAL_EXECUTION_TIME")
 log_amount(log_client, merged_df.shape[0])

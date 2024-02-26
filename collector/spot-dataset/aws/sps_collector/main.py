@@ -48,7 +48,7 @@ workload = None
 try:
     key = f"{WORKLOAD_FILE_PATH}/{'/'.join(date.split('-'))}/binpacked_workloads.pkl.gz"
     workload = pickle.load(gzip.open(s3.Object(WORKLOAD_BUCKET_NAME, key).get()["Body"]))
-    s3_client.download_file(WORKLOAD_BUCKET_NAME, key, "binpacked_workloads.pkl.gz")
+    s3_client.download_file(WORKLOAD_BUCKET_NAME, key, f"{CURRENT_PATH}binpacked_workloads.pkl.gz")
 except Exception as e:
     message = f"bucket : {WORKLOAD_BUCKET_NAME}, object : {key} 가 수집되지 않았습니다.\n 서버에 있는 로컬 workload파일을 불러옵니다."
     send_slack_message(message)

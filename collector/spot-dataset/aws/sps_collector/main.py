@@ -41,18 +41,32 @@ S3_DIR_NAME = timestamp_utc.strftime("%Y/%m/%d")
 S3_OBJECT_PREFIX = timestamp_utc.strftime("%H-%M")
 execution_time_start = time()
 
+with open(CREDENTIAL_START_INDEX_FILE_NAME, 'r') as f:
+    current_credential_index = int(f.read().strip())
+
 # ------ Load Workload File -------
 workload = None
 try:
     key = f"{WORKLOAD_FILE_PATH}/{'/'.join(date.split('-'))}/binpacked_workloads.pkl.gz"
     workload = pickle.load(gzip.open(s3.Object(WORKLOAD_BUCKET_NAME, key).get()["Body"]))
-    s3_client.download_file(WORKLOAD_BUCKET_NAME, key, f"{CURRENT_PATH}binpacked_workloads.pkl.gz")
+    local_workload_path = f"{CURRENT_PATH}{date}_binpacked_workloads.pkl.gz"
+    # workload파일을 새로 받았다면 다운로드
+    if not os.path.exists(local_workload_path):
+        for filename in os.listdir(f"{CURRENT_PATH}"):
+            if "_binpacked_workloads.pkl.gz" in filename:
+                os.remove(f"{CURRENT_PATH}filename")
+        s3_client.download_file(WORKLOAD_BUCKET_NAME, key, local_workload_path)
+        # workload파일이 바뀌었으므로 계정 묶음 change
+        current_credential_index = 1800 if current_credential_index == 0 else 0
+        with open(CREDENTIAL_START_INDEX_FILE_NAME, 'w') as f:
+            f.write(str(current_credential_index))
 except Exception as e:
     message = f"bucket : {WORKLOAD_BUCKET_NAME}, object : {key} 가 수집되지 않았습니다.\n 서버에 있는 로컬 workload파일을 불러옵니다."
     send_slack_message(message)
     try:
         with gzip.open(f"{CURRENT_PATH}binpacked_workloads.pkl.gz", 'rb') as f:
             workload = pickle.load(f)
+        is_uploaded_workload = False
     except:
         message = f"로컬파일에 workload파일이 존재하지 않습니다."
         send_slack_message(message)
@@ -68,12 +82,6 @@ except Exception as e:
     raise e
 
 target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-with open(CREDENTIAL_START_INDEX_FILE_NAME, 'r') as f:
-    current_credential_index = int(f.read().strip())
-if S3_OBJECT_PREFIX == "00-00":
-    current_credential_index = 1800 if current_credential_index == 0 else 0
-    with open(CREDENTIAL_START_INDEX_FILE_NAME, 'w') as f:
-        f.write(str(current_credential_index))
 sps_df_list = []
 for target_capacity in target_capacities:
     # ------ Start Query Per Target Capacity ------

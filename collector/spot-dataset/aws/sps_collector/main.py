@@ -129,5 +129,8 @@ except Exception as e:
     raise e
 
 execution_time_end = time()
+total_execution_time = calculate_execution_ms(execution_time_start, execution_time_end)
+if total_execution_time >= 600000:
+    send_slack_message(f"sps 쿼리 시간이 10분을 초과하였습니다 : {total_execution_time} ms")
 log_execution_time(log_client, execution_time_start, execution_time_end, "TOTAL_EXECUTION_TIME")
 log_amount(log_client, merged_df.shape[0])

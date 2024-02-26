@@ -1,4 +1,4 @@
 __pycache__
 .DS_Store
 /frontend/node_modules/
-**/*binpacked_workload.pkl.gz
+**/*binpacked_workloads.pkl.gz

@@ -54,7 +54,7 @@ try:
     if not os.path.exists(local_workload_path):
         for filename in os.listdir(f"{CURRENT_PATH}"):
             if "_binpacked_workloads.pkl.gz" in filename:
-                os.remove(f"{CURRENT_PATH}filename")
+                os.remove(f"{CURRENT_PATH}{filename}")
         s3_client.download_file(WORKLOAD_BUCKET_NAME, key, local_workload_path)
         # workload파일이 바뀌었으므로 계정 묶음 change
         current_credential_index = 1800 if current_credential_index == 0 else 0
@@ -64,10 +64,17 @@ except Exception as e:
     message = f"bucket : {WORKLOAD_BUCKET_NAME}, object : {key} 가 수집되지 않았습니다.\n 서버에 있는 로컬 workload파일을 불러옵니다."
     send_slack_message(message)
     try:
-        with gzip.open(f"{CURRENT_PATH}binpacked_workloads.pkl.gz", 'rb') as f:
-            workload = pickle.load(f)
-        is_uploaded_workload = False
-    except:
+        is_local = False
+        for filename in os.listdir(f"{CURRENT_PATH}"):
+            if "_binpacked_workloads.pkl.gz" in filename:
+                print(f"로컬 워크로드 파일 {filename} 사용")
+                with open(f"{CURRENT_PATH}{filename}", 'rb') as f:
+                    workload = pickle.load(f)
+                is_local = True
+                break
+        if not is_local:
+            raise Exception("does not exist local workloads file")
+    except Exception as another_exception:
         message = f"로컬파일에 workload파일이 존재하지 않습니다."
         send_slack_message(message)
         raise e

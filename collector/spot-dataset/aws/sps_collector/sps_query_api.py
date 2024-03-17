@@ -60,8 +60,7 @@ def query_sps(args):
         for score in scores:
             sps_dict["InstanceType"].append(instance_type)
             sps_dict["Region"].append(score["Region"])
-            formatted_AZ = int(score["AvailabilityZoneId"].split("-")[1][-1])
-            sps_dict["AZ"].append(formatted_AZ)
+            sps_dict["AZ"].append(score['AvailabilityZoneId'])
             sps_dict[sps_column].append(int(score["Score"]))
     
     return pd.DataFrame(sps_dict)

@@ -143,6 +143,6 @@ total_execution_time = calculate_execution_ms(execution_time_start, execution_ti
 if total_execution_time >= 600000:
     message = f"sps 쿼리 시간이 10분을 초과하였습니다 : {total_execution_time} ms"
     message += f"\n실행 시작 시간 (UTC) : {timestamp_utc}"
-    send_slack_message(message)
+    #send_slack_message(message)
 print(f"스크립트 실행 시간 : {total_execution_time} ms")
 print(f"수집된 DataFrame 행 수 : {merged_df.shape[0]}")

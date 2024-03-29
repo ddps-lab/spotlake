@@ -25,7 +25,7 @@ def query_sps(args):
     )
     ec2 = session.client('ec2', region_name = region)
     
-    sps_column = f"{target_capacity}"
+    sps_column = f"SPS_{target_capacity}"
     sps_dict = {
         "InstanceType" : [],
         "Region" : [],

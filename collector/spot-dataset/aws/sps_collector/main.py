@@ -153,7 +153,7 @@ print(f"Save DataFrame File time : {calculate_execution_ms(start_time, end_time)
 # ------ Monitoring for total execution time ------
 execution_time_end = time()
 total_execution_time = calculate_execution_ms(execution_time_start, execution_time_end)
-if total_execution_time >= 60000:
+if total_execution_time >= 600000:
     message = f"sps 쿼리 시간이 10분을 초과하였습니다 : {total_execution_time} ms"
     message += f"\n실행 시작 시간 (UTC) : {timestamp_utc}"
     send_slack_message(message)

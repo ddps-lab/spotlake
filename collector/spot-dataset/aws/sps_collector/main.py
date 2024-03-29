@@ -108,6 +108,7 @@ print(f"Load credential and workload time : {calculate_execution_ms(start_time, 
 
 # ------ Start Query Per Target Capacity ------
 start_time = time()
+start_credential_index = current_credential_index
 try:
     df_list = []
     for scenarios in workload:
@@ -136,6 +137,7 @@ with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'w') as f:
     f.write(str(target_capacity_index + 1))
 end_time = time()
 print(f"Target Capacity {target_capacity} query time : {calculate_execution_ms(start_time, end_time)} ms")
+print(f"사용한 credential range : {(start_credential_index, current_credential_index)}")
 
 start_time = time()
 # ------ Save Dataframe File ------

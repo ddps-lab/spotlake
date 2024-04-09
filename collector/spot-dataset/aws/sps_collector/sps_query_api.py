@@ -25,12 +25,12 @@ def query_sps(args):
     )
     ec2 = session.client('ec2', region_name = region)
     
-    sps_column = f"SPS_{target_capacity}"
     sps_dict = {
         "InstanceType" : [],
         "Region" : [],
         "AZ" : [],
-        sps_column : []
+        "SPS" : [],
+        "TargetCapacity" : [],
     }
     
     for scenario in scenarios:
@@ -63,7 +63,8 @@ def query_sps(args):
             sps_dict["InstanceType"].append(instance_type)
             sps_dict["Region"].append(score["Region"])
             sps_dict["AZ"].append(score['AvailabilityZoneId'])
-            sps_dict[sps_column].append(int(score["Score"]))
+            sps_dict["SPS"].append(int(score["Score"]))
+            sps_dict["TargetCapacity"].append(target_capacity)
     
     return pd.DataFrame(sps_dict)
 

@@ -2,9 +2,9 @@ import sys
 import time
 import boto3
 import botocore
+import json
 from datetime import datetime, timedelta, timezone
 
-sys.path.append("/home/ubuntu/spotlake/utility")
 from slack_msg_sender import send_slack_message
 
 S3_PATH_DATE = (datetime.now(timezone.utc).date() + timedelta(days=-1)).strftime("%Y/%m/%d")
@@ -71,18 +71,9 @@ def create_athena_table(athena_client, data_bucket_name):
                 CREATE EXTERNAL TABLE IF NOT EXISTS {TABLE_NAME}(
                     instancetype string,
                     region string,
-                    az int,
-                    1 int,
-                    5 int,
-                    10 int,
-                    15 int,
-                    20 int,
-                    25 int,
-                    30 int,
-                    35 int,
-                    40 int,
-                    45 int,
-                    50 int
+                    az string,
+                    SPS int,
+                    TargetCapacity int
                 )
                 ROW FORMAT DELIMITED
                 FIELDS TERMINATED BY ','
@@ -109,4 +100,21 @@ def make_message(athena_client):
     sps_query_string = f"SELECT COUNT(*) FROM 'default'.'{TABLE_NAME}'"
     result_configuration = {'OutputLocation': f's3://{S3_LOG_BUCKET}/check-table/{S3_PATH_DATE}/'}
     result_sps = query_athena(athena_client, sps_query_string, result_configuration)
-    pass
+    
+    message = f"""<{datetime.today().date()} sps server monitoring - AWS>
+    - the number of row collected sps data : {result_sps}"""
+
+    return message
+
+def lambda_handler(event, context):
+    athena_client = boto3.client('athena', region_name='us-east-1')
+    create_athena_table(athena_client, 'sps-query-data')
+    result_message = make_message(athena_client)
+    print(result_message)
+    message_json = send_slack_message(result_message)
+    drop_athena_table(athena_client)
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps(message_json)
+    }

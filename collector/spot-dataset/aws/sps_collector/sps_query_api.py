@@ -1,6 +1,7 @@
 import boto3
 import botocore
 import time
+import requests
 import pandas as pd
 
 IDX_INSTANCE_TYPE = 0
@@ -16,19 +17,20 @@ def query_sps(args):
     credential = args[0]
     scenarios = args[1]
     target_capacity = args[2]
+    region = get_region()
     
     session = boto3.session.Session(
         aws_access_key_id = credential["AccessKeyId"],
         aws_secret_access_key = credential["SecretAccessKey"]
     )
-    ec2 = session.client('ec2', region_name = 'us-west-2')
+    ec2 = session.client('ec2', region_name = region)
     
-    sps_column = f"{target_capacity}"
     sps_dict = {
         "InstanceType" : [],
         "Region" : [],
         "AZ" : [],
-        sps_column : []
+        "SPS" : [],
+        "TargetCapacity" : [],
     }
     
     for scenario in scenarios:
@@ -60,8 +62,31 @@ def query_sps(args):
         for score in scores:
             sps_dict["InstanceType"].append(instance_type)
             sps_dict["Region"].append(score["Region"])
-            formatted_AZ = int(score["AvailabilityZoneId"].split("-")[1][-1])
-            sps_dict["AZ"].append(formatted_AZ)
-            sps_dict[sps_column].append(int(score["Score"]))
+            sps_dict["AZ"].append(score['AvailabilityZoneId'])
+            sps_dict["SPS"].append(int(score["Score"]))
+            sps_dict["TargetCapacity"].append(target_capacity)
     
     return pd.DataFrame(sps_dict)
+
+def get_token():
+    token_url = "http://169.254.169.254/latest/api/token"
+    headers = {"X-aws-ec2-metadata-token-ttl-seconds": "5"}
+    response = requests.put(token_url, headers=headers)
+    if response.status_code == 200:
+        return response.text
+    else:
+        raise Exception("토큰을 가져오는 데 실패했습니다. 상태 코드: {}".format(response.status_code))
+
+def get_region():
+    token = get_token()
+    if token:
+        metadata_url = "http://169.254.169.254/latest/dynamic/instance-identity/document"
+        headers = {"X-aws-ec2-metadata-token": token}
+        response = requests.get(metadata_url, headers=headers)
+        if response.status_code == 200:
+            document = response.json()
+            return document.get("region")
+        else:
+            raise Exception("메타데이터를 가져오는 데 실패했습니다. 상태 코드: {}".format(response.status_code))
+    else:
+        raise Exception("토큰이 없습니다.")

@@ -40,12 +40,13 @@ def query_athena(athena_client, query_string, result_configuration):
             result = athena_client.get_query_results(QueryExecutionId=query_start['QueryExecutionId'])
             break
         elif query_execution_status in ['CANCELLED', 'FAILED']:
+            print(query_status)
             message = f"""
                 {S3_PATH_DATE}\n
                 --- Exception while get athena query ---\n
                 {query_string}\n
+                query status : {query_execution_status}\n
                 ----------------------------------------
-                {e}
             """
             raise Exception(send_slack_message(message))
 
@@ -59,7 +60,6 @@ def query_athena(athena_client, query_string, result_configuration):
             --- trying 3 times over athena query using exeponential backoff ---\n
             {query_string}\n
             -------------------------------------------------------------------
-            {e}
         """
         raise Exception(send_slack_message(message))
 
@@ -130,7 +130,7 @@ def lambda_handler(event, context):
 
     return {
         'statusCode': 200,
-        'body': json.dumps(message_json)
+        'body': "complete monitoring sps data on aws per day"
     }
 
 if __name__ == "__main__":

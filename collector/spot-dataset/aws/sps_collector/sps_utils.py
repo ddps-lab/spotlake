@@ -25,7 +25,7 @@ def upload_log_event(log_client, log_group_name, log_stream_name, log_event_key,
             logStreamName=log_stream_name,
             logEvents=[
                 {
-                    'timsetamp': timestamp,
+                    'timestamp': timestamp,
                     'message': message
                 },
             ],

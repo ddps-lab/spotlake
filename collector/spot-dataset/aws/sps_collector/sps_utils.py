@@ -1,7 +1,8 @@
 import boto3
 import os
 import sys
-from datetime import datetime
+import json
+from datetime import datetime, timezone
 
 sys.path.append("/home/ubuntu/spotlake/utility")
 from slack_msg_sender import send_slack_message
@@ -14,3 +15,21 @@ def upload_data_to_s3(s3_client, saved_filename, s3_dir_name, s3_obj_name, bucke
         s3_client.upload_fileobj(f, bucket_name, f"aws/{s3_dir_name}/{s3_obj_name}")
     
     os.remove(saved_filename)
+
+def upload_log_event(log_client, log_group_name, log_stream_name, log_event_key, log_event_value):
+    message = json.dumps({log_event_key : log_event_value})
+    timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+    try:
+        response = log_client.put_log_events(
+            logGroupName=log_group_name,
+            logStreamName=log_stream_name,
+            logEvents=[
+                {
+                    'timsetamp': timestamp,
+                    'message': message
+                },
+            ],
+        )
+    except Exception as e:
+        raise e
+    return response

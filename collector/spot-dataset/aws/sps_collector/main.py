@@ -27,8 +27,15 @@ WORKLOAD_FILE_PATH = "rawdata/aws/workloads"
 CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
 BUCKET_NAME = "sps-query-data"
 WORKLOAD_BUCKET_NAME = "spotlake"
-CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}start_index.txt"
 
+CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}start_index.txt"
+if not os.path.exists(CREDENTIAL_START_INDEX_FILE_NAME):
+    with open(CREDENTIAL_START_INDEX_FILE_NAME, 'w') as file:
+        file.write('0')
+TARGET_CAPACITY_INDEX_FILE_NAME = f"{CURRENT_PATH}target_capacity_index.txt"
+if not os.path.exists(TARGET_CAPACITY_INDEX_FILE_NAME):
+    with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'w') as file:
+        file.write('0')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--timestamp', dest='timestamp', action='store')
@@ -47,6 +54,7 @@ execution_time_start = time()
 with open(CREDENTIAL_START_INDEX_FILE_NAME, 'r') as f:
     current_credential_index = int(f.read().strip())
 
+start_time = time()
 # ------ Load Workload File -------
 workload = None
 try:
@@ -90,52 +98,59 @@ except Exception as e:
     send_slack_message(e)
     raise e
 
-target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-sps_df_list = []
-for target_capacity in target_capacities:
-    # ------ Start Query Per Target Capacity ------
-    start_time = time()
-    while True:
-        try:
-            print(f"Target Capacity {target_capacity} Query Start")
-            works = []
-            start_credential_index = current_credential_index
-            for scenarios in workload:
-                works.append((credentials.iloc[current_credential_index], scenarios, target_capacity))
+target_capacities = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'r') as f:
+    target_capacity_index = int(f.read().strip()) % len(target_capacities)
+target_capacity = target_capacities[target_capacity_index]
+
+end_time = time()
+print(f"Load credential and workload time : {calculate_execution_ms(start_time, end_time)} ms")
+
+# ------ Start Query Per Target Capacity ------
+start_time = time()
+start_credential_index = current_credential_index
+try:
+    df_list = []
+    for scenarios in workload:
+        while True:
+            try:
+                args = (credentials.iloc[current_credential_index], scenarios, target_capacity)
                 current_credential_index += 1
-            end_credential_index = current_credential_index
-            with ThreadPoolExecutor(max_workers=NUM_WORKER) as executor:
-                df_list = list(executor.map(query_sps, works))
-            df_combined = pd.concat(df_list, axis=0, ignore_index=True)
-            sps_df_list.append(df_combined)
-            end_time = time()
-            message = f"Target Capacity {target_capacity} Query Time : {calculate_execution_ms(start_time, end_time)} ms"
-            message += f"\n사용한 credential range : ({start_credential_index}, {end_credential_index})"
-            print(message)
-            break
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
-                continue
-            else:
+                df = query_sps(args)
+                df_list.append(df)
+                break
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
+                    continue
+                else:
+                    send_slack_message(e)
+                    raise e
+            except Exception as e:
                 send_slack_message(e)
                 raise e
-        except Exception as e:
-            send_slack_message(e)
-            raise e
-        
-# ------ Merge Horizontally Collected DataFrame ------
+    sps_df = pd.concat(df_list, axis=0, ignore_index=True)
+except Exception as e:
+    message = f"error at query_sps\nerror : {e}"
+    send_slack_message(message)
+    raise e
+with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'w') as f:
+    f.write(str(target_capacity_index + 1))
+end_time = time()
+print(f"Target Capacity {target_capacity} query time : {calculate_execution_ms(start_time, end_time)} ms")
+print(f"사용한 credential range : {(start_credential_index, current_credential_index)}")
+
+start_time = time()
+# ------ Save Dataframe File ------
 try:
-    key = ['InstanceType', 'Region', 'AZ']
-    merged_df = pd.DataFrame(columns=key)
-    for df in sps_df_list:
-        merged_df = pd.merge(merged_df, df, on=key, how='outer')
-    object_name = f"{S3_OBJECT_PREFIX}_sps_1_to_50.csv.gz"
-    saved_filename = f"{CURRENT_PATH}"+f"{object_name}"
-    merged_df.to_csv(saved_filename, index=False, compression="gzip")
+    object_name = f"{S3_OBJECT_PREFIX}_sps_{target_capacity}.csv.gz"
+    saved_filename = f"{CURRENT_PATH}" + f"{object_name}"
+    sps_df.to_csv(saved_filename, index=False, compression="gzip")
     upload_data_to_s3(s3_client, saved_filename, S3_DIR_NAME, object_name, BUCKET_NAME)
 except Exception as e:
     send_slack_message(e)
     raise e
+end_time = time()
+print(f"Save DataFrame File time : {calculate_execution_ms(start_time, end_time)} ms")
 
 # ------ Monitoring for total execution time ------
 execution_time_end = time()
@@ -145,4 +160,4 @@ if total_execution_time >= 600000:
     message += f"\n실행 시작 시간 (UTC) : {timestamp_utc}"
     send_slack_message(message)
 print(f"스크립트 실행 시간 : {total_execution_time} ms")
-print(f"수집된 DataFrame 행 수 : {merged_df.shape[0]}")
+print(f"수집된 DataFrame 행 수 : {sps_df.shape[0]}")

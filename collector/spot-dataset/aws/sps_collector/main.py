@@ -159,5 +159,10 @@ if total_execution_time >= 600000:
     message = f"sps 쿼리 시간이 10분을 초과하였습니다 : {total_execution_time} ms"
     message += f"\n실행 시작 시간 (UTC) : {timestamp_utc}"
     send_slack_message(message)
+
+log_client = boto3.client('logs', 'us-west-2')
+log_group_name = "SPS-Server-Data-Count"
+log_stream_name = "aws"
+response = upload_log_event(log_client, log_group_name, log_stream_name, "NUMBER_ROWS", sps_df.shape[0])
 print(f"스크립트 실행 시간 : {total_execution_time} ms")
 print(f"수집된 DataFrame 행 수 : {sps_df.shape[0]}")

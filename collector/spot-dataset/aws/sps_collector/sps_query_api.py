@@ -80,6 +80,7 @@ def get_token():
         raise Exception("토큰을 가져오는 데 실패했습니다. 상태 코드: {}".format(response.status_code))
 
 def get_region():
+    global REGION
     if REGION is not None:
         return REGION
     token = get_token()

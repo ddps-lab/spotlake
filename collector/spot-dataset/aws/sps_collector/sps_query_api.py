@@ -8,6 +8,8 @@ IDX_INSTANCE_TYPE = 0
 IDX_REGION_NAMES = 1
 IDX_NUMBER_RESPONSE = 2
 
+REGION=None
+
 # SPS 점수를 계정별로 받아오는 함수입니다.
 # args는 다음과 같이 구성된 튜플이어야 합니다
 # (credential, scenarios, target_capacity)
@@ -78,6 +80,9 @@ def get_token():
         raise Exception("토큰을 가져오는 데 실패했습니다. 상태 코드: {}".format(response.status_code))
 
 def get_region():
+    global REGION
+    if REGION is not None:
+        return REGION
     token = get_token()
     if token:
         metadata_url = "http://169.254.169.254/latest/dynamic/instance-identity/document"
@@ -85,7 +90,8 @@ def get_region():
         response = requests.get(metadata_url, headers=headers)
         if response.status_code == 200:
             document = response.json()
-            return document.get("region")
+            REGION = document.get("region")
+            return REGION
         else:
             raise Exception("메타데이터를 가져오는 데 실패했습니다. 상태 코드: {}".format(response.status_code))
     else:

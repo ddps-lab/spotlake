@@ -139,6 +139,10 @@ end_time = time()
 print(f"Target Capacity {target_capacity} query time : {calculate_execution_ms(start_time, end_time)} ms")
 print(f"사용한 credential range : {(start_credential_index, current_credential_index)}")
 
+# ------ Add Time Column ------
+time_value = timestamp_utc.strftime("%Y/%m/%d %H:%M:%S")
+sps_df['Time'] = time_value
+
 start_time = time()
 # ------ Save Dataframe File ------
 try:

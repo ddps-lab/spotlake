@@ -31,8 +31,10 @@ def lambda_handler(event, context):
         key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8') # get name of the file including extension
         
         # distinguish the file extension
-        if key.endswith(".csv.gz"): _gz = True;
-        elif key.endswith(".json"): _json = True;
+        if key.endswith(".csv.gz"):
+            _gz = True
+        elif key.endswith(".json"):
+            _json = True
         
         response = s3.get_object(Bucket=bucket, Key=key)
         
@@ -53,8 +55,10 @@ def lambda_handler(event, context):
         raise e
 
     # According to the structure of datasets, their queries might be different. In terms of that, we separated these tasks.        
-    if _gz: sql = gzQuery(latest_data)
-    if _json: sql = jsonQuery(latest_data)
+    if _gz:
+        sql = gzQuery(latest_data)
+    if _json:
+        sql = jsonQuery(latest_data)
 
         
     # Execute the sql query.

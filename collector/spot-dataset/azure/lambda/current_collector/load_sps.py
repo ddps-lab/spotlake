@@ -11,7 +11,7 @@ import get_regions_skus_sps
 config = configparser.ConfigParser()
 config.read('./files_sps/config_sps.ini', encoding='utf-8')
 
-# 값 가져오기
+
 subscription_id = config.get('Config', 'SUBSCRIPTION_ID')
 az_cli_path = config.get('Config', 'AZ_CLI_PATH')
 region_vm_sku_source = config.get('Config', 'REGION_VM_SKU_SOURCE_FILENAME')
@@ -143,6 +143,12 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
                     merged_result["desiredLocations"].update(result["desiredLocations"])
                     for size in result["desiredSizes"]:
                         merged_result["desiredSizes"].add(size["sku"])
+
+                    # 각 딕셔너리에서 "isQuotaAvailable" 키 삭제 (존재하는 경우)
+                    for score in result["placementScores"]:
+                        if "isQuotaAvailable" in score:
+                            del score["isQuotaAvailable"]
+
                     merged_result["placementScores"].extend(result["placementScores"])
                 else:
                     pass

@@ -4,15 +4,20 @@ import json
 import re
 import concurrent.futures
 import time
+import configparser
 from datetime import datetime
+import get_regions_skus_sps
 
-SUBSCRIPTION_ID = 'e9c8c784-8c09-45ac-88da-3b2c206c22f6'
-REGION_VM_SKU_SOURCE_FILENAME = "./files_sps/region_vm_sku_source.json"  # 1차로 수집된 리전과 리전 내의 VM들
-REGION_VM_SKU_PROCESSED_FILENAME = "./files_sps/region_vm_sku_processed.json"  # 리전과 VM 데이터를 유니크하게 가공하고 이용 가능한 형식으로 변환
-INVALID_REGIONS_FILENAME = "./files_sps/invalid_regions.json"  # get_spot_placement_recommendation 실행 시 지원되지 않는 리전을 별도 파일에 저장하여 참조
-RESULTS_FOR_RECOMMENDATION_FILENAME = "./files_sps/merged_results.json" # spot_placement_recommendation 결과
+config = configparser.ConfigParser()
+config.read('./files_sps/config_sps.ini', encoding='utf-8')
 
-AZ_CLI_PATH = "C:\\Program Files (x86)\\Microsoft SDKs\\Azure\\CLI2\\wbin\\az.cmd" # 서버 CLI 위치로 설정
+# 값 가져오기
+subscription_id = config.get('Config', 'SUBSCRIPTION_ID')
+az_cli_path = config.get('Config', 'AZ_CLI_PATH')
+region_vm_sku_source = config.get('Config', 'REGION_VM_SKU_SOURCE_FILENAME')
+region_vm_sku_processed = config.get('Config', 'REGION_VM_SKU_PROCESSED_FILENAME')
+invalid_regions = config.get('Config', 'INVALID_REGIONS_FILENAME')
+results_for_recommendation = config.get('Config', 'RESULTS_FOR_RECOMMENDATION_FILENAME')
 
 
 def execute_az_cli_spot_placement_recommendation(region_chunk, sku_chunk, availability_zones, desired_count, invalid_locations, max_retries_for_timeout=3):
@@ -31,10 +36,10 @@ def execute_az_cli_spot_placement_recommendation(region_chunk, sku_chunk, availa
     }
 
     command = [
-        AZ_CLI_PATH, "rest",
+        az_cli_path, "rest",
         "--method", "post",
         "--uri",
-        f"https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/providers/Microsoft.Compute/locations/koreasouth/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview",
+        f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/koreasouth/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview",
         "--headers", "Content-Type=application/json",
         "--body", json.dumps(request_body)
     ]
@@ -90,7 +95,7 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
     else:
         try:
             # INVALID_REGIONS_FILENAME 파일을 열어 유효하지 않은 지역 데이터를 불러옵니다.
-            with open(INVALID_REGIONS_FILENAME, "r") as json_file:
+            with open(invalid_regions, "r") as json_file:
                 invalid_regions_data = json.load(json_file)
                 existing_invalid_locations = set(invalid_regions_data.get("invalid_locations", []))
         except FileNotFoundError:
@@ -166,10 +171,10 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
         print(json.dumps(merged_result, indent=3))
 
         # 결과를 JSON 파일로 저장합니다.
-        with open(RESULTS_FOR_RECOMMENDATION_FILENAME, "w") as json_file:
+        with open(results_for_recommendation, "w") as json_file:
             json.dump(merged_result, json_file, indent=3)
 
-        print(f"병합된 결과가 {RESULTS_FOR_RECOMMENDATION_FILENAME} 파일에 저장되었습니다.")
+        print(f"병합된 결과가 {results_for_recommendation} 파일에 저장되었습니다.")
         return True
 
     else:
@@ -188,7 +193,7 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
 
         # 기존 파일 내용을 불러옵니다.
         try:
-            with open(INVALID_REGIONS_FILENAME, "r") as json_file:
+            with open(invalid_regions, "r") as json_file:
                 existing_data = json.load(json_file)
         except (FileNotFoundError, json.JSONDecodeError):
             # 파일이 없거나 JSON 형식이 올바르지 않을 경우 기존 데이터를 None으로 설정합니다.
@@ -197,9 +202,9 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
         # 새 데이터와 기존 데이터의 차이를 비교합니다.
         if existing_data != new_data:
             # 데이터가 다를 경우, 새로운 데이터를 덮어씁니다.
-            with open(INVALID_REGIONS_FILENAME, "w") as json_file:
+            with open(invalid_regions, "w") as json_file:
                 json.dump(new_data, json_file, indent=3)
-            print(f"유효하지 않은 지역이 업데이트되었습니다: {INVALID_REGIONS_FILENAME}, 개수: {len(new_invalid_locations)}")
+            print(f"유효하지 않은 지역이 업데이트되었습니다: {invalid_regions}, 개수: {len(new_invalid_locations)}")
         else:
             print("기존 데이터와 동일하여 업데이트를 건너뜁니다.")
     return True
@@ -207,157 +212,6 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
 
 
 
-def save_and_extract_regions_and_skus():
-    '''
-    REGION_VM_SKU_SOURCE 파일에서 리전과 SKU를 추출하고, 고유한 리전과 SKU를 중복제거하고 양식 정리하여 신규 파일에 저장합니다.
-    :return: True / False
-    '''
-    if not os.path.exists(REGION_VM_SKU_SOURCE_FILENAME):
-        print(f"File {REGION_VM_SKU_SOURCE_FILENAME} does not exist.")
-        return False
-
-    try:
-        with open(REGION_VM_SKU_SOURCE_FILENAME, "r") as f:
-            data = json.load(f)
-
-        regions = list(data.keys())
-        vm_skus = set()  # set을 사용해 자동으로 중복 제거
-
-        # 각 리전의 SKU 목록을 순회하면서 병합하고 중복 제거
-        for region, sku_list in data.items():
-            vm_skus.update(sku_list)
-
-        # 결과 구성
-        output_data = {
-            "regions": regions,
-            "skus": list(vm_skus)  # 리스트 형식으로 변환
-        }
-
-        # 결과를 파일에 저장, 기존 파일을 덮어씀
-        with open(REGION_VM_SKU_PROCESSED_FILENAME, "w") as f:
-            json.dump(output_data, f, indent=3)
-
-        print(f"Extracted regions and SKUs saved to {REGION_VM_SKU_PROCESSED_FILENAME}")
-        return True
-
-    except Exception as e:
-        print(f"Failed to save_and_extract_regions_and_skus, Error: " + e)
-        return False
-
-def get_azure_regions():
-    '''
-    리전 정보를 가져옵니다
-    :return: result_regions / None
-    '''
-    command = [AZ_CLI_PATH, "account", "list-locations", "--query", "[].{RegionName:name}", "--output", "json"]
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-    regions = json.loads(result.stdout)
-
-    if len(regions) > 0:
-        result_regions = [region["RegionName"] for region in regions]
-        return result_regions
-    else:
-        return None
-
-
-def get_vm_skus_for_region(region):
-    '''
-    지정된 리전에서 VM SKU 정보를 가져옵니다.
-    :param region: 단일 리전
-    :return: valid_skus
-    '''
-    uri = f"https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/providers/Microsoft.Compute/skus?api-version=2024-06-01-preview&$filter=location eq '{region}'"
-    command = [
-        AZ_CLI_PATH, "rest",
-        "--method", "get",
-        "--uri", uri,
-        "--query", "value[].{sku: name, location: locations[0], capabilities: capabilities}",
-        "--output", "json"
-    ]
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-    all_skus = json.loads(result.stdout)
-    valid_skus = filter_valid_vm_skus(all_skus)
-    return valid_skus
-
-
-def filter_valid_vm_skus(vm_skus):
-    '''
-    유효한 VM SKU만 필터링하고, VM이 아닌 SKU 항목을 제거함
-    :param vm_skus
-    :return: valid_vm_skus / None
-    '''
-    valid_vm_skus = []
-    excluded_vm_skus = {"Standard_LRS", "Standard_ZRS"}
-    try:
-        for sku in vm_skus:
-            # "Standard_" 또는 "Basic_"으로 시작하는 SKU만 유지
-            if (sku['sku'].startswith('Standard_') or sku['sku'].startswith('Basic_')) and sku['sku'] not in excluded_vm_skus:
-                valid_vm_skus.append(sku)
-        return valid_vm_skus
-
-    except Exception as e:
-        print(f"Failed to filter_valid_vm_skus, Error: " + e)
-        return None
-
-
-def save_all_vm_skus(max_workers=5):
-    '''
-    모든 리전을 순회하며 각 리전의 VM SKU 정보를 가져옵니다.
-    다중 스레드를 사용해 데이터를 병렬로 가져오고 파일에 저장합니다.
-    :param max_workers: 별령 시행 수치
-    :return: True / False
-    '''
-    # 데이터를 업데이트하고 파일에 저장
-    regions = get_azure_regions()
-    all_skus = {}
-
-    # 각 리전을 처리하는 함수를 정의
-    def fetch_skus_for_region(region):
-        print(f"Fetching VM SKUs for region: {region}")
-        vm_skus = get_vm_skus_for_region(region)
-        return region, [sku_info['sku'] for sku_info in vm_skus]
-
-    try:
-        # 스레드 풀을 사용해 SKU 정보를 병렬로 가져옴
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(fetch_skus_for_region, region) for region in regions]
-
-            for future in concurrent.futures.as_completed(futures):
-                region, vm_skus = future.result()
-                all_skus[region] = vm_skus
-
-        # 로컬 파일에 저장, 리전과 VM SKU 정보만 포함
-        with open(REGION_VM_SKU_SOURCE_FILENAME, "w") as f:
-            json.dump(all_skus, f, indent=3)
-
-        print(f"VM SKUs saved to {REGION_VM_SKU_SOURCE_FILENAME}")
-        return True
-
-    except Exception as e:
-        print(f"Failed to save_all_vm_skus, Error: " + e)
-        return False
-
-def get_regions_and_skus():
-    '''
-    파일에 있는 regions / skus 정보를 가겨옵니다
-    :return: region, vm_skus / None
-    '''
-
-    # 처리된 파일이 있는지 다시 확인
-    if not os.path.exists(REGION_VM_SKU_PROCESSED_FILENAME):
-        print(f"Error: {REGION_VM_SKU_PROCESSED_FILENAME} still not found after extraction. Exiting.")
-        return None
-
-    try:
-        # 처리된 파일에서 리전과 SKU 읽기
-        with open(REGION_VM_SKU_PROCESSED_FILENAME, "r") as f:
-            spot_data = json.load(f)
-            region = spot_data['regions']
-            vm_skus = spot_data['skus']
-
-        return region, vm_skus
-    except Exception as e:
-        print(f"Failed to get_regions_and_skus, Error: " + e)
 
 if __name__ == "__main__":
     # 실행 시작 시간
@@ -384,10 +238,10 @@ if __name__ == "__main__":
 
 
     if update_skus_region:
-        save_all_vm_skus(max_workers)     # 모든 리전의 VM SKU 정보를 가져오고 REGION_VM_SKU_SOURCE 파일에 저장
-        save_and_extract_regions_and_skus()     # REGION_VM_SKU_SOURCE의 리전과 SKU 데이터를 중복제거와 정리합니다.
+        get_regions_skus_sps.save_all_vm_skus(max_workers)     # 모든 리전의 VM SKU 정보를 가져오고 REGION_VM_SKU_SOURCE 파일에 저장
+        get_regions_skus_sps.save_and_extract_regions_and_skus()     # REGION_VM_SKU_SOURCE의 리전과 SKU 데이터를 중복제거와 정리합니다.
 
-    regions, vm_skus = get_regions_and_skus()
+    regions, vm_skus = get_regions_skus_sps.get_regions_and_skus()
 
     if update_invalid_locations:
         save_spot_placement_recommendation(update_invalid_locations, regions, regions_cut, vm_skus, vm_skus_cut,

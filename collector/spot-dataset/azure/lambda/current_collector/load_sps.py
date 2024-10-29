@@ -11,13 +11,34 @@ import get_regions_skus_sps
 config = configparser.ConfigParser()
 config.read('./files_sps/config_sps.ini', encoding='utf-8')
 
+# True 시 API에서 데이터를 가져오거 저장합니다.
+update_skus_region = True
+
+# update_invalid_locations이 True일대 regions를 1개로 cut하고, vm_skus을 고정 1개로 설정하여 invalid_locations를 얻어오는 스위치입니다.
+# 한 번  실행후 정상적으로 8 리전 5 vm_skus으로 정보를 가져옵니다.
+update_invalid_locations = True
+
+availability_zones = False
+regions_cut = 8
+vm_skus_cut = 5
+desired_count = 1000
+max_workers = 6
+
 
 subscription_id = config.get('Config', 'SUBSCRIPTION_ID')
 az_cli_path = config.get('Config', 'AZ_CLI_PATH')
-region_vm_sku_source = config.get('Config', 'REGION_VM_SKU_SOURCE_FILENAME')
-region_vm_sku_processed = config.get('Config', 'REGION_VM_SKU_PROCESSED_FILENAME')
-invalid_regions = config.get('Config', 'INVALID_REGIONS_FILENAME')
-results_for_recommendation = config.get('Config', 'RESULTS_FOR_RECOMMENDATION_FILENAME')
+
+if availability_zones:
+    region_vm_sku_source = config.get('Availability_zones_True', 'REGION_VM_SKU_SOURCE_FILENAME')
+    region_vm_sku_processed = config.get('Availability_zones_True', 'REGION_VM_SKU_PROCESSED_FILENAME')
+    invalid_regions = config.get('Availability_zones_True', 'INVALID_REGIONS_FILENAME')
+    results_for_recommendation = config.get('Availability_zones_True', 'RESULTS_FOR_RECOMMENDATION_FILENAME')
+else:
+    region_vm_sku_source = config.get('Availability_zones_False', 'REGION_VM_SKU_SOURCE_FILENAME')
+    region_vm_sku_processed = config.get('Availability_zones_False', 'REGION_VM_SKU_PROCESSED_FILENAME')
+    invalid_regions = config.get('Availability_zones_False', 'INVALID_REGIONS_FILENAME')
+    results_for_recommendation = config.get('Availability_zones_False', 'RESULTS_FOR_RECOMMENDATION_FILENAME')
+
 
 
 def execute_az_cli_spot_placement_recommendation(region_chunk, sku_chunk, availability_zones, desired_count, invalid_locations, max_retries_for_timeout=3):
@@ -224,18 +245,7 @@ if __name__ == "__main__":
     start_time = time.time()
     print(f"프로그램 시작: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # True 시 API에서 데이터를 가져오거 저장합니다.
-    update_skus_region = False
 
-    # update_invalid_locations이 True일대 regions를 1개로 cut하고, vm_skus을 고정 1개로 설정하여 invalid_locations를 얻어오는 스위치입니다.
-    # 한 번  실행후 정상적으로 8 리전 5 vm_skus으로 정보를 가져옵니다.
-    update_invalid_locations = False
-
-    availability_zones = True
-    regions_cut = 8
-    vm_skus_cut = 5
-    desired_count = 1000
-    max_workers = 6
 
     print(f"skus_region 갱신모드: " + str(update_invalid_locations))
     print(f"invalid_locations 갱신모드: " + str(update_invalid_locations))

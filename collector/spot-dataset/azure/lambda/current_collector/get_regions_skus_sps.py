@@ -1,20 +1,18 @@
 import concurrent
-import configparser
 import json
 import os
 import subprocess
+import importlib
 
-config = configparser.ConfigParser()
-config.read('./files_sps/config_sps.ini', encoding='utf-8')
-
+load_sps = importlib.import_module("load_sps")
 
 # 값 가져오기
-subscription_id = config.get('Config', 'SUBSCRIPTION_ID')
-az_cli_path = config.get('Config', 'AZ_CLI_PATH')
-region_vm_sku_source = config.get('Config', 'REGION_VM_SKU_SOURCE_FILENAME')
-region_vm_sku_processed = config.get('Config', 'REGION_VM_SKU_PROCESSED_FILENAME')
-invalid_regions = config.get('Config', 'INVALID_REGIONS_FILENAME')
-results_for_recommendation = config.get('Config', 'RESULTS_FOR_RECOMMENDATION_FILENAME')
+subscription_id = load_sps.subscription_id
+az_cli_path = load_sps.az_cli_path
+region_vm_sku_source = load_sps.region_vm_sku_source
+region_vm_sku_processed = load_sps.region_vm_sku_processed
+invalid_regions = load_sps.invalid_regions
+results_for_recommendation = load_sps.results_for_recommendation
 
 def get_regions_and_skus():
     '''
@@ -81,6 +79,7 @@ def get_azure_regions():
     :return: result_regions / None
     '''
     command = [az_cli_path, "account", "list-locations", "--query", "[].{RegionName:name}", "--output", "json"]
+    print(az_cli_path)
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
     regions = json.loads(result.stdout)
 

@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import importlib
+from datetime import datetime
 
 load_sps = importlib.import_module("load_sps")
 
@@ -11,8 +12,6 @@ subscription_id = load_sps.subscription_id
 az_cli_path = load_sps.az_cli_path
 region_vm_sku_source = load_sps.region_vm_sku_source
 region_vm_sku_processed = load_sps.region_vm_sku_processed
-invalid_regions = load_sps.invalid_regions
-results_for_recommendation = load_sps.results_for_recommendation
 
 def get_regions_and_skus():
     '''
@@ -55,11 +54,14 @@ def save_and_extract_regions_and_skus():
         # 각 리전의 SKU 목록을 순회하면서 병합하고 중복 제거
         for region, sku_list in data.items():
             vm_skus.update(sku_list)
-
+        skus = list(vm_skus)
         # 결과 구성
         output_data = {
+            "update_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 업데이트 날짜
+            "regions_count": len(regions),  # 지역 개수
+            "skus_count": len(skus),  # skus 개수
             "regions": regions,
-            "skus": list(vm_skus)  # 리스트 형식으로 변환
+            "skus": skus
         }
 
         # 결과를 파일에 저장, 기존 파일을 덮어씀

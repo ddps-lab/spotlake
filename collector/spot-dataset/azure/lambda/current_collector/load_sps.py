@@ -21,10 +21,10 @@ update_invalid_locations = True
 availability_zones = False
 regions_cut = 8
 vm_skus_cut = 5
-desired_count = 1000
+desired_counts = [1, 2, 5, 30, 100, 1000]
 max_workers = 6
 
-
+current_time = datetime.now().strftime("%y%m%d_%H%M")
 subscription_id = config.get('Config', 'SUBSCRIPTION_ID')
 az_cli_path = config.get('Config', 'AZ_CLI_PATH')
 
@@ -32,16 +32,17 @@ if availability_zones:
     region_vm_sku_source = config.get('Availability_zones_True', 'REGION_VM_SKU_SOURCE_FILENAME')
     region_vm_sku_processed = config.get('Availability_zones_True', 'REGION_VM_SKU_PROCESSED_FILENAME')
     invalid_regions = config.get('Availability_zones_True', 'INVALID_REGIONS_FILENAME')
-    results_for_recommendation = config.get('Availability_zones_True', 'RESULTS_FOR_RECOMMENDATION_FILENAME')
+    results_for_recommendation = config.get('Availability_zones_True', 'RESULTS_FOR_RECOMMENDATION_PATH')
+
 else:
     region_vm_sku_source = config.get('Availability_zones_False', 'REGION_VM_SKU_SOURCE_FILENAME')
     region_vm_sku_processed = config.get('Availability_zones_False', 'REGION_VM_SKU_PROCESSED_FILENAME')
     invalid_regions = config.get('Availability_zones_False', 'INVALID_REGIONS_FILENAME')
-    results_for_recommendation = config.get('Availability_zones_False', 'RESULTS_FOR_RECOMMENDATION_FILENAME')
+    results_for_recommendation = config.get('Availability_zones_False', 'RESULTS_FOR_RECOMMENDATION_PATH')
+results_for_recommendation = f"{results_for_recommendation}recommendation_results_{current_time}.json"
 
 
-
-def execute_az_cli_spot_placement_recommendation(region_chunk, sku_chunk, availability_zones, desired_count, invalid_locations, max_retries_for_timeout=3):
+def execute_az_cli_spot_placement_recommendation(region_chunk, sku_chunk, availability_zones, desired_count, invalid_locations, max_retries_for_timeout=4):
     '''
     az rest 실행
     :param region_chunk: 8개 제한이 있어, cut를한 region 정보
@@ -98,7 +99,7 @@ def execute_az_cli_spot_placement_recommendation(region_chunk, sku_chunk, availa
     return None
 
 
-def save_spot_placement_recommendation(update_invalid_locations, regions, regions_cut, vm_skus, vm_skus_cut, availability_zones, desired_count, max_workers=5):
+def save_spot_placement_recommendation(update_invalid_locations, regions, regions_cut, vm_skus, vm_skus_cut, availability_zones, desired_counts, max_workers=5):
     '''
     Spot Placement Recommender 추천을 가져옵니다.
     :param update_invalid_locations: True일대 regions를 1개로 cut하고, vm_skus을 고정 1개로 설정하여 invalid_locations를 얻어오는 스위치입니다.
@@ -110,9 +111,10 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
     :return: True / False
     '''
     if update_invalid_locations:
-        # update_invalid_locations가 True일 때, region과 SKU를 1개씩만 처리합니다.
+        # update_invalid_locations가 True일 때, region과 SKU,desired_counts를 1개씩만 처리합니다.
         regions_chunks = [regions[i:i + 1] for i in range(0, len(regions), 1)]
         sku_chunks = [['Standard_A1_v2']]
+        desired_counts = [1]
     else:
         try:
             # INVALID_REGIONS_FILENAME 파일을 열어 유효하지 않은 지역 데이터를 불러옵니다.
@@ -139,7 +141,6 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
 
     merged_result = {
         "availabilityZones": availability_zones,
-        "desiredCount": desired_count,
         "desiredLocations": set(),  # 중복 방지를 위해 set 사용
         "desiredSizes": set(),  # 중복 방지를 위해 set 사용
         "placementScores": []
@@ -149,14 +150,15 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
         futures = []
         for region_chunk in regions_chunks:
             for sku_chunk in sku_chunks:
-                future = executor.submit(
-                    execute_az_cli_spot_placement_recommendation,
-                    region_chunk, sku_chunk, availability_zones, desired_count, invalid_locations, 3
-                )
-                futures.append(future)
+                for desired_count in desired_counts:
+                    future = executor.submit(
+                        execute_az_cli_spot_placement_recommendation,
+                        region_chunk, sku_chunk, availability_zones, desired_count, invalid_locations, max_retries_for_timeout=4
+                    )
+                    futures.append((future, desired_count))  # 将 desired_count 与 future 一起保存
 
         # 모든 작업 결과를 수집하고 처리합니다.
-        for future in concurrent.futures.as_completed(futures):
+        for future, desired_count in futures:
             try:
                 result = future.result()
                 if result:
@@ -169,6 +171,7 @@ def save_spot_placement_recommendation(update_invalid_locations, regions, region
                     for score in result["placementScores"]:
                         if "isQuotaAvailable" in score:
                             del score["isQuotaAvailable"]
+                        score["desired_count"] = desired_count  # desired_count 추가
 
                     merged_result["placementScores"].extend(result["placementScores"])
                 else:
@@ -261,12 +264,12 @@ if __name__ == "__main__":
 
     if update_invalid_locations:
         save_spot_placement_recommendation(update_invalid_locations, regions, regions_cut, vm_skus, vm_skus_cut,
-                                           availability_zones, desired_count, max_workers)
+                                           availability_zones, desired_counts, max_workers)
         save_spot_placement_recommendation(False, regions, regions_cut, vm_skus, vm_skus_cut, availability_zones,
-                                           desired_count, max_workers)
+                                           desired_counts, max_workers)
     else:
         save_spot_placement_recommendation(False, regions, regions_cut, vm_skus, vm_skus_cut, availability_zones,
-                                           desired_count, max_workers)
+                                           desired_counts, max_workers)
 
     # 실행 종료 시간 및 총 소요 시간 계산
     end_time = time.time()

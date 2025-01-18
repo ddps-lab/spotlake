@@ -89,16 +89,18 @@ def workload_bin_packing(query, capacity, algorithm):
 
 
 def get_binpacked_workload(filedate):
+    s3_client = boto3.client('s3')
+    s3_resource = boto3.resource('s3')
     # reverse order of credential data
     user_cred = None
     try:
         user_cred = pickle.load(open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", "rb"))
     except:
-        user_cred = pickle.load(s3.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl').get()['Body'])
+        user_cred = pickle.load(s3_resource.Object(STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl').get()['Body'])
     user_cred = user_cred[::-1]
     pickle.dump(user_cred, open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", "wb"))
     with open(f"{AWS_CONST.LOCAL_PATH}/user_cred_df.pkl", 'rb') as f:
-        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl')
+        s3_client.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f'{AWS_CONST.S3_LOCAL_FILES_SAVE_PATH}/user_cred_df.pkl')
 
     DIRLIST = os.listdir(f"{AWS_CONST.LOCAL_PATH}/")
     if f"{filedate}_binpacked_workloads.pkl" in DIRLIST:
@@ -108,8 +110,6 @@ def get_binpacked_workload(filedate):
         for filename in DIRLIST:
             if "binpacked_workloads.pkl" in filename:
                 os.remove(f"{AWS_CONST.LOCAL_PATH}/{filename}")
-    
-    s3_resource = boto3.resource('s3')
 
     workloads = num_az_by_region()
     today = "/".join(filedate.split("-"))
@@ -139,7 +139,6 @@ def get_binpacked_workload(filedate):
         user_queries = []    
 
     # need to change file location
-    s3_client = boto3.client('s3')
     pickle.dump(user_queries_list, open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", 'wb'))
     gzip.open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "wb").writelines(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl", "rb"))
     s3_client.upload_fileobj(open(f"{AWS_CONST.LOCAL_PATH}/{filedate}_binpacked_workloads.pkl.gz", "rb"), STORAGE_CONST.BUCKET_NAME, f"rawdata/aws/workloads/{today}/binpacked_workloads.pkl.gz")

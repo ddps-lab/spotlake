@@ -111,7 +111,7 @@ def update_latest(data, timestamp):
 # Save raw data in S3
 def save_raw(data, timestamp):
     data['Time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    data = data[['Time','InstanceTier','InstanceType','OndemandPrice','SpotPrice', 'IF', 'Savings']]
+    data = data[['Time','InstanceTier','InstanceType', 'Region', 'OndemandPrice','SpotPrice', 'IF', 'Savings']]
 
     data.to_csv(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", index=False, compression="gzip")
 
@@ -139,3 +139,22 @@ def query_selector(data):
     s3 = session.resource('s3')
     object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH)
     response = object_acl.put(ACL='public-read')
+
+
+def upload_cloudwatch(data, timestamp):
+    ondemand_count = len(data.drop(columns=['IF', 'SpotPrice', 'Savings']).dropna())
+    spot_count = len(data.drop(columns=['IF', 'OndemandPrice', 'Savings']).dropna())
+    if_count = len(data.drop(columns=['OndemandPrice', 'SpotPrice', 'Savings']).dropna())
+
+    cw_client = boto3.client('logs')
+
+    log_event = {
+        'timestamp': int(timestamp.timestamp()) * 1000,
+        'message': f'AZUREONDEMAND: {ondemand_count} AZURESPOT: {spot_count} AZUREIF: {if_count}'
+    }
+
+    cw_client.put_log_events(
+        logGroupName=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
+        logStreamName=AZURE_CONST.LOG_STREAM_NAME,
+        logEvents=[log_event]
+    )

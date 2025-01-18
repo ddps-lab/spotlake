@@ -1,3 +1,4 @@
+import os
 import time
 import boto3
 import requests
@@ -17,7 +18,7 @@ STORAGE_CONST = Storage()
 GCP_CONST = GcpCollector()
 
 # 서비스 계정 JSON 파일 경로
-SERVICE_ACCOUNT_FILE = './gcp-hw-feature-collector-a926be14be59.json'
+SERVICE_ACCOUNT_FILE = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 
 # 호출할 URL
 urls = {
@@ -483,7 +484,7 @@ def lambda_handler(event, context):
         df_final.columns = ['Time', 'InstanceType', 'Region', 'OnDemand Price', 'Spot Price', 'Savings']
 
         # CloudWatch에 데이터 업로드
-        # upload_cloudwatch(df_final, timestamp)
+        upload_cloudwatch(df_final, timestamp)
 
         # S3에 최신 데이터 업데이트
         update_latest(df_final, timestamp)

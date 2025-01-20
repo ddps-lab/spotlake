@@ -17,10 +17,10 @@ import botocore
 STORAGE_CONST = Storage()
 GCP_CONST = GcpCollector()
 
-# 서비스 계정 JSON 파일 경로
+# Path to the service account JSON file
 SERVICE_ACCOUNT_FILE = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 
-# 호출할 URL
+# URLs to call
 urls = {
     'v2beta/skus': {
         'BASE_URL': 'https://cloudbilling.googleapis.com/v2beta/skus',
@@ -29,10 +29,6 @@ urls = {
     'v1beta/skus': {
         'BASE_URL': 'https://cloudbilling.googleapis.com/v1beta/skus',
         'QUERY_STRING': '/prices?pageSize=5000&currencyCode=USD',
-    },
-    'v1/services': {
-        'BASE_URL': 'https://cloudbilling.googleapis.com/v1/services/6F81-5844-456A/skus',
-        'QUERY_STRING': '?pageSize=5000',
     },
 }
 
@@ -44,7 +40,7 @@ def get_url(version, sku_id=None):
     else:
         return None
 
-# 인증 토큰 가져오기
+# Get authentication token
 def get_access_token():
     try:
         credentials = service_account.Credentials.from_service_account_file(
@@ -57,6 +53,8 @@ def get_access_token():
         send_slack_message(f"[GCP Collector]\nError in get_access_token: {str(e)}")
         raise
 
+# str1: GPU model name string (e.g. nvidia-h100-mega-80gb)
+# str2: List of GPU model names to compare similarity with (e.g. ['A100', 'H100', 'L4'])
 def jaccard_similarity(str1, str2):
     max_similarity = 0
     max_str = str1
@@ -89,18 +87,17 @@ def call_api(version=None, sku_id=None, page_token=None):
         if response.status_code == 200:
             return response.json()
         else:
-            error_msg = f"API 호출 실패: {response.status_code}, {response.text}"
+            error_msg = f"API call failed: {response.status_code}, {response.text}"
             error_msg = f"[GCP Collector]\n{error_msg}"
-            print(error_msg)
             send_slack_message(error_msg)
+            raise Exception(error_msg)
     except requests.exceptions.RequestException as e:
-        error_msg = f"네트워크 오류: {e}"
+        error_msg = f"Network error: {e}"
         error_msg = f"[GCP Collector]\n{error_msg}"
         send_slack_message(error_msg)
-        print(error_msg)
-    return None  # 실패 시 None 반환
+        raise
 
-# SKU 정보 가져오기
+# Get SKU information
 def get_sku_infos(response):
     try:
         skus = response['skus']
@@ -220,7 +217,8 @@ def get_sku_infos(response):
                     continue
         return sku_infos, gpu_sku_infos
     except KeyError as e:
-        send_slack_message(f"[GCP Collector]\nKeyError in get_sku_infos: {str(e)}")
+        error_msg = f"[GCP Collector]\nKeyError in get_sku_infos: {str(e)}\nSKU data structure: {json.dumps(response, indent=2)}"
+        send_slack_message(error_msg)
         raise
 
 def get_price_infos(response, sku_ids, gpu_sku_ids):
@@ -268,24 +266,24 @@ def get_price_infos(response, sku_ids, gpu_sku_ids):
 
 def list_regions_and_machine_types(gpu_families):
     try:
-        # Compute Engine API 클라이언트 생성 (JSON 키 파일 사용)
+        # Create Compute Engine API client (using JSON key file)
         client = compute_v1.RegionsClient.from_service_account_file(SERVICE_ACCOUNT_FILE)
         machine_types_client = compute_v1.MachineTypesClient.from_service_account_file(SERVICE_ACCOUNT_FILE)
         
-        # 프로젝트 ID 가져오기 (JSON 파일에서 읽음)
+        # Get project ID (read from JSON file)
         with open(SERVICE_ACCOUNT_FILE, 'r') as f:
             import json
             project_id = json.load(f)['project_id']
         
-        # 모든 리전 가져오기
+        # Get all regions
         regions = client.list(project=project_id)
         
-        # 결과 저장
+        # Save results
         region_machine_types = []
 
         finded_region_machine_types = set()
 
-        # 각 리전의 머신 타입 가져오기
+        # Get machine types for each region
         for region in regions:
             zone_list = list_zones_in_region(region.name, project_id)
             
@@ -300,18 +298,14 @@ def list_regions_and_machine_types(gpu_families):
                     if "accelerators" in machine_type:
                         gpu_count = machine_type.accelerators[0].guest_accelerator_count
                         gpu_type = jaccard_similarity(machine_type.accelerators[0].guest_accelerator_type, gpu_families)
-                    # lssd_size = 0
-                    # if "local SSD" in machine_type.description:
-                    #     lssd_size = int(machine_type.description.split(" local SSD")[0].split(" ")[-1]) * 375
                     region_machine_types.append({
                         "machineFamily": machine_type.name.split('-')[0].upper(),
                         "machineType": machine_type.name,
                         "region": region.name,
                         "vcpus": machine_type.guest_cpus,
-                        "memory": machine_type.memory_mb / 1024,  # MB를 GB로 변환
+                        "memory": machine_type.memory_mb / 1024,  # Convert MB to GB
                         "gpuCount": gpu_count,
                         "gpuType": gpu_type,
-                        # "lssd": lssd_size
                     })
         
         return region_machine_types
@@ -322,7 +316,7 @@ def list_regions_and_machine_types(gpu_families):
 def list_zones_in_region(region_name, project_id):
     try:
         """
-        주어진 리전에서 사용 가능한 모든 존 가져오기
+        Get all available zones in the given region
         """
         zones_client = compute_v1.ZonesClient.from_service_account_file(SERVICE_ACCOUNT_FILE)
         zones = zones_client.list(project=project_id)
@@ -335,19 +329,19 @@ def list_zones_in_region(region_name, project_id):
         send_slack_message(f"[GCP Collector]\nError in list_zones_in_region: {str(e)}")
         raise
 
-# 가격 계산 함수 정의
+# Define price calculation function
 def calculate_price(row, cores_key, memory_key, gpu_key):
     cores_price = row[cores_key]
     memory_price = row[memory_key]
     gpu_price = row[gpu_key]
-    if pd.isna(cores_price) and pd.isna(memory_price) and pd.isna(gpu_price):
-        return None  # 두 가격 정보가 모두 없는 경우 제거 대상
+    if pd.isna(cores_price) and pd.isna(memory_price):
+        return None  # Remove if both price information is missing
     if pd.isna(cores_price):
-        return None  # 코어 가격만 없는 경우 제거 대상
+        return None  # Remove if only core price is missing
     if pd.isna(memory_price):
-        memory_price = 0  # 메모리 가격만 없는 경우 0으로 처리
+        memory_price = 0  # Treat as 0 if only memory price is missing
     if pd.isna(gpu_price):
-        gpu_price = 0  # GPU 가격만 없는 경우 0으로 처리
+        gpu_price = 0  # Treat as 0 if only GPU price is missing
     return max(row["vcpus"], 1) * cores_price + row["memory"] * memory_price + row["gpuCount"] * gpu_price
 
 def upload_cloudwatch(df_current, timestamp):
@@ -413,7 +407,7 @@ def lambda_handler(event, context):
         machine_types_df = pd.DataFrame(machine_types_infos).sort_values(by=["machineFamily", "machineType", "region", "vcpus", "memory"], ascending=True).reset_index(drop=True)
         machine_types_df['machineModel'] = 'Standard'
 
-        # 데이터프레임 변환 코드
+        # DataFrame transformation code
         reshaped_df = (
             total_df.pivot_table(
                 index=["machineFamily", "machineModel", "region"],
@@ -424,14 +418,14 @@ def lambda_handler(event, context):
             .reset_index()
         )
 
-        # 열 이름 변경
+        # Rename columns
         reshaped_df.columns = [
             "machineFamily", "machineModel", "region",
             "ondemandCorePrice", "ondemandMemoryPrice",
             "preemptibleCorePrice", "preemptibleMemoryPrice"
         ]
 
-        # 데이터프레임 변환 코드
+        # DataFrame transformation code
         gpu_reshaped_df = (
             gpu_df.pivot_table(
                 index=["gpuType", "region"],
@@ -442,57 +436,57 @@ def lambda_handler(event, context):
             .reset_index()
         )
 
-        # 열 이름 변경
+        # Rename columns
         gpu_reshaped_df.columns = [
             "gpuType", "region",
             "ondemandCorePrice", "ondemandGPUPrice", "ondemandMemoryPrice",
             "preemptibleCorePrice", "preemptibleGPUPrice", "preemptibleMemoryPrice"
         ]
 
-        # 1번과 2번 데이터프레임 merge (machineFamily, machineModel, region 기준)
+        # Merge DataFrame 1 and 2 (based on machineFamily, machineModel, region)
         df_4 = pd.merge(
             machine_types_df, reshaped_df,
             on=["machineFamily", "machineModel", "region"],
             how="left"
         )
 
-        # 4번과 3번 데이터프레임 merge (gpuType, region 기준)
-        # 기존의 ondemandCorePrice, ondemandMemoryPrice, preemptibleCorePrice, preemptibleMemoryPrice 값이 NaN인 경우에만 업데이트
+        # Merge DataFrame 4 and 3 (based on gpuType, region)
+        # Update only if existing ondemandCorePrice, ondemandMemoryPrice, preemptibleCorePrice, preemptibleMemoryPrice values are NaN
         df_final = pd.merge(
             df_4, gpu_reshaped_df,
             on=["gpuType", "region"],
             how="left",
-            suffixes=('', '_new')  # 새로운 값에 접미사 '_new' 추가
+            suffixes=('', '_new')  # Add suffix '_new' to new values
         )
 
-        # 필요한 열 업데이트 (NaN 값이 있을 경우에만 업데이트)
+        # Update necessary columns (only if NaN values exist)
         for col in ["ondemandCorePrice", "ondemandMemoryPrice", "preemptibleCorePrice", "preemptibleMemoryPrice"]:
             df_final[col] = df_final[col].fillna(df_final[f"{col}_new"])
 
-        # '_new' 접미사가 붙은 임시 열 제거
+        # Remove temporary columns with '_new' suffix
         df_final = df_final.drop(columns=[f"{col}_new" for col in ["ondemandCorePrice", "ondemandMemoryPrice", "preemptibleCorePrice", "preemptibleMemoryPrice"]])
 
         df_final['ondemandPrice'] = df_final.apply(lambda row: calculate_price(row, "ondemandCorePrice", "ondemandMemoryPrice", "ondemandGPUPrice"), axis=1)
         df_final['preemptiblePrice'] = df_final.apply(lambda row: calculate_price(row, "preemptibleCorePrice", "preemptibleMemoryPrice", "preemptibleGPUPrice"), axis=1)
 
-        # 최종 데이터프레임 구성
+        # Construct final DataFrame
         df_final['Time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
         df_final['Savings'] = ((df_final['ondemandPrice'] - df_final['preemptiblePrice']) / df_final['ondemandPrice']) * 100
         df_final = df_final[['Time', 'machineType', 'region', 'ondemandPrice', 'preemptiblePrice', 'Savings']]
 
-        # 컬럼 이름을 CSV 형식에 맞게 변경
+        # Change column names to match CSV format
         df_final.columns = ['Time', 'InstanceType', 'Region', 'OnDemand Price', 'Spot Price', 'Savings']
 
-        # CloudWatch에 데이터 업로드
+        # Upload data to CloudWatch
         upload_cloudwatch(df_final, timestamp)
 
-        # S3에 최신 데이터 업데이트
+        # Update latest data in S3
         update_latest(df_final, timestamp)
 
-        # S3에 raw 데이터 저장
+        # Save raw data to S3
         save_raw(df_final, timestamp)
 
-        # 이전 데이터와 비교
+        # Compare with previous data
         s3 = boto3.resource('s3')
         try:
             obj = s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH)
@@ -510,10 +504,10 @@ def lambda_handler(event, context):
 
         changed_df, removed_df = compare(df_previous, df_final, workload_cols, feature_cols)
 
-        # 변경된 데이터 업데이트
+        # Update changed data
         update_query_selector(changed_df)
 
-        # Timestream에 데이터 업로드
+        # Upload data to Timestream
         upload_timestream(changed_df, timestamp)
         upload_timestream(removed_df, timestamp)
 

@@ -116,13 +116,15 @@ function Home() {
           ...progress,
           [curVendor]: { ...progress[curVendor], loading: false },
         });
-        let responData = response.data;
 
+        // 응답 값 검증
         if (response.status !== 200) {
-          throw new Error("Network Error");
+          throw new Error(`Network Error ${response.status}`);
         }
 
-        if (responData && typeof responData === "object") {
+        // responData 대한 검증
+        let responData = response.data;
+        if (responData && Array.isArray(responData)) {
           setLatestData(responData);
         } else {
           throw new Error("Invalid response data");

@@ -1,4 +1,4 @@
-import * as style from "../../pages/demo/styles";
+import * as style from "../../pages/home/styles";
 import { FormControl } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import axios from "axios";

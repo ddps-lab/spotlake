@@ -1,7 +1,7 @@
-import styled from 'styled-components';
+import styled from "styled-components";
 
 export const header = styled.div`
-  background: #3D56B2;
+  background: #3d56b2;
   box-shadow: 1px 1px 3px #777;
   position: absolute;
   top: 0;

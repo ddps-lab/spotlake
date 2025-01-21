@@ -155,62 +155,6 @@ function Home() {
     }
   };
 
-  const showChart = () => {
-    if (selectedData.length === 0) {
-      alert("Please select at least 1 data point");
-    } else if (selectedData.length <= 5) {
-      setGraphLoad(true);
-      selectedData.map(async (d, order) => {
-        const params = {
-          AZ: d["AZ"],
-          Region: d["Region"],
-          InstanceType: d["InstanceType"],
-        };
-        await axios
-          .get(
-            "https://9rby9fcc95.execute-api.us-west-2.amazonaws.com/default/spotrank-calc-avg",
-            { params }
-          )
-          .then((response) => {
-            // console.log(response.data);
-            const list = Object.keys(response.data);
-            setVisualDate(list.length);
-            list.map((da, idx) => {
-              let name = d["InstanceType"] + "/" + d["Region"] + "/" + d["AZ"];
-              let newIF = {
-                name: da,
-                [name]: Number(response.data[da]["IF"].toFixed(4)),
-              };
-              setIFGraph((IFGraph) => [...IFGraph, newIF]);
-              let newSPS = {
-                name: da,
-                [name]: Number(response.data[da]["SPS"].toFixed(4)),
-              };
-              setSPSGraph((SPSGraph) => [...SPSGraph, newSPS]);
-              let newSP = {
-                name: da,
-                [name]: Number(response.data[da]["SpotPrice"].toFixed(4)),
-              };
-              setSPGraph((SPGraph) => [...SPGraph, newSP]);
-            });
-            setGraphData([...graphData, response.data]);
-          })
-          .catch((e) => {
-            console.log(e);
-            setGraphLoad(false);
-          });
-        setChartModal(!chartModal);
-        setGraphLoad(false);
-      });
-    } else {
-      alert(
-        "Only 5 or less data can be visualized.\nCurrently, there are " +
-          selectedData.length +
-          " selected data"
-      );
-    }
-  };
-
   const LinearProgressWithLabel = (props) => {
     return (
       <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -309,22 +253,7 @@ function Home() {
                 : AZUREData
             }
             vendor={vendor}
-            toolBar={
-              <CustomToolbar
-                addTool={
-                  vendor === "AWS" && (
-                    <style.alphaBtn
-                      variant="contained"
-                      onClick={showChart}
-                      vendor={vendor}
-                      loading={graphLoad}
-                    >
-                      Visualize
-                    </style.alphaBtn>
-                  )
-                }
-              />
-            }
+            toolBar={<CustomToolbar />}
             setSelectedData={setSelectedData}
           />
         </style.table>

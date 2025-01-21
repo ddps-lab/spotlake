@@ -10,7 +10,7 @@ import CustomToolbar from "../../components/DataTable/ToolBar";
 import Query from "../../components/QuerySection/Query";
 import { Snackbar, Alert } from "@mui/material";
 
-function Demo() {
+function Home() {
   const [w, setWidth] = useState(window.innerWidth * 0.6);
   const [chartModal, setChartModal] = useState(false);
   const [getData, setGetdata] = useState([]);
@@ -339,4 +339,4 @@ function Demo() {
     </div>
   );
 }
-export default Demo;
+export default Home;

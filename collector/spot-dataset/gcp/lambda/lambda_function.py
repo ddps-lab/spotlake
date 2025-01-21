@@ -82,7 +82,7 @@ def call_api(version=None, sku_id=None, page_token=None):
     headers = {"Authorization": f"Bearer {token}"}
     try:
         response = requests.get(
-            get_url(version, sku_id), headers=headers, params={'pageToken': page_token}, timeout=10
+            get_url(version, sku_id), headers=headers, params={'pageToken': page_token}, timeout=60
         )
         if response.status_code == 200:
             return response.json()

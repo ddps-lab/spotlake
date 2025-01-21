@@ -477,6 +477,9 @@ def lambda_handler(event, context):
         # Change column names to match CSV format
         df_final.columns = ['Time', 'InstanceType', 'Region', 'OnDemand Price', 'Spot Price', 'Savings']
 
+        # Remove rows with NaN values from df_final
+        df_final = df_final.dropna(how='any')
+
         # Upload data to CloudWatch
         upload_cloudwatch(df_final, timestamp)
 
@@ -492,7 +495,7 @@ def lambda_handler(event, context):
             obj = s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH)
             response = obj.get()
             data = json.load(response['Body'])
-            df_previous = pd.DataFrame(data)
+            df_previous = pd.DataFrame(data).dropna(how='any')
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == '404':
                 df_previous = pd.DataFrame()

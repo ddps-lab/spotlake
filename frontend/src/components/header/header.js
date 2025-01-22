@@ -1,12 +1,12 @@
 import React from "react";
 import * as style from "./styles";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 function Header() {
-  const history = useHistory();
+  const navigate = useNavigate();
   const linkTo = ({ target }) => {
     const { value } = target;
-    history.push(value === "home" || value === undefined ? "/" : "/" + value);
+    navigate(value === "home" || value === undefined ? "/" : "/" + value);
   };
   return (
     <style.header>

@@ -29,7 +29,11 @@ def filter_invalid_parameter(regions_and_instance_types_df):
         invalid_region_list = []
         invalid_instance_type_list = []
     except json.JSONDecodeError as e:
-        print(f"Failed to parse JSON: {e}")
+        print(f"filter_invalid_parameter func. Failed to parse JSON: {e}")
+        invalid_region_list = []
+        invalid_instance_type_list = []
+    except Exception as e:
+        print(f"filter_invalid_parameter func. An unexpected error occurred: {e}")
         invalid_region_list = []
         invalid_instance_type_list = []
 

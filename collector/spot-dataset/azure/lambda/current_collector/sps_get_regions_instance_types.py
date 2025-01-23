@@ -110,20 +110,19 @@ def load_invalid_regions():
     """
     try:
         with open(INVALID_REGIONS_PATH_JSON, "r", encoding="utf-8") as json_file:
-            content = json_file.read().strip()  # 去掉首尾空白字符
+            content = json_file.read().strip()
             if not content:
                 return None
 
             parsed_content = json.loads(content)
-            return None if isinstance(parsed_content, dict) and not parsed_content else parsed_content  # 如果是空字典返回 None
+            return None if isinstance(parsed_content, dict) and not parsed_content else parsed_content
 
     except json.JSONDecodeError as e:
-        print(f"JSON decoding error in load_invalid_regions: {e}")
+        print(f"load_invalid_regions func. JSON decoding error: {str(e)}")
     except Exception as e:
-        print(f"Failed to load_invalid_regions, Error: {e}")
+        print(f"load_invalid_regions func. An unexpected error occurred: {e}")
 
     return None
-
 
 def load_invalid_instance_types():
     """
@@ -137,11 +136,12 @@ def load_invalid_instance_types():
                 return None
 
             parsed_content = json.loads(content)
-            return None if isinstance(parsed_content, dict) and not parsed_content else parsed_content  # 如果是空字典返回 None
+            return None if isinstance(parsed_content, dict) and not parsed_content else parsed_content
 
     except json.JSONDecodeError as e:
-        print(f"JSON decoding error in load_invalid_instance_types: {e}")
+        print(f"load_invalid_instance_types func. JSON decoding error: {str(e)}")
+
     except Exception as e:
-        print(f"Failed to load invalid instance types, Error: {e}")
+        print(f"load_invalid_instance_types func. An unexpected error occurred: {e}")
 
     return None

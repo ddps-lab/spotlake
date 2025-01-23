@@ -24,15 +24,15 @@ def load_over_limit_locations():
                 all_over_limit_locations = json.load(file)
 
         except FileNotFoundError:
-            print("Too_many_req_locations file not found; initializing.")
+            print("load_over_limit_locations func. Too_many_req_locations file not found; initializing.")
             all_over_limit_locations = {}
 
         except json.JSONDecodeError as e:
-            print(f"Failed to parse JSON: {e}")
+            print(f"load_over_limit_locations func. Failed to parse JSON: {e}")
             all_over_limit_locations = {}
 
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            print(f"load_over_limit_locations func. An unexpected error occurred: {e}")
             all_over_limit_locations = {}
 
         for account_id, account_data in sps_shared_resources.ACCOUNTS_CONFIG.items():
@@ -77,15 +77,15 @@ def load_call_history_locations():
                 all_subscriptions_history = json.load(file)
 
         except FileNotFoundError:
-            print("History file not found; initializing new history.")
+            print("load_call_history_locations func. file not found; initializing new history.")
             all_subscriptions_history = {}
 
         except json.JSONDecodeError as e:
-            print(f"Failed to parse JSON: {e}. Reinitializing history.")
+            print(f"load_call_history_locations func. Failed to parse JSON: {e}. Reinitializing history.")
             all_subscriptions_history = {}
 
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            print(f"load_call_history_locations func. An unexpected error occurred: {e}")
             all_subscriptions_history = {}
 
         if updated_available_locations:

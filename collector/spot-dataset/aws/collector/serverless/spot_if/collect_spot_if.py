@@ -61,7 +61,7 @@ def main():
             gz.write(buffer.getvalue())
         compressed_buffer.seek(0)
     except Exception as e:
-        send_slack_message(e)
+        send_slack_message(f"Store spot if data to be stored in the cloud in memory\n{e}")
 
     s3 = boto3.client('s3')
     try:

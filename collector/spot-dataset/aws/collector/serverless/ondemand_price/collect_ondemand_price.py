@@ -18,7 +18,7 @@ def main():
     try:
         ondemand_price_df = get_ondemand_price()
     except Exception as e:
-        send_slack_message(e)
+        send_slack_message(f"Error during ondemand price collection\n{e}")
 
     end_time = datetime.now(timezone.utc)
     print(f"Collecting time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
@@ -41,7 +41,7 @@ def main():
     try:
         s3.upload_fileobj(compressed_buffer, os.environ.get('S3_BUCKET'), f"{os.environ.get('PARENT_PATH')}/ondemand_price/{S3_DIR_NAME}/ondemand_price.pkl.gz")
     except Exception as e:
-        send_slack_message(e)
+        send_slack_message(f"Error saving ondemand data in s3\n{e}")
     end_time = datetime.now(timezone.utc)
     print(f"Uploaded time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 

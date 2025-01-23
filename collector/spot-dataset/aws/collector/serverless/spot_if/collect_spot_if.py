@@ -45,7 +45,7 @@ def main():
         frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
         spotinfo_df = spotinfo_df.replace({'IF': frequency_map})
     except Exception as e:
-        send_slack_message(e)
+        send_slack_message(f"Error during spot if collection\n{e}")
     end_time = datetime.now(timezone.utc)
     print(f"Collecting time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
@@ -67,7 +67,7 @@ def main():
     try:
         s3.upload_fileobj(compressed_buffer, os.environ.get('S3_BUCKET'), f"{os.environ.get('PARENT_PATH')}/spot_if/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_spot_if.pkl.gz")
     except Exception as e:
-        send_slack_message(e)
+        send_slack_message(f"Error saving spot if data in s3\n{e}")
     end_time = datetime.now(timezone.utc)
     print(f"Upload time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")    
 

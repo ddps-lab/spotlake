@@ -1,17 +1,17 @@
-import configparser
 import re
 import json
 import subprocess
 import sps_shared_resources
+import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
 updated_available_locations = True
-config = configparser.ConfigParser()
-config.read('./files_sps/config_sps.ini', encoding='utf-8')
-LOCATIONS_CALL_HISTORY_FILENAME = config.get('Config', 'LOCATIONS_CALL_HISTORY_FILENAME')
-LOCATIONS_OVER_LIMIT_FILENAME = config.get('Config', 'LOCATIONS_OVER_LIMIT_FILENAME')
 
-az_cli_path = config.get('Config', 'AZ_CLI_PATH')
+load_dotenv('./files_sps/.env')
+LOCATIONS_CALL_HISTORY_FILENAME = os.getenv('LOCATIONS_CALL_HISTORY_FILENAME')
+LOCATIONS_OVER_LIMIT_FILENAME = os.getenv('LOCATIONS_OVER_LIMIT_FILENAME')
+AZ_CLI_PATH = os.getenv('AZ_CLI_PATH')
 
 def load_over_limit_locations():
     '''
@@ -269,7 +269,7 @@ def get_available_locations():
     }
 
     command = [
-        az_cli_path, "rest",
+        AZ_CLI_PATH, "rest",
         "--method", "post",
         "--uri",
         f"https://management.azure.com/subscriptions/{id_1}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview",

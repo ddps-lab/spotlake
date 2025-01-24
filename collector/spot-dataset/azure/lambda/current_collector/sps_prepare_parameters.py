@@ -1,16 +1,16 @@
 import json
-import configparser
 import numpy as np
 import pandas as pd
+import os
+from dotenv import load_dotenv
 from sklearn.cluster import KMeans
 from collections import defaultdict
 
+load_dotenv('./files_sps/.env')
 
-config = configparser.ConfigParser()
-config.read('./files_sps/config_sps.ini', encoding='utf-8')
+INVALID_REGIONS_PATH_JSON = os.getenv('INVALID_REGIONS_PATH_JSON')
+INVALID_INSTANCE_TYPES_PATH_JSON = os.getenv('INVALID_INSTANCE_TYPES_PATH_JSON')
 
-INVALID_REGIONS_PATH_JSON = config.get('Config', 'INVALID_REGIONS_PATH_JSON')
-INVALID_INSTANCE_TYPES_PATH_JSON = config.get('Config', 'INVALID_INSTANCE_TYPES_PATH_JSON')
 
 def filter_invalid_parameter(regions_and_instance_types_df):
     """

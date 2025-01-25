@@ -16,7 +16,7 @@ session = boto3.session.Session(region_name="us-west-2")
 s3_client = session.client("s3")
 s3_resource = session.resource("s3")
 
-today_datetime = datetime.today() + timedelta(days=31)
+today_datetime = datetime.today()
 end_datetime = today_datetime.replace(day=1) - timedelta(days=1)
 start_datetime = end_datetime.replace(day=1)
 

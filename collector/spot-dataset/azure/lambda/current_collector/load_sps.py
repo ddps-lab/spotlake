@@ -51,7 +51,7 @@ REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL = os.getenv('REGIONS_AN
 DF_TO_USE_TODAY_FILENAME_PKL = os.getenv('DF_TO_USE_TODAY_FILENAME_PKL')
 
 @log_execution_time
-def collect_spot_placement_score_first_time(desired_count, request_time):
+def collect_spot_placement_score_first_time(desired_count, collect_time):
     if initialize_files():
         initialize_sps_shared_resources()
 
@@ -71,7 +71,7 @@ def collect_spot_placement_score_first_time(desired_count, request_time):
 
 
         start_time = time.time()
-        execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count, request_time)
+        execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count, collect_time)
         print(f'Time_out_retry_count: {sps_shared_resources.time_out_retry_count}')
         print(f'Bad_request_retry_count: {sps_shared_resources.bad_request_retry_count}')
         print(f'Too_many_requests_count: {sps_shared_resources.too_many_requests_count}')
@@ -99,13 +99,13 @@ def collect_spot_placement_score_first_time(desired_count, request_time):
 
 
 @log_execution_time
-def collect_spot_placement_score(desired_count, request_time):
+def collect_spot_placement_score(desired_count, collect_time):
     initialize_sps_shared_resources()
 
     print(f"Start to collect_spot_placement_score")
     df_greedy_clustering_filtered = pd.read_pickle(DF_TO_USE_TODAY_FILENAME_PKL)
 
-    execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count, request_time)
+    execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count, collect_time)
     print(f'Time_out_retry_count: {sps_shared_resources.time_out_retry_count}')
     print(f'Bad_request_retry_count: {sps_shared_resources.bad_request_retry_count}')
     print(f'Too_many_requests_count: {sps_shared_resources.too_many_requests_count}')
@@ -113,12 +113,10 @@ def collect_spot_placement_score(desired_count, request_time):
     print(f'Found_invalid_instance_type_retry_count: {sps_shared_resources.found_invalid_instance_type_retry_count}')
 
 
-def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, request_time):
+def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, collect_time):
     merged_result = {
-        "AvailabilityZones": availability_zones,
-        "Regions": set(),
-        "Instance_Types": set(),
-        "PlacementScores": []
+        "Availability_Zones": availability_zones,
+        "Placement_Scores": []
     }
 
     all_subscriptions_history = sps_location_manager.load_call_history_locations()
@@ -139,22 +137,20 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
             try:
                 result = future.result()
                 if result and result != "No_available_locations":
-                    merged_result["Regions"].update(result["desiredLocations"])
-                    for size in result["desiredSizes"]:
-                        merged_result["Instance_Types"].add(size["sku"])
-
                     for score in result["placementScores"]:
+                        if "sku" in score:
+                            score["Instance_Type"] = score.pop("sku")
+                        if "score" in score:
+                            score["Score"] = score.pop("score")
                         if "isQuotaAvailable" in score:
                             del score["isQuotaAvailable"]
-                        score["DesiredCount"] = desired_count
-                        if "sku" in score:
-                            score["InstanceType"] = score.pop("sku")
                         if "region" in score:
-                            score["RegionCode"] = score.pop("region")
-                        if "region" in score:
-                            score["Score"] = score.pop("score")
+                            score["Region_Code"] = score.pop("region")
+                        # availabilityZone 은 일부 결과에 필드가 아예 없는 상황이 있어, 우선 마지막에 둡니다.
+                        if "availabilityZone" in score:
+                            score["Availability_Zone"] = score.pop("availabilityZone")
 
-                    merged_result["PlacementScores"].extend(result["placementScores"])
+                    merged_result["Placement_Scores"].extend(result["placementScores"])
 
                 elif result == "No_available_locations":
                     for f, _ in futures:
@@ -167,11 +163,11 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
             except Exception as e:
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
 
-        merged_result["Regions"] = list(merged_result["RegionCode"])
-        merged_result["Instance_Types"] = list(merged_result["InstanceType"])
-        merged_result["Collect_Time"] = request_time
+        # dataframe 형태 변경 예정임으로, 리소스 이용 축소 관계로 우선 위 for 순회에 두는 것에서 수정, dataframe 만들때 아래 값을 직접 이용 예정.
+        score["Collect_Time"] = collect_time
+        score["Desired_Count"] = desired_count
 
-
+    # json 파일이 아닌 dataframe 형태 변경 예정
     with open(f"./files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json", "w") as json_file:
         json.dump(merged_result, json_file, indent=3)
 

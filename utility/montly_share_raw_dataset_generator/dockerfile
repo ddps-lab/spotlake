@@ -16,14 +16,14 @@ WORKDIR /app
 ENV PYTHON_VENV_PATH=/app/venv
 RUN python3 -m venv $PYTHON_VENV_PATH \
     && source $PYTHON_VENV_PATH/bin/activate \
-    && pip install --upgrade pip \
-    && pip install "boto3[crt]" \
-    && pip install requests
+    && pip install --upgrade pip --no-cache-dir  \
+    && pip install "boto3[crt]" --no-cache-dir  \
+    && pip install requests --no-cache-dir 
 
-# Copy application scripts & set permissions
+# Copy code & set permissions
 COPY montly_share_raw_dataset_generator.py /app/batch.py
-COPY script.sh /app/script.sh
-RUN chmod +x /app/script.sh
+COPY script.sh /app/batch.py
+RUN chmod +x /app/batch.py
 
 # Set the default command
-CMD ["/bin/bash", "-c", "/app/script.sh"]
+CMD ["python", "/app/batch.py"]

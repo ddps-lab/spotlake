@@ -30,10 +30,10 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           cd utility/montly_share_raw_dataset_generator
-          docker build -t ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}
-          docker push ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}:$IMA
+          docker build -t ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }} .
+          docker push ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}:$IMAGE_TAG
 
       - name: Change to latest tag & Push Docker Image
         run: |
-          docker tag ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}:$IMA ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}:latest
+          docker tag ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}:$IMAGE_TAG ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}:latest
           docker push ${{ secrets.SPOTRANK_AWS_ECR_REPOSITORY }}:latest

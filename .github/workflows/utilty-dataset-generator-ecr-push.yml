@@ -1,0 +1,39 @@
+name: CI/CD
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "utility/montly_share_raw_dataset_generator/**"
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Docker Image
+        run: |
+          cd utility/montly_share_raw_dataset_generator
+          docker build -t ${{ secrets.ECR_REPOSITORY }}
+          docker push ${{ secrets.ECR_REPOSITORY }}:$IMA
+
+      - name: Change to latest tag & Push Docker Image
+        run: |
+          docker tag ${{ secrets.ECR_REPOSITORY }}:$IMA ${{ secrets.ECR_REPOSITORY }}:latest
+          docker push ${{ secrets.ECR_REPOSITORY }}:latest

@@ -1,0 +1,29 @@
+FROM amazonlinux:2
+
+# Update base packages & install utilities
+RUN yum update -y \
+    && yum install -y \
+    aws-cli \
+    python3 \
+    python3-venv \
+    unzip \
+    && yum clean all
+
+# Set the working directory
+WORKDIR /app
+
+# Create a Python virtual env & install required Python packages
+ENV PYTHON_VENV_PATH=/app/venv
+RUN python3 -m venv $PYTHON_VENV_PATH \
+    && source $PYTHON_VENV_PATH/bin/activate \
+    && pip install --upgrade pip \
+    && pip install "boto3[crt]" \
+    && pip install requests
+
+# Copy application scripts & set permissions
+COPY montly_share_raw_dataset_generator.py /app/batch.py
+COPY script.sh /app/script.sh
+RUN chmod +x /app/script.sh
+
+# Set the default command
+CMD ["/bin/bash", "-c", "/app/script.sh"]

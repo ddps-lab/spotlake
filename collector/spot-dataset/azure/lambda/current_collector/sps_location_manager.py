@@ -192,9 +192,6 @@ def get_next_available_location():
             return None
 
         for account_id, account_history_data in all_subscriptions_history.items():
-            if account_id in sps_shared_resources.processed_account:
-                continue
-
             if sps_shared_resources.last_login_account != account_id:
                 if not sps_shared_resources.login_to_account(account_id):
                     return False
@@ -220,9 +217,6 @@ def get_next_available_location():
                     if validation_can_call(location, current_history, current_over_limit_locations):
                         sps_shared_resources.last_location_index[subscription_id] = (index + 1) % num_locations
                         return account_id, subscription_id, location, current_history, all_subscriptions_history, current_over_limit_locations, all_over_limit_locations
-            sps_shared_resources.processed_account.append(account_id)
-            print(
-                f"Account: {account_id}, Has no available location and has been added to the processed_account list. The account will be changed.")
 
         print("No next_available_location.")
         return None

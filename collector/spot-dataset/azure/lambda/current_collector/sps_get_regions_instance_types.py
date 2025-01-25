@@ -44,8 +44,9 @@ def update_invalid_regions(invalid_region, invalid_regions):
     새로 발견된 무효 region을 추가하며, 업데이트된 데이터를 JSON 파일에 저장합니다.
     """
     try:
+        # debugging 필요할지 몰라 남깁니다.
+        # print("Start to save invalid_region. Region:", invalid_region + ", Current time:", now_time)
         now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print("Start to save invalid_region. Region:", invalid_region + ", Current time:", now_time)
 
         if invalid_regions is None:
             invalid_regions = []
@@ -76,8 +77,9 @@ def update_invalid_instance_types(invalid_instance_type, invalid_instance_types)
     새로 발견된 무효 instance_type 을 추가하며, 업데이트된 데이터를 JSON 파일에 저장합니다.
     """
     try:
+        # debugging 필요할지 몰라 남깁니다.
+        # print("Start to save invalid instance type:", invalid_instance_type + ", Current timestamp:", now_time)
         now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        print("Start to save invalid instance type:", invalid_instance_type + ", Current timestamp:", now_time)
 
         if invalid_instance_types is None:
             invalid_instance_types = []

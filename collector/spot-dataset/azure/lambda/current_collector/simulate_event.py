@@ -11,7 +11,6 @@ def simulate_event(action, event_time):
 simulation_times = [
     ("first_time", "2025-01-28T00:00:00Z"),  # 0:00 호출 시뮬레이션
     ("collect_score", "2025-01-28T00:10:00Z"),  # 0:10 호출 시뮬레이션
-    ("collect_score", "2025-01-28T00:20:00Z"),  # 0:20 호출 시뮬레이션
 ]
 
 # 시뮬레이션 시간을 반복하며 lambda_handler 호출

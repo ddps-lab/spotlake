@@ -16,7 +16,7 @@ def lambda_handler(event, _):
         formatted_time = event_time.strftime("%Y-%m-%d_00:00")
 
         print(f"Calling collect_spot_placement_score_first_time with desired_count=1 and time={formatted_time}")
-        load_sps.collect_spot_placement_score_first_time(desired_count=1, request_time=formatted_time)
+        load_sps.collect_spot_placement_score_first_time(desired_count=1, collect_time=formatted_time)
 
     elif action == "collect_score":
         # 0:10부터 10분 간격으로 호출되는 로직 처리
@@ -30,7 +30,7 @@ def lambda_handler(event, _):
         desired_count = desired_counts[index]
 
         print(f"Calling collect_spot_placement_score with desired_count={desired_count} and time={formatted_time}")
-        load_sps.collect_spot_placement_score(desired_count=desired_count, request_time=formatted_time)
+        load_sps.collect_spot_placement_score(desired_count=desired_count, collect_time=formatted_time)
 
     else:
         # action이 잘못된 경우 로깅 및 응답 반환

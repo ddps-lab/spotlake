@@ -1,14 +1,16 @@
 import re
-import json
-import subprocess
+import requests
 import sps_shared_resources
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+from utill.azure_auth import sps_get_token
 
 load_dotenv('./files_sps/.env')
 LOCATIONS_CALL_HISTORY_FILENAME = os.getenv('LOCATIONS_CALL_HISTORY_FILENAME')
 LOCATIONS_OVER_LIMIT_FILENAME = os.getenv('LOCATIONS_OVER_LIMIT_FILENAME')
+SPS_TOKEN_FILENAME_JSON = os.getenv('SPS_TOKEN_FILENAME_JSON')
+
 AZ_CLI_PATH = os.getenv('AZ_CLI_PATH')
 
 def load_over_limit_locations():
@@ -230,42 +232,38 @@ def update_over_limit_locations(account_id, subscription_id, location, all_over_
         print(f"Failed to update_all_over_limit_locations: {e}")
         return False
 
-
 def collect_available_locations():
     """
-    이 메서드는 사용 가능한 위치를 잘못된 파라미터로 Azure API를 호출해 리턴한 지원되는 위치 목록을 리턴합니다.
+    이 메서드는 잘못된 location 파라미터로 Azure API를 호출해 API에서 리턴한 지원되는 locations 을 리턴합니다.
     """
     print("Start to collect_available_locations")
-    id_1 = sps_shared_resources.ACCOUNTS_CONFIG['account_1']['subscription_ids'][0]
+
+    subscription_id = sps_shared_resources.ACCOUNTS_CONFIG['account_1']['subscription_ids'][0]
     location = "ERROR_LOCATION"
-    request_body = {
-        "availabilityZones": False,
-        "desiredCount": 1,
-        "desiredLocations": ["korea"],
-        "desiredSizes": [{"sku": "Standard_D2_v3"}],
-    }
-
-    command = [
-        AZ_CLI_PATH, "rest",
-        "--method", "post",
-        "--uri",
-        f"https://management.azure.com/subscriptions/{id_1}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview",
-        "--headers", "Content-Type=application/json",
-        "--body", json.dumps(request_body)
-    ]
-
+    sps_token = sps_shared_resources.read_json_file(SPS_TOKEN_FILENAME_JSON)['sps_token']
     try:
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True,
-                                timeout=15)
+        url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
+        headers = {
+            "Authorization": f"Bearer {sps_token}",
+            "Content-Type": "application/json"
+        }
+        request_body = {
+                "availabilityZones": False,
+                "desiredCount": 1,
+                "desiredLocations": ["korea"],
+                "desiredSizes": [{"sku": "Standard_D2_v3"}],
+            }
 
-    except subprocess.CalledProcessError as e:
-        error_message = e.stderr
-        available_locations_temp = re.search(r"supported locations are '([^']+)'", error_message)
+        response = requests.post(url, headers=headers, json=request_body, timeout=15)
+        response.raise_for_status()
+
+    except requests.exceptions.HTTPError as http_err:
+        available_locations_temp = re.search(r"supported locations are '([^']+)'", http_err.response.text)
         if available_locations_temp:
             available_locations = available_locations_temp.group(1).split(', ')
             print(f"Get Available locations successfully, locations: {available_locations}")
             return available_locations
 
     except Exception as e:
-        print(f"Failed to collect_available_locations, Error: " + e)
+        print(f"Failed to collect_available_locations, Error: {e}")
         return None

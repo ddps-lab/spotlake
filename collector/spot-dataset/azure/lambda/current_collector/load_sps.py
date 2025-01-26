@@ -59,7 +59,6 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
 
         start_time = time.time()
         regions_and_instance_types_df = sps_get_regions_instance_types.request_regions_and_instance_types_df_by_priceapi()
-
         regions_and_instance_types_df.to_pickle(REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL)
         print(f"The file '{REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL}' has been successfully saved.")
 
@@ -69,6 +68,7 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"request_regions_and_instance_types_df_by_priceapi + greedy_clustering_to_create_optimized_request_list time: {minutes}min {seconds}sec")
 
+        sps_location_manager.check_and_add_available_locations()
 
         start_time = time.time()
         execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count, collect_time)
@@ -116,7 +116,10 @@ def collect_spot_placement_score(desired_count, collect_time):
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, collect_time):
     merged_result = {
         "Availability_Zones": availability_zones,
-        "Placement_Scores": []
+        "Placement_Scores": [],
+        # dataframe 형태 변경 예정임으로, 리소스 이용 축소 관계로 우선 위 for 순회에 두는 것에서 수정, dataframe 만들때 아래 값을 직접 이용 예정.
+        "Collect_Time" : collect_time,
+        "Desired_Count" : desired_count
     }
 
     all_subscriptions_history = sps_location_manager.load_call_history_locations()
@@ -163,10 +166,6 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
             except Exception as e:
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
 
-        # dataframe 형태 변경 예정임으로, 리소스 이용 축소 관계로 우선 위 for 순회에 두는 것에서 수정, dataframe 만들때 아래 값을 직접 이용 예정.
-        score["Collect_Time"] = collect_time
-        score["Desired_Count"] = desired_count
-
     # json 파일이 아닌 dataframe 형태 변경 예정
     with open(f"./files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json", "w") as json_file:
         json.dump(merged_result, json_file, indent=3)
@@ -199,10 +198,9 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
     }
 
     retries = 0
-    location = None
     response = None
     while retries <= max_retries_for_timeout:
-        with sps_shared_resources.lock:
+        with sps_shared_resources.get_next_available_location_lock:
             res = sps_location_manager.get_next_available_location()
             if res is not None:
                 account_id, subscription_id, location, history, all_subscriptions_history, over_limit_locations, all_over_limit_locations = res
@@ -315,9 +313,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
                     f"Failed collect_spot_placement_recommendation_with_multithreading for regions {region_chunk}, for instance_types {region_chunk},  location: {location}")
                 print(f"e.stderr: {e.stderr}")
                 break
-
             return response
-
 
 
 def extract_invalid_values(error_message):

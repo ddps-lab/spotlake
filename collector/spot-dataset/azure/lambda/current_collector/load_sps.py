@@ -2,6 +2,7 @@ import subprocess
 import json
 import re
 import random
+import requests
 import sps_location_manager
 import sps_shared_resources
 import sps_get_regions_instance_types
@@ -14,6 +15,8 @@ from dotenv import load_dotenv
 from json import JSONDecodeError
 from functools import wraps
 from datetime import datetime
+from utill.azure_auth import sps_get_token
+
 
 def log_execution_time(func):
     @wraps(func)
@@ -44,11 +47,11 @@ def log_execution_time(func):
 
 load_dotenv('./files_sps/.env')
 
-AZ_CLI_PATH = os.getenv('AZ_CLI_PATH')
 INVALID_REGIONS_PATH_JSON = os.getenv('INVALID_REGIONS_PATH_JSON')
 INVALID_INSTANCE_TYPES_PATH_JSON = os.getenv('INVALID_INSTANCE_TYPES_PATH_JSON')
 REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL = os.getenv('REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL')
 DF_TO_USE_TODAY_FILENAME_PKL = os.getenv('DF_TO_USE_TODAY_FILENAME_PKL')
+SPS_TOKEN_FILENAME_JSON = os.getenv('SPS_TOKEN_FILENAME_JSON')
 
 @log_execution_time
 def collect_spot_placement_score_first_time(desired_count, collect_time):
@@ -67,6 +70,8 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"request_regions_and_instance_types_df_by_priceapi + greedy_clustering_to_create_optimized_request_list time: {minutes}min {seconds}sec")
+
+        sps_shared_resources.write_json_file(SPS_TOKEN_FILENAME_JSON, {"sps_token" : sps_get_token()})
 
         sps_location_manager.check_and_add_available_locations()
 
@@ -115,11 +120,10 @@ def collect_spot_placement_score(desired_count, collect_time):
 
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, collect_time):
     merged_result = {
+        "Collect_Time": collect_time,
+        "Desired_Count": desired_count,
         "Availability_Zones": availability_zones,
-        "Placement_Scores": [],
-        # dataframe 형태 변경 예정임으로, 리소스 이용 축소 관계로 우선 위 for 순회에 두는 것에서 수정, dataframe 만들때 아래 값을 직접 이용 예정.
-        "Collect_Time" : collect_time,
-        "Desired_Count" : desired_count
+        "Placement_Scores": []
     }
 
     all_subscriptions_history = sps_location_manager.load_call_history_locations()
@@ -131,7 +135,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
         for index, row in api_calls_df.iterrows():
             future = executor.submit(
                 execute_spot_placement_score_api,
-                row['Regions'], row['InstanceTypes'], availability_zones, desired_count, max_retries_for_timeout=8
+                row['Regions'], row['InstanceTypes'], availability_zones, desired_count, max_retries=50
             )
             futures.append((future, desired_count))
 
@@ -164,6 +168,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
 
             except Exception as e:
+                print(f"{result}")
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
 
     # json 파일이 아닌 dataframe 형태 변경 예정
@@ -174,167 +179,116 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     return True
 
 
-def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones,
-                                                              desired_count, max_retries_for_timeout=4):
-    invalid_regions = sps_get_regions_instance_types.load_invalid_regions()
-    if isinstance(invalid_regions, dict) and "invalid_regions" in invalid_regions:
-        region_chunk = [
-            region for region in region_chunk
-            if region not in invalid_regions["invalid_regions"]
-        ]
-
-    invalid_instance_types = sps_get_regions_instance_types.load_invalid_instance_types()
-    if isinstance(invalid_instance_types, dict) and "invalid_instance_types" in invalid_instance_types:
-        instance_type_chunk = [
-            instance_type for instance_type in instance_type_chunk
-            if instance_type not in invalid_instance_types["invalid_instance_types"]
-        ]
+def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
+    sps_token = sps_shared_resources.read_json_file(SPS_TOKEN_FILENAME_JSON)['sps_token']
+    region_chunk = filter_invalid_items(region_chunk, sps_get_regions_instance_types.load_invalid_regions(),
+                                        "invalid_regions")
+    instance_type_chunk = filter_invalid_items(instance_type_chunk,
+                                               sps_get_regions_instance_types.load_invalid_instance_types(),
+                                               "invalid_instance_types")
+    if not region_chunk or not instance_type_chunk:
+        print(f"execute_spot_placement_score_api: This execute will not execute because, after filtering, the chunk becomes empty. region_chunk: {region_chunk}, instance_type_chunk: {instance_type_chunk}")
+        return None
 
     request_body = {
         "availabilityZones": availability_zones,
         "desiredCount": desired_count,
-        "desiredLocations": [region for region in region_chunk],
-        "desiredSizes": [{"sku": instance_type} for instance_type in instance_type_chunk],
     }
 
     retries = 0
-    response = None
-    while retries <= max_retries_for_timeout:
+    while retries <= max_retries:
+        request_body['desiredLocations'] = region_chunk
+        request_body['desiredSizes'] = [{"sku": instance_type} for instance_type in instance_type_chunk]
+
+
         with sps_shared_resources.get_next_available_location_lock:
             res = sps_location_manager.get_next_available_location()
-            if res is not None:
-                account_id, subscription_id, location, history, all_subscriptions_history, over_limit_locations, all_over_limit_locations = res
-                sps_location_manager.update_call_history(account_id, subscription_id, location, history,
-                                                         all_subscriptions_history)
-            else:
-                print("No available locations with remaining calls.")
-                return "No_available_locations"
+            account_id, subscription_id, location, history, all_subscriptions_history, over_limit_locations, all_over_limit_locations = res
+            sps_location_manager.update_call_history(account_id, subscription_id, location, history,
+                                                     all_subscriptions_history)
 
-        if location is None:
+        if not res:
             print("No available locations with remaining calls.")
             return "No_available_locations"
 
-        else:
-            command = [
-                AZ_CLI_PATH, "rest",
-                "--method", "post",
-                "--uri",
-                f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview",
-                "--headers", "Content-Type=application/json",
-                "--body", json.dumps(request_body)
-            ]
+        # API URL 和 headers
+        url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
+        headers = {
+            "Authorization": f"Bearer {sps_token}",
+            "Content-Type": "application/json",
+        }
 
-            try:
-                result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True,
-                                        timeout=15)
-                response = json.loads(result.stdout)
+        try:
+            response = requests.post(url, headers=headers, json=request_body, timeout=15)
+            response.raise_for_status()
+            return response.json()
 
-            except subprocess.TimeoutExpired:
-                retries += 1
-                if retries >= max_retries_for_timeout:
-                    print(f"지역 {region_chunk}에 대한 최대 재시도 횟수에 도달하여 요청을 건너뜁니다.")
-                    break
-                sleep_time = round(random.uniform(0.2, 1.5), 1)
-                time.sleep(sleep_time)
-                sps_shared_resources.time_out_retry_count += 1
+        except requests.exceptions.Timeout:
+            retries = handle_retry("Timeout", retries, max_retries)
+            continue
+
+        except requests.exceptions.HTTPError as http_err:
+            error_message = http_err.response.text
+            print(f"HTTP error occurred: {error_message}")
+
+            match_res = extract_invalid_values(error_message)
+            if match_res:
+                if match_res["region"]:
+                    region_chunk = del_invalid_chunk(region_chunk, match_res["region"], "region")
+                    if not region_chunk:
+                        print(f"This retry will not execute because, after filtering, the region_chunk becomes empty.")
+                        break
+                    retries = handle_retry("InvalidRegion", retries, max_retries)
+
+                if match_res["instanceType"]:
+                    instance_type_chunk = del_invalid_chunk(instance_type_chunk, match_res["instanceType"],"instanceType")
+                    if not instance_type_chunk:
+                        print(f"This retry will not execute because, after filtering, the instance_type_chunk becomes empty.")
+                        break
+                    retries = handle_retry("InvalidInstanceType", retries, max_retries)
                 continue
 
-            except subprocess.CalledProcessError as e:
-                error_message = e.stderr
-                match_res = extract_invalid_values(error_message)
-                region_match = match_res["region"]
-                instance_type_match = match_res["instanceType"]
-                with sps_shared_resources.lock:
-                    if region_match is not None:
-                        invalid_regions = sps_get_regions_instance_types.load_invalid_regions()
-                        if invalid_regions is not None and "invalid_regions" in invalid_regions:
-                            if region_match not in invalid_regions["invalid_regions"]:
-                                sps_get_regions_instance_types.update_invalid_regions(region_match, invalid_regions[
-                                    "invalid_regions"])
-                        else:
-                            sps_get_regions_instance_types.update_invalid_regions(region_match, invalid_regions)
-                        if len(region_chunk) == 1 and region_match in region_chunk:
-                            print(
-                                f"This retry will not execute because, after filtering, the region_chunk becomes empty. regions: {region_chunk}, instance types: {instance_type_chunk}.")
-                            break
-                        elif len(region_chunk) > 1 and region_match in region_chunk:
-                            region_chunk.remove(region_match)
-                            sps_shared_resources.found_invalid_region_retry_count += 1
-                            continue
+            if "BadGatewayConnection" in error_message:
+                retries = handle_retry("BadGatewayConnection", retries, max_retries)
+                continue
 
+            if "You have reached the maximum number of requests allowed." in error_message:
+                with sps_shared_resources.get_next_available_location_lock:
+                    sps_location_manager.update_over_limit_locations(account_id, subscription_id, location, all_over_limit_locations)
+                retries = handle_retry("Too Many Requests", retries, max_retries)
+                continue
 
-                with sps_shared_resources.lock:
-                    if instance_type_match is not None:
-                        invalid_instance_types = sps_get_regions_instance_types.load_invalid_instance_types()
-                        if invalid_instance_types is not None and "invalid_instance_types" in invalid_instance_types:
-                            if instance_type_match not in invalid_instance_types["invalid_instance_types"]:
-                                sps_get_regions_instance_types.update_invalid_instance_types(instance_type_match,
-                                                                                             invalid_instance_types[
-                                                                                                 "invalid_instance_types"])
-                        else:
-                            sps_get_regions_instance_types.update_invalid_instance_types(instance_type_match,
-                                                                                         invalid_instance_types)
+            if "ExpiredAuthenticationToken" in error_message:
+                sps_shared_resources.write_json_file(SPS_TOKEN_FILENAME_JSON, {"sps_token" : sps_get_token()})
+                continue
 
-                        if len(instance_type_chunk) == 1 and instance_type_match in instance_type_chunk:
-                            print(
-                                f"This retry will not execute because, after filtering, the instance_type_chunk becomes empty. regions: {region_chunk}, instance types: {instance_type_chunk}.")
-                            break
-                        elif len(instance_type_chunk) > 1 and instance_type_match in instance_type_chunk:
-                            instance_type_chunk.remove(instance_type_match)
-                            sps_shared_resources.found_invalid_instance_type_retry_count += 1
-                            continue
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            break
 
-                if "Bad Gateway" in error_message:
-                    retries += 1
-                    if retries >= max_retries_for_timeout:
-                        print(f"BadGatewayConnection 대한 최대 재시도 횟수에 도달하여 요청을 건너뜁니다.")
-                        break
-                    sleep_time = round(random.uniform(0.2, 1.5), 1)
-                    print(f"Retrying {retries}/{max_retries_for_timeout}... BadGatewayConnection for regions: {region_chunk}, instance types: {instance_type_chunk}.\nNow: [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}], Sleep: [{sleep_time}s]")
-                    time.sleep(sleep_time)
-                    sps_shared_resources.bad_request_retry_count += 1
-                    continue
+    print(f"Max retries-> ({max_retries}) reached for regions: {region_chunk}, instance types: {instance_type_chunk}.")
+    return None
 
-                if "Too Many Requests" in error_message:
-                    with sps_shared_resources.lock:
-                        sps_location_manager.update_over_limit_locations(account_id, subscription_id, location,
-                                                                         all_over_limit_locations)
-                    sleep_time = round(random.uniform(0.2, 1.5), 1)
-                    sps_shared_resources.time_out_retry_count += 1
-                    print(
-                        f"Retrying {retries}/{max_retries_for_timeout}... Too Many Requests for regions: {region_chunk}, instance types: {instance_type_chunk}.\nNow: [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}], Sleep: [{sleep_time}s]")
-                    time.sleep(sleep_time)
-                    sps_shared_resources.too_many_requests_count += 1
-                    continue
-
-
-            except Exception as e:
-                print(
-                    f"Failed collect_spot_placement_recommendation_with_multithreading for regions {region_chunk}, for instance_types {region_chunk},  location: {location}")
-                print(f"e.stderr: {e.stderr}")
-                break
-            return response
 
 
 def extract_invalid_values(error_message):
-    region_match = re.findall(
-        r"The value '([a-zA-Z0-9-_]+)' provided for the input parameter 'desiredLocations' is not valid", error_message)
+    region_match = re.search(
+        r"The value '([a-zA-Z0-9-_]+)' provided for the input parameter 'desiredLocations' is not valid",
+        error_message
+    )
 
-    instance_type_match = re.findall(
+    instance_type_match = re.search(
         r"The value '([a-zA-Z0-9-_]+)' provided for the input parameter 'SpotPlacementRecommenderInput.desiredSizes' is not valid",
-        error_message)
+        error_message
+    )
 
-    match_res = {}
+    if not region_match and not instance_type_match:
+        return None
 
-    if region_match:
-        match_res["region"] = region_match[0]
-    else:
-        match_res["region"] = None
-
-    if instance_type_match:
-        match_res["instanceType"] = instance_type_match[0]
-    else:
-        match_res["instanceType"] = None
+    match_res = {
+        "region": region_match.group(1) if region_match else None,
+        "instanceType": instance_type_match.group(1) if instance_type_match else None
+    }
 
     return match_res
 
@@ -353,6 +307,61 @@ def initialize_files():
     except Exception as e:
         print(f"An error occurred during initialization: {e}")
         return False
+
+def del_invalid_chunk(chunk, invalid_value, value_type):
+    with sps_shared_resources.lock:
+        if value_type == "region":
+            invalid_regions = sps_get_regions_instance_types.load_invalid_regions()
+            if invalid_regions is not None and "invalid_regions" in invalid_regions:
+                if invalid_value not in invalid_regions["invalid_regions"]:
+                    sps_get_regions_instance_types.update_invalid_regions(invalid_value, invalid_regions[
+                        "invalid_regions"])
+            else:
+                sps_get_regions_instance_types.update_invalid_regions(invalid_value, invalid_regions)
+
+        elif value_type == "instanceType":
+            invalid_instance_types = sps_get_regions_instance_types.load_invalid_instance_types()
+            if invalid_instance_types is not None and "invalid_instance_types" in invalid_instance_types:
+                if invalid_value not in invalid_instance_types["invalid_instance_types"]:
+                    sps_get_regions_instance_types.update_invalid_instance_types(invalid_value,
+                                                                                 invalid_instance_types[
+                                                                                     "invalid_instance_types"])
+            else:
+                sps_get_regions_instance_types.update_invalid_instance_types(invalid_value, invalid_instance_types)
+    if invalid_value in chunk:
+        chunk.remove(invalid_value)
+    else:
+        print(f"x not in list, invalid_value: {invalid_value}, chunk: {chunk}")
+
+    return chunk if chunk else None
+
+
+
+
+def handle_retry(error_type, retries, max_retries):
+    if error_type == "Timeout":
+        sps_shared_resources.time_out_retry_count += 1
+    elif error_type == "BadGatewayConnection":
+        sps_shared_resources.bad_request_retry_count += 1
+    elif error_type == "Too Many Requests":
+        sps_shared_resources.too_many_requests_count += 1
+    elif error_type == "InvalidRegion":
+        sps_shared_resources.found_invalid_region_retry_count += 1
+    elif error_type == "InvalidInstanceType":
+        sps_shared_resources.found_invalid_instance_type_retry_count += 1
+
+    if retries < max_retries:
+        sleep_time = round(random.uniform(0.5, 2.0), 1)
+        # print(f"Retrying ({retries + 1}/{max_retries})... {error_type}. Sleep: {sleep_time}s")
+        time.sleep(sleep_time)
+        retries += 1
+
+    return retries
+
+def filter_invalid_items(items, invalid_data, key):
+    if isinstance(invalid_data, dict) and key in invalid_data:
+        return [item for item in items if item not in invalid_data[key]]
+    return items
 
 def initialize_sps_shared_resources():
     sps_shared_resources.bad_request_retry_count = 0

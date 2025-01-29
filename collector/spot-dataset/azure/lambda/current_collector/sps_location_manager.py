@@ -4,14 +4,51 @@ import sps_shared_resources
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from utill.azure_auth import sps_get_token
+from utill.azure_auth import get_sps_token
 
 load_dotenv('./files_sps/.env')
 LOCATIONS_CALL_HISTORY_FILENAME = os.getenv('LOCATIONS_CALL_HISTORY_FILENAME')
 LOCATIONS_OVER_LIMIT_FILENAME = os.getenv('LOCATIONS_OVER_LIMIT_FILENAME')
-SPS_TOKEN_FILENAME_JSON = os.getenv('SPS_TOKEN_FILENAME_JSON')
 
-AZ_CLI_PATH = os.getenv('AZ_CLI_PATH')
+def check_and_add_available_locations():
+    '''
+    이 함수는 최신 사용 가능한 location을 수집하고, JSON 파일에 저장된 기존 구독 기록과 비교합니다.
+    새로운 위치가 발견되면 해당 구독 기록에 추가됩니다. 변경 사항이 있는 경우, 업데이트된 데이터를 JSON 파일에 저장합니다.
+    '''
+    added_available_locations_flag = False
+    available_locations = collect_available_locations()
+    if available_locations is None:
+        print("Failed to check_and_add_available_locations. No available locations collected.")
+        return False
+
+    all_subscriptions_history = sps_shared_resources.read_json_file(LOCATIONS_CALL_HISTORY_FILENAME) or {}
+
+    for account_id, account_data in sps_shared_resources.ACCOUNTS_CONFIG.items():
+        if account_id not in all_subscriptions_history:
+            all_subscriptions_history[account_id] = {}
+        if "subscription_ids" in account_data:
+            for subscription_id in account_data['subscription_ids']:
+                if subscription_id not in all_subscriptions_history[account_id]:
+                    all_subscriptions_history[account_id][subscription_id] = {}
+
+                subscription_history = all_subscriptions_history[account_id][subscription_id]
+
+                for location in available_locations:
+                    if location not in subscription_history:
+                        print(f"Location: {location} is fresh for subscription {subscription_id}, will add it.")
+                        subscription_history[location] = []
+                        added_available_locations_flag = True
+
+    if added_available_locations_flag:
+        if not sps_shared_resources.write_json_file(LOCATIONS_CALL_HISTORY_FILENAME, all_subscriptions_history):
+            print("Failed to save available_locations to all_subscriptions_history file.")
+            return False
+
+        print("Successfully saved available_locations to all_subscriptions_history file.")
+        return True
+
+    print("available_locations has not been added.")
+    return False
 
 def load_over_limit_locations():
     '''
@@ -49,53 +86,13 @@ def load_over_limit_locations():
     return all_over_limit_locations
 
 
-def check_and_add_available_locations():
-    '''
-    이 함수는 최신 사용 가능한 location을 수집하고, JSON 파일에 저장된 기존 구독 기록과 비교합니다.
-    새로운 위치가 발견되면 해당 구독 기록에 추가됩니다. 변경 사항이 있는 경우, 업데이트된 데이터를 JSON 파일에 저장합니다.
-    '''
-    added_available_locations_flag = False
-    available_locations = collect_available_locations()
-    if available_locations is None:
-        print("Failed to check_and_add_available_locations. No available locations collected.")
-        return False
-
-    all_subscriptions_history = sps_shared_resources.read_json_file(LOCATIONS_CALL_HISTORY_FILENAME) or {}
-
-    for account_id, account_data in sps_shared_resources.ACCOUNTS_CONFIG.items():
-        if account_id not in all_subscriptions_history:
-            all_subscriptions_history[account_id] = {}
-        if "subscription_ids" in account_data:
-            for subscription_id in account_data['subscription_ids']:
-                if subscription_id not in all_subscriptions_history[account_id]:
-                    all_subscriptions_history[account_id][subscription_id] = {}
-
-                subscription_history = all_subscriptions_history[account_id][subscription_id]
-
-                for location in available_locations:
-                    if location not in subscription_history:
-                        print(f"Location: {location} is fresh for subscription {subscription_id}, will add it.")
-                        subscription_history[location] = []
-                        added_available_locations_flag = True
-
-    if added_available_locations_flag:
-        if not sps_shared_resources.write_json_file(LOCATIONS_CALL_HISTORY_FILENAME, all_subscriptions_history):
-            print("Failed to save available_locations to all_subscriptions_history file.")
-            return False
-        print("Successfully saved available_locations to all_subscriptions_history file.")
-        return True
-
-    print("available_locations has not been added.")
-    return False
-
-
 def load_call_history_locations():
     '''
     이 메서드는 호출 이력을 로드하고 필요에 따라 초기화합니다.
     또한, 유효하지 않은 위치를 정리하고 호출 이력 파일을 업데이트합니다.
     '''
     updated_history_flag = False
-    all_subscriptions_history = sps_shared_resources.read_json_file(LOCATIONS_CALL_HISTORY_FILENAME) or None
+    all_subscriptions_history = sps_shared_resources.read_json_file(LOCATIONS_CALL_HISTORY_FILENAME)
 
     if all_subscriptions_history is None:
         print("Failed to load call history. The file might be missing or corrupted.")
@@ -204,7 +201,6 @@ def get_next_available_location():
                         sps_shared_resources.last_location_index[subscription_id] = (index + 1) % num_locations
                         return account_id, subscription_id, location, current_history, all_subscriptions_history, current_over_limit_locations, all_over_limit_locations
 
-        print("No next_available_location.")
         return None
 
     except Exception as e:
@@ -240,11 +236,11 @@ def collect_available_locations():
 
     subscription_id = sps_shared_resources.ACCOUNTS_CONFIG['account_1']['subscription_ids'][0]
     location = "ERROR_LOCATION"
-    sps_token = sps_shared_resources.read_json_file(SPS_TOKEN_FILENAME_JSON)['sps_token']
+
     try:
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {
-            "Authorization": f"Bearer {sps_token}",
+            "Authorization": f"Bearer {get_sps_token()}",
             "Content-Type": "application/json"
         }
         request_body = {

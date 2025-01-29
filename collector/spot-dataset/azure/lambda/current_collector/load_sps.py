@@ -1,4 +1,3 @@
-import subprocess
 import json
 import re
 import random
@@ -15,7 +14,7 @@ from dotenv import load_dotenv
 from json import JSONDecodeError
 from functools import wraps
 from datetime import datetime
-from utill.azure_auth import sps_get_token
+from utill.azure_auth import get_sps_token
 
 
 def log_execution_time(func):
@@ -51,7 +50,6 @@ INVALID_REGIONS_PATH_JSON = os.getenv('INVALID_REGIONS_PATH_JSON')
 INVALID_INSTANCE_TYPES_PATH_JSON = os.getenv('INVALID_INSTANCE_TYPES_PATH_JSON')
 REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL = os.getenv('REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL')
 DF_TO_USE_TODAY_FILENAME_PKL = os.getenv('DF_TO_USE_TODAY_FILENAME_PKL')
-SPS_TOKEN_FILENAME_JSON = os.getenv('SPS_TOKEN_FILENAME_JSON')
 
 @log_execution_time
 def collect_spot_placement_score_first_time(desired_count, collect_time):
@@ -70,8 +68,6 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"request_regions_and_instance_types_df_by_priceapi + greedy_clustering_to_create_optimized_request_list time: {minutes}min {seconds}sec")
-
-        sps_shared_resources.write_json_file(SPS_TOKEN_FILENAME_JSON, {"sps_token" : sps_get_token()})
 
         sps_location_manager.check_and_add_available_locations()
 
@@ -143,7 +139,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
         for future, desired_count in futures:
             try:
                 result = future.result()
-                if result and result != "No_available_locations":
+                if result and result != "NO_AVAILABLE_LOCATIONS":
                     for score in result["placementScores"]:
                         if "sku" in score:
                             score["Instance_Type"] = score.pop("sku")
@@ -159,7 +155,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
                     merged_result["Placement_Scores"].extend(result["placementScores"])
 
-                elif result == "No_available_locations":
+                elif result == "NO_AVAILABLE_LOCATIONS":
                     for f, _ in futures:
                         if not f.done():
                             f.cancel()
@@ -180,7 +176,6 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
-    sps_token = sps_shared_resources.read_json_file(SPS_TOKEN_FILENAME_JSON)['sps_token']
     region_chunk = filter_invalid_items(region_chunk, sps_get_regions_instance_types.load_invalid_regions(),
                                         "invalid_regions")
     instance_type_chunk = filter_invalid_items(instance_type_chunk,
@@ -207,14 +202,13 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             sps_location_manager.update_call_history(account_id, subscription_id, location, history,
                                                      all_subscriptions_history)
 
-        if not res:
+        if res is None:
             print("No available locations with remaining calls.")
-            return "No_available_locations"
+            return "NO_AVAILABLE_LOCATIONS"
 
-        # API URL 和 headers
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {
-            "Authorization": f"Bearer {sps_token}",
+            "Authorization": f"Bearer {get_sps_token()}",
             "Content-Type": "application/json",
         }
 
@@ -256,10 +250,6 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
                 with sps_shared_resources.get_next_available_location_lock:
                     sps_location_manager.update_over_limit_locations(account_id, subscription_id, location, all_over_limit_locations)
                 retries = handle_retry("Too Many Requests", retries, max_retries)
-                continue
-
-            if "ExpiredAuthenticationToken" in error_message:
-                sps_shared_resources.write_json_file(SPS_TOKEN_FILENAME_JSON, {"sps_token" : sps_get_token()})
                 continue
 
         except Exception as e:
@@ -351,7 +341,7 @@ def handle_retry(error_type, retries, max_retries):
         sps_shared_resources.found_invalid_instance_type_retry_count += 1
 
     if retries < max_retries:
-        sleep_time = round(random.uniform(0.5, 2.0), 1)
+        sleep_time = round(random.uniform(0.5, 1.5), 1)
         # print(f"Retrying ({retries + 1}/{max_retries})... {error_type}. Sleep: {sleep_time}s")
         time.sleep(sleep_time)
         retries += 1

@@ -41,21 +41,6 @@ def get_sps_token():
     tenant_id = db.get_item('tenant_id')
     client_id = db.get_item('client_id')
     client_secret = db.get_item('client_secret')
-
-    now = int(time.time())
-
-    if db.get_item('expires_on') - 300 > now:
-        sps_token = db.get_item('sps_token')
-    else:
-        token_info = ClientSecretCredential(tenant_id, client_id, client_secret).get_token_info("https://management.azure.com/.default")
-
-        db.put_item('expires_on', token_info.expires_on)
-        db.put_item('sps_token', token_info.token)
-        sps_token = token_info.token
-
-        now_kst = datetime.fromtimestamp(now, KST).strftime('%Y-%m-%d %H:%M:%S')
-        expire_kst = datetime.fromtimestamp(token_info.expires_on, KST).strftime('%Y-%m-%d %H:%M:%S')
-
-        print(f'Getting new SPS token. Now [{now_kst} KST], Token expires at [{expire_kst} KST]')
+    sps_token = ClientSecretCredential(tenant_id, client_id, client_secret).get_token_info("https://management.azure.com/.default").token
 
     return sps_token

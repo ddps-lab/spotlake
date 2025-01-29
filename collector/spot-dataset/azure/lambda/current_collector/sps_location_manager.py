@@ -4,7 +4,6 @@ import sps_shared_resources
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from utill.azure_auth import get_sps_token
 
 load_dotenv('./files_sps/.env')
 LOCATIONS_CALL_HISTORY_FILENAME = os.getenv('LOCATIONS_CALL_HISTORY_FILENAME')
@@ -77,7 +76,6 @@ def load_over_limit_locations():
                     if dt <= one_hour_ago:
                         updated_over_limit_locations_flag = True
                         del all_over_limit_locations[account_id][subscription_id][location_key]
-                        print(f"Deleted expired location: '{location_key}', subscription_id: '{subscription_id}'")
 
     if updated_over_limit_locations_flag:
         if not sps_shared_resources.write_json_file(LOCATIONS_OVER_LIMIT_FILENAME, all_over_limit_locations):
@@ -233,14 +231,13 @@ def collect_available_locations():
     이 메서드는 잘못된 location 파라미터로 Azure API를 호출해 API에서 리턴한 지원되는 locations 을 리턴합니다.
     """
     print("Start to collect_available_locations")
-
     subscription_id = sps_shared_resources.ACCOUNTS_CONFIG['account_1']['subscription_ids'][0]
     location = "ERROR_LOCATION"
 
     try:
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {
-            "Authorization": f"Bearer {get_sps_token()}",
+            "Authorization": f"Bearer {sps_shared_resources.sps_token}",
             "Content-Type": "application/json"
         }
         request_body = {
@@ -254,10 +251,10 @@ def collect_available_locations():
         response.raise_for_status()
 
     except requests.exceptions.HTTPError as http_err:
-        available_locations_temp = re.search(r"supported locations are '([^']+)'", http_err.response.text)
-        if available_locations_temp:
-            available_locations = available_locations_temp.group(1).split(', ')
-            print(f"Get Available locations successfully, locations: {available_locations}")
+        available_locations_tmp = re.search(r"supported locations are '([^']+)'", http_err.response.text)
+        if available_locations_tmp:
+            available_locations = available_locations_tmp.group(1).split(', ')
+            print(f"Collect_available_locations successfully, locations: {available_locations}")
             return available_locations
 
     except Exception as e:

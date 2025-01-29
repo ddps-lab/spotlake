@@ -2,14 +2,14 @@ import json
 import numpy as np
 import pandas as pd
 import os
+import sps_shared_resources
 from dotenv import load_dotenv
 from sklearn.cluster import KMeans
 from collections import defaultdict
 
-load_dotenv('./files_sps/.env')
 
-INVALID_REGIONS_PATH_JSON = os.getenv('INVALID_REGIONS_PATH_JSON')
-INVALID_INSTANCE_TYPES_PATH_JSON = os.getenv('INVALID_INSTANCE_TYPES_PATH_JSON')
+load_dotenv('./files_sps/.env')
+SS_Resources = sps_shared_resources
 
 
 def filter_invalid_parameter(regions_and_instance_types_df):
@@ -17,29 +17,10 @@ def filter_invalid_parameter(regions_and_instance_types_df):
     이 메서드는 무효한 regions_and_instance_types 데이터(JSON 파일)를 로드하고,
     요청한 dataframe중의 무효값을 제거합니다.
     """
-    try:
-        with open(INVALID_REGIONS_PATH_JSON, 'r') as file:
-            invalid_region_list = json.load(file).get("invalid_regions", [])
-
-        with open(INVALID_INSTANCE_TYPES_PATH_JSON, 'r') as file:
-            invalid_instance_type_list = json.load(file).get("invalid_instance_types", [])
-
-    except FileNotFoundError:
-        print("Invalid_regions file or invalid_instance_types file not found.")
-        invalid_region_list = []
-        invalid_instance_type_list = []
-    except json.JSONDecodeError as e:
-        print(f"filter_invalid_parameter func. Failed to parse JSON: {e}")
-        invalid_region_list = []
-        invalid_instance_type_list = []
-    except Exception as e:
-        print(f"filter_invalid_parameter func. An unexpected error occurred: {e}")
-        invalid_region_list = []
-        invalid_instance_type_list = []
 
     regions_and_instance_types_del1_invalid_df = regions_and_instance_types_df[
-        ~regions_and_instance_types_df['RegionCode'].isin(invalid_region_list) &
-        ~regions_and_instance_types_df['InstanceType'].isin(invalid_instance_type_list)
+        ~regions_and_instance_types_df['RegionCode'].isin(SS_Resources.invalid_regions_tmp) &
+        ~regions_and_instance_types_df['InstanceType'].isin(SS_Resources.invalid_instance_types_tmp)
         ]
 
     print(f"Length of regions_and_instance_types_df: {len(regions_and_instance_types_df)}")

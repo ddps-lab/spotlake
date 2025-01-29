@@ -49,6 +49,8 @@ INVALID_REGIONS_PATH_JSON = os.getenv('INVALID_REGIONS_PATH_JSON')
 INVALID_INSTANCE_TYPES_PATH_JSON = os.getenv('INVALID_INSTANCE_TYPES_PATH_JSON')
 REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL = os.getenv('REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL')
 DF_TO_USE_TODAY_FILENAME_PKL = os.getenv('DF_TO_USE_TODAY_FILENAME_PKL')
+SUBSCRIPTIONS = os.getenv('SUBSCRIPTIONS').split(",")
+
 SS_Resources = sps_shared_resources
 SG_RI = sps_get_regions_instance_types
 
@@ -56,7 +58,6 @@ SG_RI = sps_get_regions_instance_types
 def collect_spot_placement_score_first_time(desired_count, collect_time):
     if initialize_files():
         initialize_sps_shared_resources()
-
         SS_Resources.sps_token = get_sps_token()
 
         print(f"Start to collect_spot_placement_score_first_time")
@@ -171,7 +172,6 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
 
             except Exception as e:
-                print(f"{result}")
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
 
     # json 파일이 아닌 dataframe 형태 변경 예정
@@ -208,8 +208,8 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
 
         with SS_Resources.location_lock:
             res = sps_location_manager.get_next_available_location()
-            account_id, subscription_id, location, history, all_subscriptions_history, over_limit_locations, all_over_limit_locations = res
-            sps_location_manager.update_call_history(account_id, subscription_id, location, history,
+            subscription_id, location, history, all_subscriptions_history, over_limit_locations, all_over_limit_locations = res
+            sps_location_manager.update_call_history(subscription_id, location, history,
                                                      all_subscriptions_history)
 
         if res is None:
@@ -262,7 +262,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             if "You have reached the maximum number of requests allowed." in error_message:
                 print(f"HTTP error occurred: {error_message}")
                 with SS_Resources.location_lock:
-                    sps_location_manager.update_over_limit_locations(account_id, subscription_id, location, all_over_limit_locations)
+                    sps_location_manager.update_over_limit_locations(subscription_id, location, all_over_limit_locations)
                 retries = handle_retry("Too Many Requests", retries, max_retries)
                 if retries:
                     continue
@@ -377,6 +377,5 @@ def initialize_sps_shared_resources():
     SS_Resources.too_many_requests_count = 0
     SS_Resources.found_invalid_region_retry_count = 0
     SS_Resources.found_invalid_instance_type_retry_count = 0
-    SS_Resources.last_login_account = None
     SS_Resources.invalid_regions_tmp = None
     SS_Resources.invalid_instance_types_tmp = None

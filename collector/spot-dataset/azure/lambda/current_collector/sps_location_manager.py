@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 load_dotenv('./files_sps/.env')
 LOCATIONS_CALL_HISTORY_FILENAME = os.getenv('LOCATIONS_CALL_HISTORY_FILENAME')
 LOCATIONS_OVER_LIMIT_FILENAME = os.getenv('LOCATIONS_OVER_LIMIT_FILENAME')
+SUBSCRIPTIONS = os.getenv('SUBSCRIPTIONS').split(",")
 
 def check_and_add_available_locations():
     '''
@@ -22,21 +23,17 @@ def check_and_add_available_locations():
 
     all_subscriptions_history = sps_shared_resources.read_json_file(LOCATIONS_CALL_HISTORY_FILENAME) or {}
 
-    for account_id, account_data in sps_shared_resources.ACCOUNTS_CONFIG.items():
-        if account_id not in all_subscriptions_history:
-            all_subscriptions_history[account_id] = {}
-        if "subscription_ids" in account_data:
-            for subscription_id in account_data['subscription_ids']:
-                if subscription_id not in all_subscriptions_history[account_id]:
-                    all_subscriptions_history[account_id][subscription_id] = {}
+    for subscription_id in SUBSCRIPTIONS:
+        if subscription_id not in all_subscriptions_history:
+            all_subscriptions_history[subscription_id] = {}
 
-                subscription_history = all_subscriptions_history[account_id][subscription_id]
+        subscription_history = all_subscriptions_history[subscription_id]
 
-                for location in available_locations:
-                    if location not in subscription_history:
-                        print(f"Location: {location} is fresh for subscription {subscription_id}, will add it.")
-                        subscription_history[location] = []
-                        added_available_locations_flag = True
+        for location in available_locations:
+            if location not in subscription_history:
+                print(f"Location: {location} is fresh for subscription {subscription_id}, will add it.")
+                subscription_history[location] = []
+                added_available_locations_flag = True
 
     if added_available_locations_flag:
         if not sps_shared_resources.write_json_file(LOCATIONS_CALL_HISTORY_FILENAME, all_subscriptions_history):
@@ -46,13 +43,13 @@ def check_and_add_available_locations():
         print("Successfully saved available_locations to all_subscriptions_history file.")
         return True
 
-    print("available_locations has not been added.")
+    print("available_locations has not been added in this cycle")
     return False
 
 def load_over_limit_locations():
     '''
     이 메서드는 구독 해당한 초과 locations를 로드하고, 1시간이 지났으며 유효하지 않은 항목을 제거합니다.
-    over_limit_locations의 초기화는 ACCOUNTS_CONFIG 에서 구독을 읽어 이용합니다.
+    over_limit_locations의 초기화는 .env SUBSCRIPTIONS 에서 구독을 읽어 이용합니다.
     '''
     updated_over_limit_locations_flag = False
     all_over_limit_locations = sps_shared_resources.read_json_file(LOCATIONS_OVER_LIMIT_FILENAME)
@@ -61,21 +58,17 @@ def load_over_limit_locations():
         print("Failed to load over limit locations. The file might be missing or corrupted.")
         return None
 
-    for account_id, account_data in sps_shared_resources.ACCOUNTS_CONFIG.items():
-        if account_id not in all_over_limit_locations:
-            all_over_limit_locations[account_id] = {}
-        if "subscription_ids" in account_data:
-            for subscription_id in account_data['subscription_ids']:
-                if subscription_id not in all_over_limit_locations[account_id]:
-                    all_over_limit_locations[account_id][subscription_id] = {}
+    for subscription_id in SUBSCRIPTIONS:
+        if subscription_id not in all_over_limit_locations:
+            all_over_limit_locations[subscription_id] = {}
 
-                one_hour_ago = datetime.now() - timedelta(hours=1)
-                for location_key, location_value in list(
-                        all_over_limit_locations[account_id][subscription_id].items()):
-                    dt = datetime.fromisoformat(location_value)
-                    if dt <= one_hour_ago:
-                        updated_over_limit_locations_flag = True
-                        del all_over_limit_locations[account_id][subscription_id][location_key]
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        for location_key, location_value in list(
+                all_over_limit_locations[subscription_id].items()):
+            dt = datetime.fromisoformat(location_value)
+            if dt <= one_hour_ago:
+                updated_over_limit_locations_flag = True
+                del all_over_limit_locations[subscription_id][location_key]
 
     if updated_over_limit_locations_flag:
         if not sps_shared_resources.write_json_file(LOCATIONS_OVER_LIMIT_FILENAME, all_over_limit_locations):
@@ -97,22 +90,20 @@ def load_call_history_locations():
         return None
 
     one_hour_ago = datetime.now() - timedelta(hours=1)
-    for account_id, account_data in sps_shared_resources.ACCOUNTS_CONFIG.items():
-        if "subscription_ids" in account_data:
-            for subscription_id in account_data['subscription_ids']:
-                subscription_data = all_subscriptions_history.get(account_id, {}).get(subscription_id, {})
+    for subscription_id in SUBSCRIPTIONS:
+        subscription_data = all_subscriptions_history.get(subscription_id, {})
 
-                new_subscription_data = {
-                    location: [
-                        t for t in timestamps if datetime.fromisoformat(t) > one_hour_ago
-                    ]
-                    for location, timestamps in subscription_data.items()
-                }
+        new_subscription_data = {
+            location: [
+                t for t in timestamps if datetime.fromisoformat(t) > one_hour_ago
+            ]
+            for location, timestamps in subscription_data.items()
+        }
 
-                if new_subscription_data != all_subscriptions_history.get(account_id, {}).get(subscription_id, {}):
-                    updated_history_flag = True
+        if new_subscription_data != all_subscriptions_history.get(subscription_id, {}):
+            updated_history_flag = True
 
-                all_subscriptions_history.setdefault(account_id, {})[subscription_id] = new_subscription_data
+        all_subscriptions_history[subscription_id] = new_subscription_data
 
     if updated_history_flag:
         if not sps_shared_resources.write_json_file(LOCATIONS_CALL_HISTORY_FILENAME, all_subscriptions_history):
@@ -122,7 +113,7 @@ def load_call_history_locations():
     return all_subscriptions_history
 
 
-def update_call_history(account_id, subscription_id, location, current_history, all_subscriptions_history):
+def update_call_history(subscription_id, location, current_history, all_subscriptions_history):
     """
     이 메서드는 특정 계정, 구독, 위치의 호출 이력을 업데이트합니다.
     업데이트된 데이터를 JSON 파일에 저장합니다.
@@ -131,7 +122,7 @@ def update_call_history(account_id, subscription_id, location, current_history, 
         now = datetime.now()
         current_timestamp = now.isoformat()
         current_history[location].append(current_timestamp)
-        all_subscriptions_history[account_id][subscription_id] = current_history
+        all_subscriptions_history[subscription_id] = current_history
 
         sps_shared_resources.write_json_file(LOCATIONS_CALL_HISTORY_FILENAME, all_subscriptions_history)
         return True
@@ -172,33 +163,23 @@ def get_next_available_location():
         if all_subscriptions_history is None or all_over_limit_locations is None:
             return None
 
-        for account_id, account_history_data in all_subscriptions_history.items():
-            if sps_shared_resources.last_login_account != account_id:
-                if not sps_shared_resources.login_to_account(account_id):
-                    return False
-                sps_shared_resources.last_login_account = account_id
+        for subscription_id, subscription_data in all_subscriptions_history.items():
+            current_history = subscription_data
+            current_over_limit_locations = all_over_limit_locations.get(subscription_id) or None
 
-            for subscription_id, subscription_data in account_history_data.items():
-                current_history = subscription_data
-                current_over_limit_locations = all_over_limit_locations.get(account_id, {}).get(subscription_id, {})
+            if subscription_id not in sps_shared_resources.last_location_index:
+                sps_shared_resources.last_location_index[subscription_id] = 0
 
-                if not current_over_limit_locations:
-                    current_over_limit_locations = None
+            start_index = sps_shared_resources.last_location_index[subscription_id]
+            num_locations = len(current_history)
 
-                if subscription_id not in sps_shared_resources.last_location_index:
-                    sps_shared_resources.last_location_index[subscription_id] = 0
+            for i in range(num_locations):
+                index = (start_index + i) % num_locations
+                location = list(current_history.keys())[index]
 
-                start_index = sps_shared_resources.last_location_index[subscription_id]
-                num_locations = len(current_history)
-
-                for i in range(num_locations):
-                    index = (start_index + i) % num_locations
-                    location = list(current_history.keys())[index]
-
-                    if validation_can_call(location, current_history, current_over_limit_locations):
-                        sps_shared_resources.last_location_index[subscription_id] = (index + 1) % num_locations
-                        return account_id, subscription_id, location, current_history, all_subscriptions_history, current_over_limit_locations, all_over_limit_locations
-
+                if validation_can_call(location, current_history, current_over_limit_locations):
+                    sps_shared_resources.last_location_index[subscription_id] = (index + 1) % num_locations
+                    return subscription_id, location, current_history, all_subscriptions_history, current_over_limit_locations, all_over_limit_locations
         return None
 
     except Exception as e:
@@ -206,7 +187,7 @@ def get_next_available_location():
         return None
 
 
-def update_over_limit_locations(account_id, subscription_id, location, all_over_limit_locations):
+def update_over_limit_locations(subscription_id, location, all_over_limit_locations):
     """
     이 메서드는 초과 요청된 location을 업데이트합니다.
     초과 요청 위치 정보를 JSON 파일에 저장합니다.
@@ -214,9 +195,9 @@ def update_over_limit_locations(account_id, subscription_id, location, all_over_
     try:
         now = datetime.now()
         current_timestamp = now.isoformat()
-        all_over_limit_locations[account_id][subscription_id][location] = current_timestamp
+        all_over_limit_locations[subscription_id][location] = current_timestamp
 
-        print("Save over_limit_locations. Account: " + account_id + ", Subscription ID:" + subscription_id.split('-')[
+        print("Save over_limit_locations. Subscription ID:" + subscription_id.split('-')[
             0] + ", Location:", location + ", Time:", now.strftime('%Y-%m-%d %H:%M:%S'))
 
         sps_shared_resources.write_json_file(LOCATIONS_OVER_LIMIT_FILENAME, all_over_limit_locations)
@@ -231,7 +212,7 @@ def collect_available_locations():
     이 메서드는 잘못된 location 파라미터로 Azure API를 호출해 API에서 리턴한 지원되는 locations 을 리턴합니다.
     """
     print("Start to collect_available_locations")
-    subscription_id = sps_shared_resources.ACCOUNTS_CONFIG['account_1']['subscription_ids'][0]
+    subscription_id = SUBSCRIPTIONS[0]
     location = "ERROR_LOCATION"
 
     try:

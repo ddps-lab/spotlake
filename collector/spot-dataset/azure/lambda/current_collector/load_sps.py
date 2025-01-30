@@ -4,7 +4,7 @@ import random
 import requests
 import sps_location_manager
 import sps_shared_resources
-import sps_get_regions_instance_types
+import sps_regions_instance_types_manager
 import concurrent.futures
 import sps_prepare_parameters
 import pandas as pd
@@ -52,7 +52,8 @@ DF_TO_USE_TODAY_FILENAME_PKL = os.getenv('DF_TO_USE_TODAY_FILENAME_PKL')
 SUBSCRIPTIONS = os.getenv('SUBSCRIPTIONS').split(",")
 
 SS_Resources = sps_shared_resources
-SG_RI = sps_get_regions_instance_types
+SRI_M = sps_regions_instance_types_manager
+SL_M = sps_location_manager
 
 @log_execution_time
 def collect_spot_placement_score_first_time(desired_count, collect_time):
@@ -63,7 +64,7 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         print(f"Start to collect_spot_placement_score_first_time")
 
         start_time = time.time()
-        regions_and_instance_types_df = sps_get_regions_instance_types.request_regions_and_instance_types_df_by_priceapi()
+        regions_and_instance_types_df = SRI_M.request_regions_and_instance_types_df_by_priceapi()
         regions_and_instance_types_df.to_pickle(REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL)
         print(f"The file '{REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL}' has been successfully saved.")
 
@@ -120,8 +121,10 @@ def collect_spot_placement_score(desired_count, collect_time):
 
 
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, collect_time):
-    SS_Resources.invalid_regions_tmp = SG_RI.load_invalid_regions()
-    SS_Resources.invalid_instance_types_tmp = SG_RI.load_invalid_instance_types()
+    SS_Resources.invalid_regions_tmp = SRI_M.load_invalid_regions_file()
+    SS_Resources.invalid_instance_types_tmp = SRI_M.load_invalid_instance_types_file()
+    SS_Resources.locations_call_history_tmp = SL_M.load_call_history_locations_file()
+    SS_Resources.locations_over_limit_tmp = SL_M.load_over_limit_locations_file()
 
     merged_result = {
         "Collect_Time": collect_time,
@@ -129,11 +132,9 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
         "Availability_Zones": availability_zones,
         "Placement_Scores": []
     }
+    locations = list(SS_Resources.locations_call_history_tmp[list(SS_Resources.locations_call_history_tmp.keys())[0]].keys())
 
-    all_subscriptions_history = sps_location_manager.load_call_history_locations()
-    locations = list(all_subscriptions_history[list(all_subscriptions_history.keys())[0]].keys())
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(locations) * 3) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(locations) * 1)) as executor:
         futures = []
 
         for index, row in api_calls_df.iterrows():
@@ -178,25 +179,24 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     with open(f"./files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json", "w") as json_file:
         json.dump(merged_result, json_file, indent=3)
 
-    SG_RI.save_invalid_regions()
-    SG_RI.save_invalid_instance_types()
+    SRI_M.save_invalid_regions_file()
+    SRI_M.save_invalid_instance_types_file()
+    SL_M.save_call_history_file()
+    SL_M.save_over_limit_locations_file()
 
     print(f"병합된 결과가 './files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json' 파일에 저장되었습니다.")
     return True
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
-
-
-
     retries = 0
     while retries <= max_retries:
         region_chunk = filter_invalid_items(region_chunk, "invalid_regions")
         instance_type_chunk = filter_invalid_items(instance_type_chunk, "invalid_instance_types")
 
         if region_chunk is None or instance_type_chunk is None:
-            print(
-                f"execute_spot_placement_score_api: This execute will not execute because, after filtering, the chunk becomes empty. region_chunk: {region_chunk}, instance_type_chunk: {instance_type_chunk}")
+            print(f"execute_spot_placement_score_api: Execution skipped as filtered chunks are empty. "
+                  f"region_chunk: {region_chunk}, instance_type_chunk: {instance_type_chunk}")
             return None
 
         request_body = {
@@ -208,26 +208,24 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
 
         with SS_Resources.location_lock:
             res = sps_location_manager.get_next_available_location()
-            subscription_id, location, history, all_subscriptions_history, over_limit_locations, all_over_limit_locations = res
-            sps_location_manager.update_call_history(subscription_id, location, history,
-                                                     all_subscriptions_history)
-
-        if res is None:
-            print("No available locations with remaining calls.")
-            return "NO_AVAILABLE_LOCATIONS"
+            if res is None:
+                print("No available locations with remaining calls.")
+                return "NO_AVAILABLE_LOCATIONS"
+            subscription_id, location, history, over_limit_locations = res
+            sps_location_manager.update_call_history(subscription_id, location, history)
 
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {
             "Authorization": f"Bearer {sps_shared_resources.sps_token}",
             "Content-Type": "application/json",
         }
-
         try:
             response = requests.post(url, headers=headers, json=request_body, timeout=15)
             response.raise_for_status()
             return response.json()
 
         except requests.exceptions.Timeout:
+            "Timeout"
             retries = handle_retry("Timeout", retries, max_retries)
             if retries:
                 continue
@@ -254,15 +252,23 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
                     continue
 
             if "BadGatewayConnection" in error_message:
-                print(f"HTTP error occurred: {error_message}")
+                print(f"11HTTP error occurred: {error_message}")
+                print(f"url: {url}")
                 retries = handle_retry("BadGatewayConnection", retries, max_retries)
+                if retries:
+                    continue
+
+            if "InvalidParameter" in error_message:
+                print(f"11HTTP error occurred: {error_message}, region_chunk: {region_chunk}, instance_type_chunk: {instance_type_chunk}")
+                print(f"url: {url}")
+                retries = handle_retry("InvalidParameter", retries, max_retries)
                 if retries:
                     continue
 
             if "You have reached the maximum number of requests allowed." in error_message:
                 print(f"HTTP error occurred: {error_message}")
                 with SS_Resources.location_lock:
-                    sps_location_manager.update_over_limit_locations(subscription_id, location, all_over_limit_locations)
+                    sps_location_manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry("Too Many Requests", retries, max_retries)
                 if retries:
                     continue
@@ -301,14 +307,18 @@ def extract_invalid_values(error_message):
 def initialize_files():
     try:
         data = {
-            'invalid_regions': []
+            "save_time": None,
+            'invalid_regions': [],
+            "count": 0
         }
         with open(INVALID_REGIONS_PATH_JSON, 'w') as file:
             json.dump(data, file, indent=4)
             print(f"{INVALID_REGIONS_PATH_JSON} has been initialized.")
 
         data = {
-            'invalid_instance_types': []
+            "save_time": None,
+            'invalid_instance_types': [],
+            "count": 0
         }
         with open(INVALID_INSTANCE_TYPES_PATH_JSON, 'w') as file:
             json.dump(data, file, indent=4)
@@ -344,6 +354,7 @@ def handle_retry(error_type, retries, max_retries):
         SS_Resources.time_out_retry_count += 1
     elif error_type == "BadGatewayConnection":
         SS_Resources.bad_request_retry_count += 1
+        print(f"BadGatewayConnection +1 {SS_Resources.bad_request_retry_count}")
     elif error_type == "Too Many Requests":
         SS_Resources.too_many_requests_count += 1
     elif error_type == "InvalidRegion":
@@ -366,9 +377,10 @@ def filter_invalid_items(items, invalid_type):
     elif invalid_type == "invalid_instance_types":
         invalid_data = SS_Resources.invalid_instance_types_tmp
     else:
-        return False
+        return None
 
-    return [item for item in items if item not in invalid_data]
+    filtered_items = [item for item in items if item not in invalid_data]
+    return filtered_items if filtered_items else None
 
 
 def initialize_sps_shared_resources():

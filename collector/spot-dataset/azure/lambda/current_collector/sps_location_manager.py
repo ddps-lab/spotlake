@@ -2,6 +2,7 @@ import re
 import requests
 import sps_shared_resources
 import os
+import json
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
@@ -9,6 +10,8 @@ load_dotenv('./files_sps/.env')
 LOCATIONS_CALL_HISTORY_FILENAME = os.getenv('LOCATIONS_CALL_HISTORY_FILENAME')
 LOCATIONS_OVER_LIMIT_FILENAME = os.getenv('LOCATIONS_OVER_LIMIT_FILENAME')
 SUBSCRIPTIONS = os.getenv('SUBSCRIPTIONS').split(",")
+
+SS_Resources = sps_shared_resources
 
 def check_and_add_available_locations():
     '''
@@ -31,7 +34,6 @@ def check_and_add_available_locations():
 
         for location in available_locations:
             if location not in subscription_history:
-                print(f"Location: {location} is fresh for subscription {subscription_id}, will add it.")
                 subscription_history[location] = []
                 added_available_locations_flag = True
 
@@ -43,93 +45,8 @@ def check_and_add_available_locations():
         print("Successfully saved available_locations to all_subscriptions_history file.")
         return True
 
-    print("available_locations has not been added in this cycle")
+    print("available_locations has not been added in this cycle.")
     return False
-
-def load_over_limit_locations():
-    '''
-    이 메서드는 구독 해당한 초과 locations를 로드하고, 1시간이 지났으며 유효하지 않은 항목을 제거합니다.
-    over_limit_locations의 초기화는 .env SUBSCRIPTIONS 에서 구독을 읽어 이용합니다.
-    '''
-    updated_over_limit_locations_flag = False
-    all_over_limit_locations = sps_shared_resources.read_json_file(LOCATIONS_OVER_LIMIT_FILENAME)
-
-    if all_over_limit_locations is None:
-        print("Failed to load over limit locations. The file might be missing or corrupted.")
-        return None
-
-    for subscription_id in SUBSCRIPTIONS:
-        if subscription_id not in all_over_limit_locations:
-            all_over_limit_locations[subscription_id] = {}
-
-        one_hour_ago = datetime.now() - timedelta(hours=1)
-        for location_key, location_value in list(
-                all_over_limit_locations[subscription_id].items()):
-            dt = datetime.fromisoformat(location_value)
-            if dt <= one_hour_ago:
-                updated_over_limit_locations_flag = True
-                del all_over_limit_locations[subscription_id][location_key]
-
-    if updated_over_limit_locations_flag:
-        if not sps_shared_resources.write_json_file(LOCATIONS_OVER_LIMIT_FILENAME, all_over_limit_locations):
-            print("Failed to save over_limit_location.")
-            return None
-    return all_over_limit_locations
-
-
-def load_call_history_locations():
-    '''
-    이 메서드는 호출 이력을 로드하고 필요에 따라 초기화합니다.
-    또한, 유효하지 않은 위치를 정리하고 호출 이력 파일을 업데이트합니다.
-    '''
-    updated_history_flag = False
-    all_subscriptions_history = sps_shared_resources.read_json_file(LOCATIONS_CALL_HISTORY_FILENAME)
-
-    if all_subscriptions_history is None:
-        print("Failed to load call history. The file might be missing or corrupted.")
-        return None
-
-    one_hour_ago = datetime.now() - timedelta(hours=1)
-    for subscription_id in SUBSCRIPTIONS:
-        subscription_data = all_subscriptions_history.get(subscription_id, {})
-
-        new_subscription_data = {
-            location: [
-                t for t in timestamps if datetime.fromisoformat(t) > one_hour_ago
-            ]
-            for location, timestamps in subscription_data.items()
-        }
-
-        if new_subscription_data != all_subscriptions_history.get(subscription_id, {}):
-            updated_history_flag = True
-
-        all_subscriptions_history[subscription_id] = new_subscription_data
-
-    if updated_history_flag:
-        if not sps_shared_resources.write_json_file(LOCATIONS_CALL_HISTORY_FILENAME, all_subscriptions_history):
-            print("Failed to save the call history file with deleted expired values.")
-            return None
-
-    return all_subscriptions_history
-
-
-def update_call_history(subscription_id, location, current_history, all_subscriptions_history):
-    """
-    이 메서드는 특정 계정, 구독, 위치의 호출 이력을 업데이트합니다.
-    업데이트된 데이터를 JSON 파일에 저장합니다.
-    """
-    try:
-        now = datetime.now()
-        current_timestamp = now.isoformat()
-        current_history[location].append(current_timestamp)
-        all_subscriptions_history[subscription_id] = current_history
-
-        sps_shared_resources.write_json_file(LOCATIONS_CALL_HISTORY_FILENAME, all_subscriptions_history)
-        return True
-
-    except Exception as e:
-        print(f"Failed to update_call_history: {e}")
-        return False
 
 
 def validation_can_call(location, history, over_limit_locations):
@@ -157,55 +74,35 @@ def get_next_available_location():
     단 기간에 같은 location으로 호출 시, timeout율이 놉습니다.
     """
     try:
-        all_subscriptions_history = load_call_history_locations()
-        all_over_limit_locations = load_over_limit_locations()
 
-        if all_subscriptions_history is None or all_over_limit_locations is None:
+        if SS_Resources.locations_call_history_tmp is None or SS_Resources.locations_over_limit_tmp is None:
             return None
+        else:
+            clean_expired_over_limit_locations()
+            clean_expired_over_call_history_locations()
 
-        for subscription_id, subscription_data in all_subscriptions_history.items():
-            current_history = subscription_data
-            current_over_limit_locations = all_over_limit_locations.get(subscription_id) or None
+            for subscription_id, subscription_data in SS_Resources.locations_call_history_tmp.items():
+                current_history = subscription_data
+                current_over_limit_locations = SS_Resources.locations_over_limit_tmp.get(subscription_id) or None
 
-            if subscription_id not in sps_shared_resources.last_location_index:
-                sps_shared_resources.last_location_index[subscription_id] = 0
+                if subscription_id not in sps_shared_resources.last_location_index:
+                    sps_shared_resources.last_location_index[subscription_id] = 0
 
-            start_index = sps_shared_resources.last_location_index[subscription_id]
-            num_locations = len(current_history)
+                start_index = sps_shared_resources.last_location_index[subscription_id]
+                num_locations = len(current_history)
 
-            for i in range(num_locations):
-                index = (start_index + i) % num_locations
-                location = list(current_history.keys())[index]
+                for i in range(num_locations):
+                    index = (start_index + i) % num_locations
+                    location = list(current_history.keys())[index]
 
-                if validation_can_call(location, current_history, current_over_limit_locations):
-                    sps_shared_resources.last_location_index[subscription_id] = (index + 1) % num_locations
-                    return subscription_id, location, current_history, all_subscriptions_history, current_over_limit_locations, all_over_limit_locations
-        return None
+                    if validation_can_call(location, current_history, current_over_limit_locations):
+                        sps_shared_resources.last_location_index[subscription_id] = (index + 1) % num_locations
+                        return subscription_id, location, current_history, current_over_limit_locations
+            return None
 
     except Exception as e:
         print(f"Failed to get_next_available_location: {e}")
         return None
-
-
-def update_over_limit_locations(subscription_id, location, all_over_limit_locations):
-    """
-    이 메서드는 초과 요청된 location을 업데이트합니다.
-    초과 요청 위치 정보를 JSON 파일에 저장합니다.
-    """
-    try:
-        now = datetime.now()
-        current_timestamp = now.isoformat()
-        all_over_limit_locations[subscription_id][location] = current_timestamp
-
-        print("Save over_limit_locations. Subscription ID:" + subscription_id.split('-')[
-            0] + ", Location:", location + ", Time:", now.strftime('%Y-%m-%d %H:%M:%S'))
-
-        sps_shared_resources.write_json_file(LOCATIONS_OVER_LIMIT_FILENAME, all_over_limit_locations)
-        return True
-
-    except Exception as e:
-        print(f"Failed to update_all_over_limit_locations: {e}")
-        return False
 
 def collect_available_locations():
     """
@@ -241,3 +138,146 @@ def collect_available_locations():
     except Exception as e:
         print(f"Failed to collect_available_locations, Error: {e}")
         return None
+
+def load_call_history_locations_file():
+    # S3 이용으로 변경 예정
+    """
+    이 메서드는 call_history 데이터(JSON 파일)를 로드합니다.
+    데이터가 비어 있거나 유효하지 않을 경우 None을 반환합니다.
+    """
+    try:
+        with open(LOCATIONS_CALL_HISTORY_FILENAME, "r", encoding="utf-8") as json_file:
+            content = json_file.read().strip()
+            if not content:
+                return None
+
+            parsed_content = json.loads(content)
+
+            if not parsed_content:
+                return None
+
+            return parsed_content
+
+    except json.JSONDecodeError as e:
+        print(f"load_call_history_locations_file func. JSON decoding error: {str(e)}")
+    except Exception as e:
+        print(f"load_call_history_locations_file func. An unexpected error occurred: {e}")
+    return None
+
+
+def load_over_limit_locations_file():
+    # S3 이용으로 변경 예정
+    """
+    이 메서드는 over_limit_locations 데이터(JSON 파일)를 로드합니다.
+    데이터가 비어 있거나 유효하지 않을 경우 None을 반환합니다.
+    """
+    try:
+        with open(LOCATIONS_OVER_LIMIT_FILENAME, "r", encoding="utf-8") as json_file:
+            content = json_file.read().strip()
+            if not content:
+                return None
+
+            parsed_content = json.loads(content)
+            if not parsed_content:
+                for subscription_id in SUBSCRIPTIONS:
+                    if subscription_id not in parsed_content:
+                        parsed_content[subscription_id] = {}
+            return parsed_content
+
+    except json.JSONDecodeError as e:
+        print(f"load_over_limit_locations_file func. JSON decoding error: {str(e)}")
+    except Exception as e:
+        print(f"load_over_limit_locations_file func. An unexpected error occurred: {e}")
+    return None
+
+def clean_expired_over_limit_locations():
+    '''
+    이 메서드는 구독 해당한 limited locations 대해, 1시간이 지났으면 유효하지 않은 항목을 제거합니다.
+    '''
+    for subscription_id in SUBSCRIPTIONS:
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        for location_key, location_value in list(
+                SS_Resources.locations_over_limit_tmp[subscription_id].items()):
+            dt = datetime.fromisoformat(location_value)
+            if dt <= one_hour_ago:
+                del SS_Resources.locations_over_limit_tmp[subscription_id][location_key]
+
+
+def clean_expired_over_call_history_locations():
+    '''
+    이 메서드는 호출 이력을 유효하지 않은 위치를 정리하고 호출 이력을 업데이트합니다.
+    '''
+    one_hour_ago = datetime.now() - timedelta(hours=1)
+    for subscription_id in SUBSCRIPTIONS:
+        subscription_data = SS_Resources.locations_call_history_tmp.get(subscription_id, {})
+
+        new_subscription_data = {
+            location: [
+                t for t in timestamps if datetime.fromisoformat(t) > one_hour_ago
+            ]
+            for location, timestamps in subscription_data.items()
+        }
+        SS_Resources.locations_call_history_tmp[subscription_id] = new_subscription_data
+
+
+def update_call_history(subscription_id, location, current_history):
+    """
+    이 메서드는 특정 계정, 구독, 위치의 호출 이력을 업데이트합니다.
+    업데이트된 데이터를 JSON 파일에 저장합니다.
+    """
+    try:
+        now = datetime.now()
+        current_timestamp = now.isoformat()
+        current_history[location].append(current_timestamp)
+        SS_Resources.locations_call_history_tmp[subscription_id] = current_history
+        return True
+
+    except Exception as e:
+        print(f"Failed to update_call_history: {e}")
+        return False
+
+def update_over_limit_locations(subscription_id, location):
+    """
+    이 메서드는 초과 요청된 location을 업데이트합니다.
+    초과 요청 위치 정보를 JSON 파일에 저장합니다.
+    """
+    try:
+        now = datetime.now()
+        current_timestamp = now.isoformat()
+        SS_Resources.locations_over_limit_tmp[subscription_id][location] = current_timestamp
+
+        print("Succeed to update_over_limit_locations. Subscription ID:" + subscription_id.split('-')[
+            0] + ", Location:", location + ", Time:", now.strftime('%Y-%m-%d %H:%M:%S'))
+        return True
+
+    except Exception as e:
+        print(f"Failed to update_all_over_limit_locations: {e}")
+        return False
+
+def save_call_history_file():
+    # S3 이용으로 변경 예정
+    try:
+        if SS_Resources.locations_call_history_tmp:
+            with open(LOCATIONS_CALL_HISTORY_FILENAME, 'w', encoding='utf-8') as file:
+                json.dump(SS_Resources.locations_call_history_tmp, file, indent=4)
+            print(f"Succeed to save locations_call_history_tmp to {LOCATIONS_CALL_HISTORY_FILENAME}.")
+            return True
+
+    except Exception as e:
+        print(f"Failed to save locations_call_history_tmp: {e}")
+
+    return False
+
+def save_over_limit_locations_file():
+    # S3 이용으로 변경 예정
+    try:
+        if SS_Resources.locations_over_limit_tmp:
+            with open(LOCATIONS_OVER_LIMIT_FILENAME, 'w', encoding='utf-8') as file:
+                json.dump(SS_Resources.locations_over_limit_tmp, file, indent=4)
+            print(f"Succeed to save locations_over_limit_tmp to {LOCATIONS_OVER_LIMIT_FILENAME}.")
+            return True
+
+    except Exception as e:
+        print(f"Failed to save locations_over_limit_tmp: {e}")
+
+    return False

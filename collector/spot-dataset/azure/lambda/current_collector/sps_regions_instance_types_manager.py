@@ -42,7 +42,7 @@ def request_regions_and_instance_types_df_by_priceapi():
         return None
 
 
-def load_invalid_regions():
+def load_invalid_regions_file():
     # S3 이용으로 변경 예정
     """
     이 메서드는 무효한 region 데이터(JSON 파일)를 로드합니다.
@@ -58,14 +58,14 @@ def load_invalid_regions():
             return parsed_content['invalid_regions']
 
     except json.JSONDecodeError as e:
-        print(f"load_invalid_regions func. JSON decoding error: {str(e)}")
+        print(f"load_invalid_regions_file func. JSON decoding error: {str(e)}")
     except Exception as e:
-        print(f"load_invalid_regions func. An unexpected error occurred: {e}")
+        print(f"load_invalid_regions_file func. An unexpected error occurred: {e}")
 
     return None
 
 
-def load_invalid_instance_types():
+def load_invalid_instance_types_file():
     # S3 이용으로 변경 예정
     """
     이 메서드는 무효화된 instance_type 데이터(JSON 파일)를 로드합니다.
@@ -80,50 +80,49 @@ def load_invalid_instance_types():
             parsed_content = json.loads(content)
             return parsed_content['invalid_instance_types']
 
-
     except json.JSONDecodeError as e:
-        print(f"load_invalid_instance_types func. JSON decoding error: {str(e)}")
+        print(f"load_invalid_instance_types_file func. JSON decoding error: {str(e)}")
 
     except Exception as e:
-        print(f"load_invalid_instance_types func. An unexpected error occurred: {e}")
+        print(f"load_invalid_instance_types_file func. An unexpected error occurred: {e}")
 
     return None
 
 
-def save_invalid_regions():
+def save_invalid_regions_file():
     # S3 이용으로 변경 예정
     try:
         now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        data = {
-            "save_time": now_time,
-            "invalid_regions": SS_Resources.invalid_regions_tmp,
-            "regions_count": len(SS_Resources.invalid_regions_tmp)
-        }
-
-        with open(INVALID_REGIONS_PATH_JSON, 'w') as file:
-            json.dump(data, file, indent=4)
-        print(f"Succeed to save_invalid_regions.")
-        return True
+        if len(SS_Resources.invalid_regions_tmp) > 0:
+            data = {
+                "save_time": now_time,
+                "invalid_regions": SS_Resources.invalid_regions_tmp,
+                "count": len(SS_Resources.invalid_regions_tmp)
+            }
+            with open(INVALID_REGIONS_PATH_JSON, 'w') as file:
+                json.dump(data, file, indent=4)
+            print(f"Succeed to save_invalid_regions.")
+            return True
 
     except Exception as e:
         print(f"Failed to save_invalid_regions: {e}")
         return False
 
-def save_invalid_instance_types():
+def save_invalid_instance_types_file():
     # S3 이용으로 변경 예정
     try:
         now_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        if len(SS_Resources.invalid_instance_types_tmp) > 0:
+            data = {
+                "save_time": now_time,
+                "invalid_instance_types": SS_Resources.invalid_instance_types_tmp,
+                "count": len(SS_Resources.invalid_instance_types_tmp)
+            }
 
-        data = {
-            "save_time": now_time,
-            "invalid_instance_types": SS_Resources.invalid_instance_types_tmp,
-            "types_count": len(SS_Resources.invalid_instance_types_tmp)
-        }
-
-        with open(INVALID_INSTANCE_TYPES_PATH_JSON, 'w') as file:
-            json.dump(data, file, indent=4)
-        print(f"Succeed to save_invalid_instance_types.")
-        return True
+            with open(INVALID_INSTANCE_TYPES_PATH_JSON, 'w') as file:
+                json.dump(data, file, indent=4)
+            print(f"Succeed to save_invalid_instance_types.")
+            return True
 
     except Exception as e:
         print(f"Failed to save_invalid_regions: {e}")

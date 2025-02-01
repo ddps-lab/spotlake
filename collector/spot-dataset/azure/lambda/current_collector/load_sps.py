@@ -159,11 +159,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     save_tmp_files_to_s3()
     file_name = f"{collect_time}.json"
     SS_Resources.upload_file_to_s3(merged_result, file_name, "json")
-    print(f"\n병합된 결과가 S3으로 '/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json' 파일에 저장되었습니다.")
     return True
-
-
-
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
@@ -249,7 +245,6 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
     if retries is None:
         print(f"Max retries-> ({max_retries}) reached for regions: {region_chunk}, instance types: {instance_type_chunk}.")
     return None
-
 
 
 def extract_invalid_values(error_message):

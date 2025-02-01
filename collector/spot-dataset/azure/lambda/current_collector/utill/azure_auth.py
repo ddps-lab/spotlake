@@ -2,10 +2,7 @@ import json
 import requests
 import time
 from utill.dynamodb import DynamoDB
-from datetime import datetime, timezone, timedelta
 from azure.identity import ClientSecretCredential
-
-KST = timezone(timedelta(hours=9))
 
 def get_token():
     db = DynamoDB("AzureAuth")

@@ -1,6 +1,5 @@
 import boto3
 
-
 class DynamoDB:
     def __init__(self, table):
         dynamodb = boto3.resource('dynamodb', region_name='us-east-1')

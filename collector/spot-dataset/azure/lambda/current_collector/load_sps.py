@@ -1,4 +1,3 @@
-import json
 import re
 import random
 import requests
@@ -30,16 +29,12 @@ def log_execution_time(func):
         wrapper._is_running = True
         try:
             start_time = datetime.now()
-            print(f"Start time for {func.__name__}: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-
             result = func(*args, **kwargs)
-
             end_time = datetime.now()
+
             elapsed_time = end_time - start_time
             minutes, seconds = divmod(elapsed_time.seconds, 60)
 
-            # print(f"End time for {func.__name__}: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"{func.__name__} executed in {minutes}min {seconds}sec")
 
             return result
@@ -160,14 +155,15 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
                 raise
 
-    # json 파일이 아닌 dataframe 형태 변경 예정
-    with open(f"./files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json", "w") as json_file:
-        json.dump(merged_result, json_file, indent=3)
 
     save_tmp_files_to_s3()
-
-    print(f"병합된 결과가 './files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json' 파일에 저장되었습니다.")
+    file_name = f"{collect_time}.json"
+    SS_Resources.upload_file_to_s3(merged_result, file_name, "json")
+    print(f"\n병합된 결과가 S3으로 '/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json' 파일에 저장되었습니다.")
     return True
+
+
+
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
@@ -209,8 +205,6 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
         except requests.exceptions.Timeout:
             "Timeout"
             retries = handle_retry("Timeout", retries, max_retries)
-            if retries:
-                continue
 
         except requests.exceptions.HTTPError as http_err:
             error_message = http_err.response.text
@@ -230,33 +224,27 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
                         break
                     retries = handle_retry("InvalidInstanceType", retries, max_retries)
 
-                if retries:
-                    continue
-
             if "BadGatewayConnection" in error_message:
                 print(f"HTTP error occurred: {error_message}")
                 retries = handle_retry("BadGatewayConnection", retries, max_retries)
-                if retries:
-                    continue
 
-            if "InvalidParameter" in error_message:
+            elif "InvalidParameter" in error_message:
                 print(f"HTTP error occurred: {error_message}, region_chunk: {region_chunk}, instance_type_chunk: {instance_type_chunk}")
                 print(f"url: {url}")
                 retries = handle_retry("InvalidParameter", retries, max_retries)
-                if retries:
-                    continue
 
-            if "You have reached the maximum number of requests allowed." in error_message:
+            elif "You have reached the maximum number of requests allowed." in error_message:
                 print(f"HTTP error occurred: {error_message}")
                 with SS_Resources.location_lock:
                     sps_location_manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry("Too Many Requests", retries, max_retries)
-                if retries:
-                    continue
 
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
             break
+
+        if retries:
+            continue
 
     if retries is None:
         print(f"Max retries-> ({max_retries}) reached for regions: {region_chunk}, instance types: {instance_type_chunk}.")

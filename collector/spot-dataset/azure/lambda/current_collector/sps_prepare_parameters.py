@@ -1,30 +1,20 @@
-import json
 import numpy as np
 import pandas as pd
-import os
 import sps_shared_resources
-from dotenv import load_dotenv
 from sklearn.cluster import KMeans
 from collections import defaultdict
 
-
-load_dotenv('./files_sps/.env')
 SS_Resources = sps_shared_resources
-
 
 def filter_invalid_parameter(regions_and_instance_types_df):
     """
     이 메서드는 무효한 regions_and_instance_types 데이터(JSON 파일)를 로드하고,
     요청한 dataframe중의 무효값을 제거합니다.
     """
-
     regions_and_instance_types_del1_invalid_df = regions_and_instance_types_df[
         ~regions_and_instance_types_df['RegionCode'].isin(SS_Resources.invalid_regions_tmp) &
         ~regions_and_instance_types_df['InstanceType'].isin(SS_Resources.invalid_instance_types_tmp)
         ]
-
-    print(f"Length of regions_and_instance_types_df: {len(regions_and_instance_types_df)}")
-    print(f"Length of regions_and_instance_types_del_invalid_df: {len(regions_and_instance_types_del1_invalid_df)}")
 
     return regions_and_instance_types_del1_invalid_df
 

@@ -35,12 +35,14 @@ def get_token():
     return access_token
 
 
-def get_sps_token():
+def get_sps_token_and_subscriptions():
     db = DynamoDB("AzureAuth_SPS")
 
     tenant_id = db.get_item('tenant_id')
     client_id = db.get_item('client_id')
     client_secret = db.get_item('client_secret')
+    subscriptions = db.get_item('subscriptions')
+
     sps_token = ClientSecretCredential(tenant_id, client_id, client_secret).get_token_info("https://management.azure.com/.default").token
 
-    return sps_token
+    return sps_token, list(subscriptions)

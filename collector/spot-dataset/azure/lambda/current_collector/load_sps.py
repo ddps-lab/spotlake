@@ -6,15 +6,20 @@ import sps_location_manager
 import sps_shared_resources
 import sps_regions_instance_types_manager
 import concurrent.futures
-import sps_prepare_parameters
-import pandas as pd
 import time
-import os
-from dotenv import load_dotenv
+import sps_prepare_parameters
 from json import JSONDecodeError
 from functools import wraps
 from datetime import datetime
-from utill.azure_auth import get_sps_token
+from utill.azure_auth import get_sps_token_and_subscriptions
+from const_config import AzureCollector, Storage
+
+STORAGE_CONST = Storage()
+AZURE_CONST = AzureCollector()
+SS_Resources = sps_shared_resources
+SRI_M = sps_regions_instance_types_manager
+SL_M = sps_location_manager
+SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions()
 
 def log_execution_time(func):
     @wraps(func)
@@ -34,7 +39,7 @@ def log_execution_time(func):
             elapsed_time = end_time - start_time
             minutes, seconds = divmod(elapsed_time.seconds, 60)
 
-            print(f"End time for {func.__name__}: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            # print(f"End time for {func.__name__}: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"{func.__name__} executed in {minutes}min {seconds}sec")
 
             return result
@@ -42,32 +47,16 @@ def log_execution_time(func):
             wrapper._is_running = False
     return wrapper
 
-
-load_dotenv('./files_sps/.env')
-
-INVALID_REGIONS_PATH_JSON = os.getenv('INVALID_REGIONS_PATH_JSON')
-INVALID_INSTANCE_TYPES_PATH_JSON = os.getenv('INVALID_INSTANCE_TYPES_PATH_JSON')
-REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL = os.getenv('REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL')
-DF_TO_USE_TODAY_FILENAME_PKL = os.getenv('DF_TO_USE_TODAY_FILENAME_PKL')
-SUBSCRIPTIONS = os.getenv('SUBSCRIPTIONS').split(",")
-
-SS_Resources = sps_shared_resources
-SRI_M = sps_regions_instance_types_manager
-SL_M = sps_location_manager
-
 @log_execution_time
 def collect_spot_placement_score_first_time(desired_count, collect_time):
-    if initialize_files():
+    if initialize_files_in_s3():
+        assert get_variable_from_s3()
         initialize_sps_shared_resources()
-        SS_Resources.sps_token = get_sps_token()
 
         print(f"Start to collect_spot_placement_score_first_time")
 
         start_time = time.time()
         regions_and_instance_types_df = SRI_M.request_regions_and_instance_types_df_by_priceapi()
-        regions_and_instance_types_df.to_pickle(REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL)
-        print(f"The file '{REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL}' has been successfully saved.")
-
         df_greedy_clustering_initial = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(regions_and_instance_types_df)
         end_time = time.time()
         elapsed = end_time - start_time
@@ -90,13 +79,12 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         print(f"execute_spot_placement_score_task_by_parameter_pool_df time: {minutes}min {seconds}sec")
 
         start_time = time.time()
-        regions_and_instance_types_df = pd.read_pickle(REGIONS_AND_INSTANCE_TYPES_DF_FROM_PRICEAPI_FILENAME_PKL)
         regions_and_instance_types_filtered_df = sps_prepare_parameters.filter_invalid_parameter(
             regions_and_instance_types_df)
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
-        df_greedy_clustering_filtered.to_pickle(DF_TO_USE_TODAY_FILENAME_PKL)
-        print(f"The file '{DF_TO_USE_TODAY_FILENAME_PKL}' has been successfully saved.")
+
+        SS_Resources.upload_file_to_s3(df_greedy_clustering_filtered, AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, "pkl")
 
         end_time = time.time()
         elapsed = end_time - start_time
@@ -106,11 +94,11 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
 
 @log_execution_time
 def collect_spot_placement_score(desired_count, collect_time):
+    assert get_variable_from_s3()
     initialize_sps_shared_resources()
-    SS_Resources.sps_token = get_sps_token()
 
     print(f"Start to collect_spot_placement_score")
-    df_greedy_clustering_filtered = pd.read_pickle(DF_TO_USE_TODAY_FILENAME_PKL)
+    df_greedy_clustering_filtered = SS_Resources.read_file_from_s3(AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, 'pkl')
 
     execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count, collect_time)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
@@ -121,11 +109,6 @@ def collect_spot_placement_score(desired_count, collect_time):
 
 
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, collect_time):
-    SS_Resources.invalid_regions_tmp = SRI_M.load_invalid_regions_file()
-    SS_Resources.invalid_instance_types_tmp = SRI_M.load_invalid_instance_types_file()
-    SS_Resources.locations_call_history_tmp = SL_M.load_call_history_locations_file()
-    SS_Resources.locations_over_limit_tmp = SL_M.load_over_limit_locations_file()
-
     merged_result = {
         "Collect_Time": collect_time,
         "Desired_Count": desired_count,
@@ -171,18 +154,17 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
             except JSONDecodeError as e:
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
+                raise
 
             except Exception as e:
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
+                raise
 
     # json 파일이 아닌 dataframe 형태 변경 예정
     with open(f"./files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json", "w") as json_file:
         json.dump(merged_result, json_file, indent=3)
 
-    SRI_M.save_invalid_regions_file()
-    SRI_M.save_invalid_instance_types_file()
-    SL_M.save_call_history_file()
-    SL_M.save_over_limit_locations_file()
+    save_tmp_files_to_s3()
 
     print(f"병합된 결과가 './files_sps/{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.json' 파일에 저장되었습니다.")
     return True
@@ -252,14 +234,13 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
                     continue
 
             if "BadGatewayConnection" in error_message:
-                print(f"11HTTP error occurred: {error_message}")
-                print(f"url: {url}")
+                print(f"HTTP error occurred: {error_message}")
                 retries = handle_retry("BadGatewayConnection", retries, max_retries)
                 if retries:
                     continue
 
             if "InvalidParameter" in error_message:
-                print(f"11HTTP error occurred: {error_message}, region_chunk: {region_chunk}, instance_type_chunk: {instance_type_chunk}")
+                print(f"HTTP error occurred: {error_message}, region_chunk: {region_chunk}, instance_type_chunk: {instance_type_chunk}")
                 print(f"url: {url}")
                 retries = handle_retry("InvalidParameter", retries, max_retries)
                 if retries:
@@ -301,33 +282,24 @@ def extract_invalid_values(error_message):
         "invalid_region": region_match.group(1) if region_match else None,
         "invalid_instanceType": instance_type_match.group(1) if instance_type_match else None
     }
-
     return match_res
 
-def initialize_files():
-    try:
-        data = {
-            "save_time": None,
-            'invalid_regions': [],
-            "count": 0
-        }
-        with open(INVALID_REGIONS_PATH_JSON, 'w') as file:
-            json.dump(data, file, indent=4)
-            print(f"{INVALID_REGIONS_PATH_JSON} has been initialized.")
 
-        data = {
-            "save_time": None,
-            'invalid_instance_types': [],
-            "count": 0
+def initialize_files_in_s3():
+    try:
+        files_to_initialize = {
+            AZURE_CONST.INVALID_REGIONS_JSON_FILENAME: [],
+            AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME: []
         }
-        with open(INVALID_INSTANCE_TYPES_PATH_JSON, 'w') as file:
-            json.dump(data, file, indent=4)
-            print(f"{INVALID_INSTANCE_TYPES_PATH_JSON} has been initialized.")
+
+        for file_name, data in files_to_initialize.items():
+            SS_Resources.upload_file_to_s3(data, file_name, "json", initialization=True)
         return True
 
     except Exception as e:
-        print(f"An error occurred during initialization: {e}")
+        print(f"An error occurred during S3 initialization: {e}")
         return False
+
 
 def del_invalid_chunk(chunk, invalid_value, value_type):
     with SS_Resources.lock:
@@ -336,7 +308,7 @@ def del_invalid_chunk(chunk, invalid_value, value_type):
                 SS_Resources.invalid_regions_tmp.append(invalid_value)
 
         elif value_type == "invalid_instanceType":
-            if invalid_value not in SS_Resources.invalid_regions_tmp:
+            if invalid_value not in SS_Resources.invalid_instance_types_tmp:
                 SS_Resources.invalid_instance_types_tmp.append(invalid_value)
 
     if invalid_value in chunk:
@@ -345,8 +317,6 @@ def del_invalid_chunk(chunk, invalid_value, value_type):
         print(f"x not in list, invalid_value: {invalid_value}, chunk: {chunk}")
 
     return chunk if chunk else None
-
-
 
 
 def handle_retry(error_type, retries, max_retries):
@@ -389,5 +359,46 @@ def initialize_sps_shared_resources():
     SS_Resources.too_many_requests_count = 0
     SS_Resources.found_invalid_region_retry_count = 0
     SS_Resources.found_invalid_instance_type_retry_count = 0
-    SS_Resources.invalid_regions_tmp = None
-    SS_Resources.invalid_instance_types_tmp = None
+
+def save_tmp_files_to_s3():
+    files_to_upload = {
+        AZURE_CONST.INVALID_REGIONS_JSON_FILENAME: SS_Resources.invalid_regions_tmp,
+        AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME: SS_Resources.invalid_instance_types_tmp,
+        AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME: SS_Resources.locations_call_history_tmp,
+        AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME: SS_Resources.locations_over_limit_tmp
+    }
+
+    for file_name, file_data in files_to_upload.items():
+        if file_data:
+            SS_Resources.upload_file_to_s3(file_data, file_name, "json")
+
+def get_variable_from_s3():
+    try:
+        invalid_regions_data = SS_Resources.read_file_from_s3(AZURE_CONST.INVALID_REGIONS_JSON_FILENAME, 'json')
+        instance_types_data = SS_Resources.read_file_from_s3(AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME, 'json')
+        call_history_data = SS_Resources.read_file_from_s3(AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME, 'json')
+        over_limit_data = SS_Resources.read_file_from_s3(AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME, 'json')
+
+        SS_Resources.invalid_regions_tmp = invalid_regions_data
+        SS_Resources.invalid_instance_types_tmp = instance_types_data
+        SS_Resources.locations_call_history_tmp = call_history_data
+        SS_Resources.locations_over_limit_tmp = over_limit_data
+
+        if all(data is not None for data in [
+            SS_Resources.invalid_regions_tmp,
+            SS_Resources.invalid_instance_types_tmp,
+            SS_Resources.locations_call_history_tmp,
+            SS_Resources.locations_over_limit_tmp
+        ]):
+            print("[S3]: Succeed to prepare variable from s3.")
+            return True
+
+        else:
+            return False
+
+    except KeyError as e:
+        print(f"Missing expected key in S3 JSON data: {e}")
+        return False
+    except Exception as e:
+        print(f"Error loading files from S3: {e}")
+        return False

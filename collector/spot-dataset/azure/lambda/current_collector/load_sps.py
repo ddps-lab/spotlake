@@ -3,9 +3,9 @@ import random
 import requests
 import concurrent.futures
 import time
+import load_price
 from sps_module import sps_location_manager
 from sps_module import sps_shared_resources
-from sps_module import sps_regions_instance_types_manager
 from sps_module import sps_prepare_parameters
 from json import JSONDecodeError
 from functools import wraps
@@ -14,13 +14,14 @@ from utill.azure_auth import get_sps_token_and_subscriptions
 from const_config import AzureCollector, Storage
 from utill.aws_service import S3Handler
 
+
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
 S3 = S3Handler()
 
 SS_Resources = sps_shared_resources
-SRI_M = sps_regions_instance_types_manager
-SL_M = sps_location_manager
+SL_Manager = sps_location_manager
+
 SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions()
 
 
@@ -67,14 +68,14 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         print(f"Start to collect_spot_placement_score_first_time")
 
         start_time = time.time()
-        regions_and_instance_types_df = SRI_M.request_regions_and_instance_types_df_by_priceapi()
+        regions_and_instance_types_df = collect_regions_and_instance_types_df_by_priceapi()
         df_greedy_clustering_initial = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(regions_and_instance_types_df)
         end_time = time.time()
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"request_regions_and_instance_types_df_by_priceapi + greedy_clustering_to_create_optimized_request_list time: {minutes}min {seconds}sec")
 
-        sps_location_manager.check_and_add_available_locations()
+        SL_Manager.check_and_add_available_locations()
 
         start_time = time.time()
         execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count, collect_time)
@@ -209,12 +210,12 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
         }
 
         with SS_Resources.location_lock:
-            res = sps_location_manager.get_next_available_location()
+            res = SL_Manager.get_next_available_location()
             if res is None:
                 print("No available locations with remaining calls.")
                 return "NO_AVAILABLE_LOCATIONS"
             subscription_id, location, history, over_limit_locations = res
-            sps_location_manager.update_call_history(subscription_id, location, history)
+            SL_Manager.update_call_history(subscription_id, location, history)
 
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {
@@ -260,7 +261,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             elif "You have reached the maximum number of requests allowed." in error_message:
                 print(f"HTTP error occurred: {error_message}")
                 with SS_Resources.location_lock:
-                    sps_location_manager.update_over_limit_locations(subscription_id, location)
+                    SL_Manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry("Too Many Requests", retries, max_retries)
 
         except Exception as e:
@@ -423,3 +424,30 @@ def get_variable_from_s3():
     except Exception as e:
         print(f"Error loading files from S3: {e}")
         return False
+
+def collect_regions_and_instance_types_df_by_priceapi():
+    """
+    이 메서드는 Price API를 호출하여 region 및 instance_type 데이터를 가져옵니다.
+    결과는 DataFrame 형식으로 정리되며 'RegionCode'와 'InstanceType' 열을 포함합니다.
+    """
+    try:
+        price_source_df = load_price.collect_price_with_multithreading()
+        price_source_df = price_source_df[price_source_df['InstanceTier'].notna()]
+        price_source_df['InstanceTypeNew'] = price_source_df.apply(
+            lambda row: f"{row['InstanceTier']}_{row['InstanceType']}" if pd.notna(row['InstanceTier']) else row[
+                'InstanceType'], axis=1
+        )
+        regions_and_instance_types_df = price_source_df[['armRegionName', 'InstanceTypeNew']]
+        regions_and_instance_types_df = regions_and_instance_types_df.rename(columns={
+            'armRegionName': 'RegionCode',
+            'InstanceTypeNew': 'InstanceType'
+        })
+
+        regions_and_instance_types_df['RegionCode'] = regions_and_instance_types_df['RegionCode'].str.strip()
+        regions_and_instance_types_df['InstanceType'] = regions_and_instance_types_df['InstanceType'].str.strip()
+
+        return regions_and_instance_types_df[['RegionCode', 'InstanceType']]
+
+    except Exception as e:
+        print(f"Failed to get_regions_and_instance_types_df_by_priceapi, Error: {e}")
+        return None

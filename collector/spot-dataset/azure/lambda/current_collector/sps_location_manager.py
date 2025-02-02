@@ -62,42 +62,69 @@ def validation_can_call(location, history, over_limit_locations):
 
 def get_next_available_location():
     """
-    이 메서드는 사용 가능한 다음 위치를 리턴합니다.
-    호출 이력과 초과 요청 데이터를 기반으로 적절한 위치를 선택합니다.
-    호출 시 이용하는 location은 구독내에 지난 호출의 location을 이용 안 해야 하는 로직이 들어갑니다.
+     이 메서드는 사용 가능한 다음 위치를 리턴합니다.
+     호출 이력과 초과 요청 데이터를 기반으로 적절한 위치를 선택합니다.
+     호출 시 이용하는 location은 구독 내에 지난 호출의 location을 이용 안 해야 하는 로직이 들어갑니다.
 
-    이유:
-    단 기간에 같은 location으로 호출 시, timeout율이 놉습니다.
-    """
+     이유:
+     단 기간에 같은 location으로 호출 시, timeout율이 놉습니다.
+     """
     try:
         if SS_Resources.locations_call_history_tmp is None or SS_Resources.locations_over_limit_tmp is None:
             return None
-        else:
-            clean_expired_over_limit_locations()
-            clean_expired_over_call_history_locations()
 
-            for subscription_id, subscription_data in SS_Resources.locations_call_history_tmp.items():
+        # Clean expired data
+        clean_expired_over_limit_locations()
+        clean_expired_over_call_history_locations()
 
-                current_history = subscription_data
-                current_over_limit_locations = SS_Resources.locations_over_limit_tmp.get(subscription_id) or None
-                if subscription_id not in sps_shared_resources.last_location_index:
-                    sps_shared_resources.last_location_index[subscription_id] = 0
+        # Get the list of subscription_ids
+        subscription_ids = list(SS_Resources.locations_call_history_tmp.keys())
 
-                start_index = sps_shared_resources.last_location_index[subscription_id]
-                num_locations = len(current_history)
+        # Get the last used subscription_id and location
+        last_subscription_id = SS_Resources.last_subscription_id_and_location_tmp.get('last_subscription_id')
+        last_location = SS_Resources.last_subscription_id_and_location_tmp.get('last_location')
 
-                for i in range(num_locations):
-                    index = (start_index + i) % num_locations
-                    location = list(current_history.keys())[index]
+        # Find the index of the last used subscription_id (use last_subscription_id directly)
+        start_subscription_index = 0
+        if last_subscription_id is not None and last_subscription_id in subscription_ids:
+            start_subscription_index = subscription_ids.index(last_subscription_id)
 
-                    if validation_can_call(location, current_history, current_over_limit_locations):
-                        sps_shared_resources.last_location_index[subscription_id] = (index + 1) % num_locations
-                        return subscription_id, location, current_history, current_over_limit_locations
-            return None
+        # Iterate through subscription_ids (allow reusing the last subscription_id)
+        for i in range(len(subscription_ids)):
+            subscription_index = (start_subscription_index + i) % len(subscription_ids)
+            subscription_id = subscription_ids[subscription_index]
+
+            current_history = SS_Resources.locations_call_history_tmp[subscription_id]
+            current_over_limit_locations = SS_Resources.locations_over_limit_tmp.get(subscription_id)
+
+            # Get the list of locations
+            locations = list(current_history.keys())
+
+            # Find the index of the last used location and start from the next one
+            start_location_index = 0
+            if last_location is not None and last_location in locations:
+                start_location_index = (locations.index(last_location) + 1) % len(locations)  # Move to the next location
+
+            # Iterate through locations (starting from the next one after last_location)
+            for j in range(len(locations)):
+                location_index = (start_location_index + j) % len(locations)
+                location = locations[location_index]
+
+                # Check if the location can be called
+                if validation_can_call(location, current_history, current_over_limit_locations):
+                    # Update last used subscription_id (keep it) and location (move to next)
+                    SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
+                    SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
+                    return subscription_id, location, current_history, current_over_limit_locations
+
+        return None  # No valid location found
 
     except Exception as e:
         print(f"Failed to get_next_available_location: {e}")
         return None
+
+
+
 
 def collect_available_locations():
     """

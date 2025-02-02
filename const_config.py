@@ -147,6 +147,10 @@ class AzureCollector(object):
         return "invalid_instance_types.json"
 
     @constant
+    def LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME():
+        return "last_subscription_id_and_location.json"
+
+    @constant
     def DF_TO_USE_TODAY_PKL_FILENAME():
         return "df_to_use_today.pkl"
 

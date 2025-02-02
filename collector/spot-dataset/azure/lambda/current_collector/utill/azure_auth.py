@@ -1,7 +1,6 @@
-import json
 import requests
 import time
-from utill.dynamodb import DynamoDB
+from utill.aws_service import DynamoDB
 from azure.identity import ClientSecretCredential
 
 def get_token():

@@ -12,9 +12,12 @@ from functools import wraps
 from datetime import datetime
 from utill.azure_auth import get_sps_token_and_subscriptions
 from const_config import AzureCollector, Storage
+from utill.aws_service import S3Handler
 
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
+S3 = S3Handler()
+
 SS_Resources = sps_shared_resources
 SRI_M = sps_regions_instance_types_manager
 SL_M = sps_location_manager
@@ -79,7 +82,7 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
-        SS_Resources.upload_file_to_s3(df_greedy_clustering_filtered, AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, "pkl")
+        S3.upload_file(df_greedy_clustering_filtered, AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, "pkl")
 
         end_time = time.time()
         elapsed = end_time - start_time
@@ -93,7 +96,7 @@ def collect_spot_placement_score(desired_count, collect_time):
     initialize_sps_shared_resources()
 
     print(f"Start to collect_spot_placement_score")
-    df_greedy_clustering_filtered = SS_Resources.read_file_from_s3(AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, 'pkl')
+    df_greedy_clustering_filtered = S3.read_file(AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, 'pkl')
 
     execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count, collect_time)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
@@ -157,8 +160,8 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
 
     save_tmp_files_to_s3()
-    file_name = f"{collect_time}.json"
-    SS_Resources.upload_file_to_s3(merged_result, file_name, "json")
+    file_name = f"result/{collect_time}.json"
+    S3.upload_file(merged_result, file_name, "json")
     return True
 
 
@@ -276,7 +279,7 @@ def initialize_files_in_s3():
         }
 
         for file_name, data in files_to_initialize.items():
-            SS_Resources.upload_file_to_s3(data, file_name, "json", initialization=True)
+            S3.upload_file(data, file_name, "json", initialization=True)
         return True
 
     except Exception as e:
@@ -348,30 +351,40 @@ def save_tmp_files_to_s3():
         AZURE_CONST.INVALID_REGIONS_JSON_FILENAME: SS_Resources.invalid_regions_tmp,
         AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME: SS_Resources.invalid_instance_types_tmp,
         AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME: SS_Resources.locations_call_history_tmp,
-        AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME: SS_Resources.locations_over_limit_tmp
+        AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME: SS_Resources.locations_over_limit_tmp,
+        AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME: {
+            "last_subscription_id": SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'],
+            "last_location": SS_Resources.last_subscription_id_and_location_tmp['last_location']
+        },
     }
 
     for file_name, file_data in files_to_upload.items():
         if file_data:
-            SS_Resources.upload_file_to_s3(file_data, file_name, "json")
+            S3.upload_file(file_data, file_name, "json")
 
 def get_variable_from_s3():
     try:
-        invalid_regions_data = SS_Resources.read_file_from_s3(AZURE_CONST.INVALID_REGIONS_JSON_FILENAME, 'json')
-        instance_types_data = SS_Resources.read_file_from_s3(AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME, 'json')
-        call_history_data = SS_Resources.read_file_from_s3(AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME, 'json')
-        over_limit_data = SS_Resources.read_file_from_s3(AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME, 'json')
+        invalid_regions_data = S3.read_file(AZURE_CONST.INVALID_REGIONS_JSON_FILENAME, 'json')
+        instance_types_data = S3.read_file(AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME, 'json')
+        call_history_data = S3.read_file(AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME, 'json')
+        over_limit_data = S3.read_file(AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME, 'json')
+        last_location_index_data = S3.read_file(AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME, 'json')
 
         SS_Resources.invalid_regions_tmp = invalid_regions_data
         SS_Resources.invalid_instance_types_tmp = instance_types_data
         SS_Resources.locations_call_history_tmp = call_history_data
         SS_Resources.locations_over_limit_tmp = over_limit_data
+        SS_Resources.last_subscription_id_and_location_tmp = {
+            "last_subscription_id": last_location_index_data.get('last_subscription_id'),
+            "last_location": last_location_index_data.get('last_location')
+        }
 
         if all(data is not None for data in [
             SS_Resources.invalid_regions_tmp,
             SS_Resources.invalid_instance_types_tmp,
             SS_Resources.locations_call_history_tmp,
-            SS_Resources.locations_over_limit_tmp
+            SS_Resources.locations_over_limit_tmp,
+            SS_Resources.last_subscription_id_and_location_tmp
         ]):
             print("[S3]: Succeed to prepare variable from s3.")
             return True

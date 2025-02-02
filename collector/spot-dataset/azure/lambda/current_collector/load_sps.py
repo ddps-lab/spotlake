@@ -23,6 +23,8 @@ SRI_M = sps_regions_instance_types_manager
 SL_M = sps_location_manager
 SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions()
 
+
+# 본 시간 수집 function은 추후 제거 예정입니다.
 def log_execution_time(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -47,6 +49,17 @@ def log_execution_time(func):
 
 @log_execution_time
 def collect_spot_placement_score_first_time(desired_count, collect_time):
+    # 시간 수집 로직들은 추후 제거 예정입니다.
+    '''
+    이 메서드는 0:00분에 호출합니다.
+    1. RESET 필요한 일부 S3 파일을 RESET
+    2. priceapi로 regions_and_instance_types 원본 수집
+    3. greedy_clustering 방법으로 호출 파라미터 pool만들기
+    4. invalid 값으로 valid한 location 을 갱신.
+    5. SPS 호출 및 invalid_region, invalid_instanceType 수집.
+    6. regions_and_instance_types 원본을 invalid_region, invalid_instanceType 으로 필터링
+    7. 다시 greedy_clustering 방법으로 하루애 이용 예정한 호출 파라미터 pool만들고 S3에 업로드
+    '''
     if initialize_files_in_s3():
         assert get_variable_from_s3()
         initialize_sps_shared_resources()
@@ -92,6 +105,12 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
 
 @log_execution_time
 def collect_spot_placement_score(desired_count, collect_time):
+    '''
+    이 메서드는 0:00분외에 매 10분 마다 호출합니다.
+    1. 하루애 이용 예정한 호출 파라미터 pool을 S3에서 read.
+    2. SPS 호출 및 invalid_region, invalid_instanceType 수집 및 필터링.
+    '''
+
     assert get_variable_from_s3()
     initialize_sps_shared_resources()
 
@@ -107,6 +126,9 @@ def collect_spot_placement_score(desired_count, collect_time):
 
 
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, collect_time):
+    '''
+    SPS 수집 공용 메서드, 멀티 호출 실행, 결과를 S3에 업로드
+    '''
     merged_result = {
         "Collect_Time": collect_time,
         "Desired_Count": desired_count,
@@ -166,6 +188,9 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
+    '''
+    실제 SPS API호출 메서드.
+    '''
     retries = 0
     while retries <= max_retries:
         region_chunk = filter_invalid_items(region_chunk, "invalid_regions")

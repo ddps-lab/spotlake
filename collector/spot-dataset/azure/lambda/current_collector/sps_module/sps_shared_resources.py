@@ -14,4 +14,5 @@ invalid_instance_types_tmp = None
 locations_call_history_tmp = None
 locations_over_limit_tmp = None
 last_subscription_id_and_location_tmp = None
+region_map_and_instance_map_tmp = None
 subscriptions = None

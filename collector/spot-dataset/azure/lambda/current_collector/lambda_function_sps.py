@@ -10,27 +10,24 @@ def lambda_handler(event, _):
     action = event.get("action", "default")
     event_time_utc = event.get("time", "default")  # EventBridge에서 전달된 UTC 시간 문자열
 
-    # UTC 시간을 KST로 변환
-    event_time_utc = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-    korea_time = event_time_utc + timedelta(hours=9)
-    formatted_time = korea_time.strftime("%Y-%m-%d %H:%M:%S")
+    event_time_utc = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
 
     # Event Bridge 에서 0:00의 호출은 First_Time으로 오고, 기타는 Every_10Min로 옵니다.
     if action == "First_Time":
-        print(f"Calling collect_spot_placement_score_first_time with desired_count: [1] and time: [{formatted_time}]")
+        print(f"Calling collect_spot_placement_score_first_time with desired_count: [1] and time: [{event_time_utc}]")
         sps_res_df = load_sps.collect_spot_placement_score_first_time(desired_count=1)
-        update_latest_sps(sps_res_df, formatted_time)
-        save_raw_sps(sps_res_df, korea_time)
+        update_latest_sps(sps_res_df, event_time_utc)
+        save_raw_sps(sps_res_df, event_time_utc)
 
     elif action == "Every_10Min":
-        total_10min_intervals = (korea_time.hour * 6) + (korea_time.minute // 10)
+        total_10min_intervals = (event_time_utc.hour * 6) + (event_time_utc.minute // 10)
         index = total_10min_intervals % len(desired_counts)
         desired_count = desired_counts[index]
 
-        print(f"Calling collect_spot_placement_score with desired_count: [{desired_count}] and time: [{formatted_time}]")
+        print(f"Calling collect_spot_placement_score with desired_count: [{desired_count}] and time: [{event_time_utc}]")
         sps_res_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
-        update_latest_sps(sps_res_df, formatted_time)
-        save_raw_sps(sps_res_df, korea_time)
+        update_latest_sps(sps_res_df, event_time_utc)
+        save_raw_sps(sps_res_df, event_time_utc)
 
     else:
         print("Invalid action provided in the event.")

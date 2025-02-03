@@ -92,6 +92,7 @@ def collect_spot_placement_score_first_time(desired_count):
         print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
         print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
         print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
+        print(f'Too_many_requests_count_2: {SS_Resources.too_many_requests_count_2}')
         print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
         print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 

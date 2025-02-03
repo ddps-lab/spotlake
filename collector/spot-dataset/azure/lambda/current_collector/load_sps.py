@@ -4,6 +4,7 @@ import requests
 import concurrent.futures
 import time
 import load_price
+import pandas as pd
 from sps_module import sps_location_manager
 from sps_module import sps_shared_resources
 from sps_module import sps_prepare_parameters
@@ -68,12 +69,20 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         print(f"Start to collect_spot_placement_score_first_time")
 
         start_time = time.time()
-        regions_and_instance_types_df = collect_regions_and_instance_types_df_by_priceapi()
+        res_price_api = collect_regions_and_instance_types_df_by_priceapi()
+        regions_and_instance_types_df, SS_Resources.region_map_and_instance_map_tmp['region_map'], SS_Resources.region_map_and_instance_map_tmp['instance_map'] = res_price_api
+
+        end_time = time.time()
+        elapsed = end_time - start_time
+        minutes, seconds = divmod(int(elapsed), 60)
+        print(f"collect_regions_and_instance_types_df_by_priceapi. time: {minutes}min {seconds}sec")
+
+        start_time = time.time()
         df_greedy_clustering_initial = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(regions_and_instance_types_df)
         end_time = time.time()
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
-        print(f"request_regions_and_instance_types_df_by_priceapi + greedy_clustering_to_create_optimized_request_list time: {minutes}min {seconds}sec")
+        print(f"greedy_clustering_to_create_optimized_request_list. time: {minutes}min {seconds}sec")
 
         SL_Manager.check_and_add_available_locations()
 
@@ -96,6 +105,7 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
+        S3.upload_file(SS_Resources.region_map_and_instance_map_tmp, AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME, "json")
         S3.upload_file(df_greedy_clustering_filtered, AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, "pkl")
 
         end_time = time.time()
@@ -154,17 +164,26 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                 result = future.result()
                 if result and result != "NO_AVAILABLE_LOCATIONS":
                     for score in result["placementScores"]:
-                        if "sku" in score:
-                            score["Instance_Type"] = score.pop("sku")
+                        if "availabilityZone" in score:
+                            score["AvailabilityZoneS"] = score.pop("availabilityZone")
+
+                        if "region" in score and score["region"]:
+                            score["RegionCodeSPS"] = score.pop("region")
+                            score["Region"] = SS_Resources.region_map_and_instance_map_tmp['region_map'].get(
+                                score["RegionCodeSPS"], "")
+
+                        if "sku" in score and score["sku"]:
+                            score["InstanceTypeSPS"] = score.pop("sku")
+                            instance_data = SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
+                                score["InstanceTypeSPS"], {})
+                            score["InstanceTier"] = instance_data.get("InstanceTier", "")
+                            score["InstanceType"] = instance_data.get("InstanceTypeOld", "")
+
                         if "score" in score:
                             score["Score"] = score.pop("score")
+
                         if "isQuotaAvailable" in score:
                             del score["isQuotaAvailable"]
-                        if "region" in score:
-                            score["Region_Code"] = score.pop("region")
-                        # availabilityZone 은 일부 결과에 필드가 아예 없는 상황이 있어, 우선 마지막에 둡니다.
-                        if "availabilityZone" in score:
-                            score["Availability_Zone"] = score.pop("availabilityZone")
 
                     merged_result["Placement_Scores"].extend(result["placementScores"])
 
@@ -172,6 +191,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                     for f, _ in futures:
                         if not f.done():
                             f.cancel()
+
 
             except JSONDecodeError as e:
                 print(f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
@@ -336,7 +356,6 @@ def handle_retry(error_type, retries, max_retries):
         SS_Resources.time_out_retry_count += 1
     elif error_type == "BadGatewayConnection":
         SS_Resources.bad_request_retry_count += 1
-        print(f"BadGatewayConnection +1 {SS_Resources.bad_request_retry_count}")
     elif error_type == "Too Many Requests":
         SS_Resources.too_many_requests_count += 1
     elif error_type == "InvalidRegion":
@@ -395,6 +414,7 @@ def get_variable_from_s3():
         call_history_data = S3.read_file(AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME, 'json')
         over_limit_data = S3.read_file(AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME, 'json')
         last_location_index_data = S3.read_file(AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME, 'json')
+        region_map_and_instance_map = S3.read_file(AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME, 'json')
 
         SS_Resources.invalid_regions_tmp = invalid_regions_data
         SS_Resources.invalid_instance_types_tmp = instance_types_data
@@ -404,13 +424,18 @@ def get_variable_from_s3():
             "last_subscription_id": last_location_index_data.get('last_subscription_id'),
             "last_location": last_location_index_data.get('last_location')
         }
+        SS_Resources.region_map_and_instance_map_tmp = {
+            "region_map": region_map_and_instance_map.get('region_map'),
+            "instance_map": region_map_and_instance_map.get('instance_map')
+        }
 
         if all(data is not None for data in [
             SS_Resources.invalid_regions_tmp,
             SS_Resources.invalid_instance_types_tmp,
             SS_Resources.locations_call_history_tmp,
             SS_Resources.locations_over_limit_tmp,
-            SS_Resources.last_subscription_id_and_location_tmp
+            SS_Resources.last_subscription_id_and_location_tmp,
+            SS_Resources.region_map_and_instance_map_tmp
         ]):
             print("[S3]: Succeed to prepare variable from s3.")
             return True
@@ -437,17 +462,23 @@ def collect_regions_and_instance_types_df_by_priceapi():
             lambda row: f"{row['InstanceTier']}_{row['InstanceType']}" if pd.notna(row['InstanceTier']) else row[
                 'InstanceType'], axis=1
         )
-        regions_and_instance_types_df = price_source_df[['armRegionName', 'InstanceTypeNew']]
+        regions_and_instance_types_df = price_source_df[['armRegionName', 'Region', 'InstanceTypeNew', 'InstanceTier', 'InstanceType']]
         regions_and_instance_types_df = regions_and_instance_types_df.rename(columns={
+            'InstanceType': 'InstanceTypeOld',
             'armRegionName': 'RegionCode',
             'InstanceTypeNew': 'InstanceType'
         })
 
-        regions_and_instance_types_df['RegionCode'] = regions_and_instance_types_df['RegionCode'].str.strip()
-        regions_and_instance_types_df['InstanceType'] = regions_and_instance_types_df['InstanceType'].str.strip()
+        regions_and_instance_types_df['RegionCode'] = regions_and_instance_types_df['RegionCode'].map(lambda x: x.strip() if isinstance(x, str) else x)
+        regions_and_instance_types_df['InstanceType'] = regions_and_instance_types_df['InstanceType'].map(lambda x: x.strip() if isinstance(x, str) else x)
 
-        return regions_and_instance_types_df[['RegionCode', 'InstanceType']]
+
+        region_map = regions_and_instance_types_df[['RegionCode', 'Region']].drop_duplicates().set_index('RegionCode')['Region'].to_dict()
+
+        instance_map = regions_and_instance_types_df[['InstanceType', 'InstanceTier', 'InstanceTypeOld']].drop_duplicates().set_index('InstanceType').to_dict(orient='index')
+
+        return regions_and_instance_types_df, region_map, instance_map
 
     except Exception as e:
-        print(f"Failed to get_regions_and_instance_types_df_by_priceapi, Error: {e}")
+        print(f"Failed to collect_regions_and_instance_types_df_by_priceapi, Error: {e}")
         return None

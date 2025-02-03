@@ -151,6 +151,10 @@ class AzureCollector(object):
         return "last_subscription_id_and_location.json"
 
     @constant
+    def REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME():
+        return "region_map_and_instance_map.json"
+
+    @constant
     def DF_TO_USE_TODAY_PKL_FILENAME():
         return "df_to_use_today.pkl"
 

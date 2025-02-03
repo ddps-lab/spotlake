@@ -9,6 +9,7 @@ from datetime import datetime
 from botocore.config import Config
 from const_config import AzureCollector, Storage
 import slack_msg_sender
+from utill.aws_service import S3
 
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
@@ -158,3 +159,23 @@ def upload_cloudwatch(data, timestamp):
         logStreamName=AZURE_CONST.LOG_STREAM_NAME,
         logEvents=[log_event]
     )
+
+
+def update_latest_sps(dataframe, formatted_time):
+    dataframe['id'] = dataframe.index + 1
+    dataframe['time'] = formatted_time
+    dataframe = dataframe[['id', 'InstanceTier', 'InstanceType', 'Region', 'DesiredCount', 'AvailabilityZone', 'Score', 'InstanceTypeSPS', 'RegionCodeSPS', 'time']]
+    dataframe['AvailabilityZone'] = dataframe['AvailabilityZone'].where(pd.notna(dataframe['AvailabilityZone']), None)
+
+    json_data = dataframe.to_dict(orient="records")
+    S3.upload_file(json_data, f"result/{AZURE_CONST.LATEST_SPS_FILENAME}", "json")
+
+
+def save_raw_sps(dataframe, formatted_time):
+    dataframe['Time'] = formatted_time
+    dataframe = dataframe[['Time','InstanceTier','InstanceType', 'Region', 'DesiredCount', 'AvailabilityZone', 'Score', 'InstanceTypeSPS', 'RegionCodeSPS']]
+
+    s3_dir_name = formatted_time.strftime("%Y/%m/%d")
+    s3_obj_name = formatted_time.strftime("%H-%M-%S")
+
+    S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz")

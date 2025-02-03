@@ -1,7 +1,7 @@
 import re
 import requests
 from sps_module import sps_shared_resources
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 SS_Resources = sps_shared_resources
 
@@ -166,7 +166,7 @@ def clean_expired_over_limit_locations():
     '''
     if SS_Resources.locations_over_limit_tmp:
         for subscription_id in SS_Resources.subscriptions:
-            one_hour_ago = datetime.now() - timedelta(hours=1)
+            one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
             for location_key, location_value in list(
                     SS_Resources.locations_over_limit_tmp[subscription_id].items()):
                 dt = datetime.fromisoformat(location_value)
@@ -179,7 +179,7 @@ def clean_expired_over_call_history_locations():
     이 메서드는 호출 이력을 유효하지 않은 위치를 정리하고 호출 이력을 업데이트합니다.
     '''
     if SS_Resources.locations_call_history_tmp:
-        one_hour_ago = datetime.now() - timedelta(hours=1)
+        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
         for subscription_id in SS_Resources.subscriptions:
             subscription_data = SS_Resources.locations_call_history_tmp.get(subscription_id, {})
 
@@ -198,7 +198,7 @@ def update_call_history(subscription_id, location, current_history):
     업데이트된 데이터를 JSON 파일에 저장합니다.
     """
     try:
-        now = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_timestamp = now.isoformat()
         current_history[location].append(current_timestamp)
         SS_Resources.locations_call_history_tmp[subscription_id] = current_history
@@ -214,7 +214,7 @@ def update_over_limit_locations(subscription_id, location):
     초과 요청 위치 정보를 JSON 파일에 저장합니다.
     """
     try:
-        now = datetime.now()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_timestamp = now.isoformat()
         SS_Resources.locations_over_limit_tmp[subscription_id][location] = current_timestamp
 

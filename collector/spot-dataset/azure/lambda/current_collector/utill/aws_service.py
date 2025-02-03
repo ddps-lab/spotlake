@@ -12,6 +12,7 @@ dynamodb = session.resource('dynamodb', region_name='us-east-1')
 s3_client = session.client('s3', region_name='us-west-2')
 s3_resource = session.resource('s3', region_name='us-west-2')
 
+
 class DynamoDB:
     def __init__(self, table):
         self.table = dynamodb.Table(table)
@@ -30,7 +31,7 @@ class S3Handler:
 
     def upload_file(self, data, file_name, file_type="json", initialization=None):
         try:
-            if file_type not in ["json", "pkl"]:
+            if file_type not in ["json", "pkl", "df_to_csv.gz"]:
                 raise ValueError("Unsupported file type. Use 'json' or 'pkl'.")
 
             if file_type == "json":
@@ -43,6 +44,13 @@ class S3Handler:
                     raise ValueError("Data cannot be None for PKL file")
                 file = io.BytesIO()
                 pickle.dump(data, file)
+                file.seek(0)
+
+            elif file_type == "df_to_csv.gz":
+                if data is None:
+                    raise ValueError("Data cannot be None for csv.gz file")
+                file = io.BytesIO()
+                data.to_csv(file, index=False, compression="gzip")
                 file.seek(0)
 
             file_path = f"{AZURE_CONST.SPS_FILE_PATH}/{file_name}"
@@ -82,3 +90,7 @@ class S3Handler:
         except Exception as e:
             print(f"Error reading {file_name} from S3: {e}")
             return None
+
+S3 = S3Handler()
+db_AzureAuth = DynamoDB("AzureAuth")
+db_AzureAuth_SPS = DynamoDB("AzureAuth_SPS")

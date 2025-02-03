@@ -13,12 +13,11 @@ from functools import wraps
 from datetime import datetime
 from utill.azure_auth import get_sps_token_and_subscriptions
 from const_config import AzureCollector, Storage
-from utill.aws_service import S3Handler
+from utill.aws_service import S3
 
 
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
-S3 = S3Handler()
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager
@@ -50,7 +49,7 @@ def log_execution_time(func):
     return wrapper
 
 @log_execution_time
-def collect_spot_placement_score_first_time(desired_count, collect_time):
+def collect_spot_placement_score_first_time(desired_count):
     # 시간 수집 로직들은 추후 제거 예정입니다.
     '''
     이 메서드는 0:00분에 호출합니다.
@@ -71,6 +70,8 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         start_time = time.time()
         res_price_api = collect_regions_and_instance_types_df_by_priceapi()
         regions_and_instance_types_df, SS_Resources.region_map_and_instance_map_tmp['region_map'], SS_Resources.region_map_and_instance_map_tmp['instance_map'] = res_price_api
+        S3.upload_file(SS_Resources.region_map_and_instance_map_tmp,
+                       AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME, "json")
 
         end_time = time.time()
         elapsed = end_time - start_time
@@ -87,7 +88,7 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         SL_Manager.check_and_add_available_locations()
 
         start_time = time.time()
-        execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count, collect_time)
+        sps_res_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count)
         print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
         print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
         print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
@@ -105,7 +106,6 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
-        S3.upload_file(SS_Resources.region_map_and_instance_map_tmp, AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME, "json")
         S3.upload_file(df_greedy_clustering_filtered, AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, "pkl")
 
         end_time = time.time()
@@ -113,9 +113,11 @@ def collect_spot_placement_score_first_time(desired_count, collect_time):
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Prepare the request pool. time: {minutes}min {seconds}sec")
 
+        return sps_res_df
+
 
 @log_execution_time
-def collect_spot_placement_score(desired_count, collect_time):
+def collect_spot_placement_score(desired_count):
     '''
     이 메서드는 0:00분외에 매 10분 마다 호출합니다.
     1. 하루애 이용 예정한 호출 파라미터 pool을 S3에서 read.
@@ -128,24 +130,23 @@ def collect_spot_placement_score(desired_count, collect_time):
     print(f"Start to collect_spot_placement_score")
     df_greedy_clustering_filtered = S3.read_file(AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, 'pkl')
 
-    execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count, collect_time)
+    sps_res_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
     print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
     print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
     print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
     print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
+    return sps_res_df
 
-def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count, collect_time):
+
+def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count):
     '''
     SPS 수집 공용 메서드, 멀티 호출 실행, 결과를 S3에 업로드
     '''
-    merged_result = {
-        "Collect_Time": collect_time,
-        "Desired_Count": desired_count,
-        "Availability_Zones": availability_zones,
-        "Placement_Scores": []
-    }
+    # 결과를 저장할 리스트
+    results = []
+
     locations = list(SS_Resources.locations_call_history_tmp[list(SS_Resources.locations_call_history_tmp.keys())[0]].keys())
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(locations) * 1)) as executor:
@@ -156,62 +157,58 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                 execute_spot_placement_score_api,
                 row['Regions'], row['InstanceTypes'], availability_zones, desired_count, max_retries=50
             )
-            futures.append((future, desired_count))
+            futures.append(future)
+
+        try:
+            for future in futures:
+                try:
+                    result = future.result()
+                    if result and result != "NO_AVAILABLE_LOCATIONS":
+                        for score in result["placementScores"]:
+                            score_data = {
+                                "DesiredCount": desired_count,
+                                "AvailabilityZone": score.get("availabilityZone", None),
+                                "RegionCodeSPS": score.get("region", None),
+                                "Region": SS_Resources.region_map_and_instance_map_tmp['region_map'].get(
+                                    score.get("region", ""), ""),
+                                "InstanceTypeSPS": score.get("sku", None),
+                                "InstanceTier": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
+                                    score.get("sku", ""), {}).get("InstanceTier", None),
+                                "InstanceType": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
+                                    score.get("sku", ""), {}).get("InstanceTypeOld", None),
+                                "Score": score.get("score", None)
+                            }
+                            results.append(score_data)
+
+                    elif result == "NO_AVAILABLE_LOCATIONS":
+                        # NO_AVAILABLE_LOCATIONS인 경우 나머지 작업 취소
+                        for f in futures:
+                            if not f.done():
+                                f.cancel()
+
+                except JSONDecodeError as e:
+                    print(
+                        f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
+                    raise
+
+                except Exception as e:
+                    print(
+                        f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
+                    raise
+        finally:
+            save_tmp_files_to_s3()
 
 
-        for future, desired_count in futures:
-            try:
-                result = future.result()
-                if result and result != "NO_AVAILABLE_LOCATIONS":
-                    unique_scores = {}
+    sps_res_df = pd.DataFrame(results)
 
-                    for score in result["placementScores"]:
-                        if "availabilityZone" in score:
-                            score["AvailabilityZone"] = score.pop("availabilityZone")
+    sps_res_df.drop_duplicates(
+        subset=["RegionCodeSPS", "InstanceTypeSPS", "AvailabilityZone"],
+        keep="last",
+        inplace=True
+    )
 
-                        score["RegionCodeSPS"] = score.pop("region")
-                        score["Region"] = SS_Resources.region_map_and_instance_map_tmp['region_map'].get(
-                            score["RegionCodeSPS"], "")
-
-                        score["InstanceTypeSPS"] = score.pop("sku")
-                        instance_data = SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
-                            score["InstanceTypeSPS"], {})
-                        score["InstanceTier"] = instance_data.get("InstanceTier", "")  # InstanceTier 매핑
-                        score["InstanceType"] = instance_data.get("InstanceTypeOld", "")  # InstanceTypeOld 매핑
-
-                        score["Score"] = score.pop("score")
-
-                        del score["isQuotaAvailable"]
-
-                        # (RegionCodeSPS, InstanceTypeSPS, AvailabilityZone) 조합을 key로 사용하여 마지막 데이터만 저장
-                        key = (
-                            score["RegionCodeSPS"],
-                            score["InstanceTypeSPS"],
-                            score.get("AvailabilityZone", None)
-                        )
-                        unique_scores[key] = score  # 기존 값이 있을 경우 덮어쓰기 (가장 마지막 값이 유지됨)
-
-                    merged_result["Placement_Scores"] = list(unique_scores.values())  # 마지막 값들만 리스트로
-
-                elif result == "NO_AVAILABLE_LOCATIONS":
-                    for f, _ in futures:
-                        if not f.done():
-                            f.cancel()
-
-
-            except JSONDecodeError as e:
-                print(f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
-                raise
-
-            except Exception as e:
-                print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
-                raise
-
-
-    save_tmp_files_to_s3()
-    file_name = f"result/{collect_time}.json"
-    S3.upload_file(merged_result, file_name, "json")
-    return True
+    print("execute_spot_placement_score_task_by_parameter_pool_df. Successfully.")
+    return sps_res_df
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
@@ -290,8 +287,14 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
                     SL_Manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry("Too Many Requests", retries, max_retries)
 
+            elif "Max retries exceeded with url" in error_message:
+                print(f"HTTP error occurred: {error_message}")
+                with SS_Resources.location_lock:
+                    SL_Manager.update_over_limit_locations(subscription_id, location)
+                retries = handle_retry("Too Many Requests(2)", retries, max_retries)
+
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            print(f"execute_spot_placement_score_api. An unexpected error occurred: {e}")
             break
 
         if retries:
@@ -364,10 +367,13 @@ def handle_retry(error_type, retries, max_retries):
         SS_Resources.bad_request_retry_count += 1
     elif error_type == "Too Many Requests":
         SS_Resources.too_many_requests_count += 1
+    elif error_type == "Too Many Requests(2)":
+        SS_Resources.too_many_requests_count_2 += 1
     elif error_type == "InvalidRegion":
         SS_Resources.found_invalid_region_retry_count += 1
     elif error_type == "InvalidInstanceType":
         SS_Resources.found_invalid_instance_type_retry_count += 1
+
 
     if retries < max_retries:
         sleep_time = round(random.uniform(0.5, 1.5), 1)

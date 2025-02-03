@@ -79,6 +79,10 @@ class AzureCollector(object):
         return "latest_azure.json"
 
     @constant
+    def LATEST_SPS_FILENAME():
+        return "latest_azure_sps.json"
+
+    @constant
     def S3_LATEST_DATA_SAVE_PATH():
         return "latest_data/latest_azure.json"
 

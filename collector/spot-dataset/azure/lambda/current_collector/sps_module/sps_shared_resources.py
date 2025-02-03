@@ -5,6 +5,7 @@ found_invalid_instance_type_retry_count = 0
 found_invalid_region_retry_count = 0
 time_out_retry_count = 0
 too_many_requests_count = 0
+too_many_requests_count_2 = 0
 lock = RLock()
 location_lock = RLock()
 
@@ -16,3 +17,4 @@ locations_over_limit_tmp = None
 last_subscription_id_and_location_tmp = None
 region_map_and_instance_map_tmp = None
 subscriptions = None
+

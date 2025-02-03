@@ -1,10 +1,11 @@
 import requests
 import time
-from utill.aws_service import DynamoDB
 from azure.identity import ClientSecretCredential
+from utill.aws_service import db_AzureAuth
+from utill.aws_service import db_AzureAuth_SPS
 
 def get_token():
-    db = DynamoDB("AzureAuth")
+    db = db_AzureAuth
 
     now = int(time.time())
 
@@ -32,7 +33,7 @@ def get_token():
 
 
 def get_sps_token_and_subscriptions():
-    db = DynamoDB("AzureAuth_SPS")
+    db = db_AzureAuth_SPS
 
     tenant_id = db.get_item('tenant_id')
     client_id = db.get_item('client_id')

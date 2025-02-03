@@ -1,5 +1,6 @@
 import load_sps
 from datetime import datetime, timezone, timedelta
+from upload_data import update_latest_sps, save_raw_sps
 
 # desired_count의 순환 목록 정의
 desired_counts = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
@@ -12,12 +13,14 @@ def lambda_handler(event, _):
     # UTC 시간을 KST로 변환
     event_time_utc = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     korea_time = event_time_utc + timedelta(hours=9)
-    formatted_time = korea_time.strftime("%Y-%m-%d_%H:%M")
+    formatted_time = korea_time.strftime("%Y-%m-%d %H:%M:%S")
 
     # Event Bridge 에서 0:00의 호출은 First_Time으로 오고, 기타는 Every_10Min로 옵니다.
     if action == "First_Time":
         print(f"Calling collect_spot_placement_score_first_time with desired_count: [1] and time: [{formatted_time}]")
-        load_sps.collect_spot_placement_score_first_time(desired_count=1, collect_time=formatted_time)
+        sps_res_df = load_sps.collect_spot_placement_score_first_time(desired_count=1)
+        update_latest_sps(sps_res_df, formatted_time)
+        save_raw_sps(sps_res_df, korea_time)
 
     elif action == "Every_10Min":
         total_10min_intervals = (korea_time.hour * 6) + (korea_time.minute // 10)
@@ -25,7 +28,9 @@ def lambda_handler(event, _):
         desired_count = desired_counts[index]
 
         print(f"Calling collect_spot_placement_score with desired_count: [{desired_count}] and time: [{formatted_time}]")
-        load_sps.collect_spot_placement_score(desired_count=desired_count, collect_time=formatted_time)
+        sps_res_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
+        update_latest_sps(sps_res_df, formatted_time)
+        save_raw_sps(sps_res_df, korea_time)
 
     else:
         print("Invalid action provided in the event.")

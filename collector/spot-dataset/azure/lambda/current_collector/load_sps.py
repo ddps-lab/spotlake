@@ -163,29 +163,35 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
             try:
                 result = future.result()
                 if result and result != "NO_AVAILABLE_LOCATIONS":
+                    unique_scores = {}
+
                     for score in result["placementScores"]:
                         if "availabilityZone" in score:
-                            score["AvailabilityZoneS"] = score.pop("availabilityZone")
+                            score["AvailabilityZone"] = score.pop("availabilityZone")
 
-                        if "region" in score and score["region"]:
-                            score["RegionCodeSPS"] = score.pop("region")
-                            score["Region"] = SS_Resources.region_map_and_instance_map_tmp['region_map'].get(
-                                score["RegionCodeSPS"], "")
+                        score["RegionCodeSPS"] = score.pop("region")
+                        score["Region"] = SS_Resources.region_map_and_instance_map_tmp['region_map'].get(
+                            score["RegionCodeSPS"], "")
 
-                        if "sku" in score and score["sku"]:
-                            score["InstanceTypeSPS"] = score.pop("sku")
-                            instance_data = SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
-                                score["InstanceTypeSPS"], {})
-                            score["InstanceTier"] = instance_data.get("InstanceTier", "")
-                            score["InstanceType"] = instance_data.get("InstanceTypeOld", "")
+                        score["InstanceTypeSPS"] = score.pop("sku")
+                        instance_data = SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
+                            score["InstanceTypeSPS"], {})
+                        score["InstanceTier"] = instance_data.get("InstanceTier", "")  # InstanceTier 매핑
+                        score["InstanceType"] = instance_data.get("InstanceTypeOld", "")  # InstanceTypeOld 매핑
 
-                        if "score" in score:
-                            score["Score"] = score.pop("score")
+                        score["Score"] = score.pop("score")
 
-                        if "isQuotaAvailable" in score:
-                            del score["isQuotaAvailable"]
+                        del score["isQuotaAvailable"]
 
-                    merged_result["Placement_Scores"].extend(result["placementScores"])
+                        # (RegionCodeSPS, InstanceTypeSPS, AvailabilityZone) 조합을 key로 사용하여 마지막 데이터만 저장
+                        key = (
+                            score["RegionCodeSPS"],
+                            score["InstanceTypeSPS"],
+                            score.get("AvailabilityZone", None)
+                        )
+                        unique_scores[key] = score  # 기존 값이 있을 경우 덮어쓰기 (가장 마지막 값이 유지됨)
+
+                    merged_result["Placement_Scores"] = list(unique_scores.values())  # 마지막 값들만 리스트로
 
                 elif result == "NO_AVAILABLE_LOCATIONS":
                     for f, _ in futures:

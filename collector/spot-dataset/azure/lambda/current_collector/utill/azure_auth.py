@@ -1,11 +1,11 @@
-import json
+import os
 import requests
 import time
-from utill.dynamodb import DynamoDB
-
+from azure.identity import ClientSecretCredential
+from utill.aws_service import db_AzureAuth
 
 def get_token():
-    db = DynamoDB("AzureAuth")
+    db = db_AzureAuth
 
     now = int(time.time())
 
@@ -30,3 +30,14 @@ def get_token():
     db.put_item('expire', now + expires_in)
 
     return access_token
+
+
+def get_sps_token_and_subscriptions():
+    tenant_id = os.environ.get('TENANT_ID')
+    client_id = os.environ.get('CLIENT_ID')
+    client_secret = os.environ.get('CLIENT_SECRET')
+    subscriptions = os.environ.get('SUBSCRIPTIONS')
+
+    sps_token = ClientSecretCredential(tenant_id, client_id, client_secret).get_token_info("https://management.azure.com/.default").token
+
+    return sps_token, list(subscriptions)

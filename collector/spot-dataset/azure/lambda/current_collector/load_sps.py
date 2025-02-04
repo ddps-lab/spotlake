@@ -335,7 +335,9 @@ def initialize_files_in_s3():
         }
 
         for file_name, data in files_to_initialize.items():
-            S3.upload_file(data, file_name, "json", initialization=True)
+            S3.upload_file(data, file_name, "json")
+
+        print("Successfully initialized files in S3.")
         return True
 
     except Exception as e:
@@ -450,7 +452,7 @@ def get_variable_from_s3():
             SS_Resources.last_subscription_id_and_location_tmp,
             SS_Resources.region_map_and_instance_map_tmp
         ]):
-            print("[S3]: Succeed to prepare variable from s3.")
+            print("[S3]: Successfully prepared variable from s3.")
             return True
 
         else:

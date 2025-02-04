@@ -1,8 +1,9 @@
+import os
 import requests
 import time
 from azure.identity import ClientSecretCredential
 from utill.aws_service import db_AzureAuth
-from utill.aws_service import db_AzureAuth_SPS
+
 
 def get_token():
     db = db_AzureAuth
@@ -33,12 +34,10 @@ def get_token():
 
 
 def get_sps_token_and_subscriptions():
-    db = db_AzureAuth_SPS
-
-    tenant_id = db.get_item('tenant_id')
-    client_id = db.get_item('client_id')
-    client_secret = db.get_item('client_secret')
-    subscriptions = db.get_item('subscriptions')
+    tenant_id = os.environ.get('TENANT_ID')
+    client_id = os.environ.get('CLIENT_ID')
+    client_secret = os.environ.get('CLIENT_SECRET')
+    subscriptions = os.environ.get('SUBSCRIPTIONS')
 
     sps_token = ClientSecretCredential(tenant_id, client_id, client_secret).get_token_info("https://management.azure.com/.default").token
 

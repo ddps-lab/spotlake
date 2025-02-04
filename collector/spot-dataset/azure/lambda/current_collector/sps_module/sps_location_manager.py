@@ -218,7 +218,7 @@ def update_over_limit_locations(subscription_id, location):
         current_timestamp = now.isoformat()
         SS_Resources.locations_over_limit_tmp[subscription_id][location] = current_timestamp
 
-        print("Succeed to update_over_limit_locations. Subscription ID:" + subscription_id.split('-')[
+        print("Successfully update_over_limit_locations. Subscription ID:" + subscription_id.split('-')[
             0] + ", Location:", location + ", Time:", now.strftime('%Y-%m-%d %H:%M:%S'))
         return True
 

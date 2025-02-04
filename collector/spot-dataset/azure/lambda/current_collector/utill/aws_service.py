@@ -29,7 +29,7 @@ class S3Handler:
         self.client = s3_client
         self.resource = s3_resource
 
-    def upload_file(self, data, file_name, file_type="json", initialization=None):
+    def upload_file(self, data, file_name, file_type="json", public_read = False):
         try:
             if file_type not in ["json", "pkl", "df_to_csv.gz"]:
                 raise ValueError("Unsupported file type. Use 'json' or 'pkl'.")
@@ -56,13 +56,9 @@ class S3Handler:
             file_path = f"{AZURE_CONST.SPS_FILE_PATH}/{file_name}"
             self.client.upload_fileobj(file, STORAGE_CONST.BUCKET_NAME, file_path)
 
-            object_acl = self.resource.ObjectAcl(STORAGE_CONST.BUCKET_NAME, file_path)
-            object_acl.put(ACL='public-read')
-
-            if initialization:
-                print(f"[S3]: Succeed to initialize. Filename: [{file_name}]")
-            else:
-                print(f"[S3]: Succeed to upload. Filename: [{file_name}]")
+            if public_read:
+                object_acl = self.resource.ObjectAcl(STORAGE_CONST.BUCKET_NAME, file_path)
+                object_acl.put(ACL='public-read')
 
         except ValueError as ve:
             print(f"Validation error for {file_name}: {ve}")

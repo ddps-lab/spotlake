@@ -12,7 +12,6 @@ dynamodb = session.resource('dynamodb', region_name='us-east-1')
 s3_client = session.client('s3', region_name='us-west-2')
 s3_resource = session.resource('s3', region_name='us-west-2')
 
-
 class DynamoDB:
     def __init__(self, table):
         self.table = dynamodb.Table(table)
@@ -23,13 +22,12 @@ class DynamoDB:
     def put_item(self, id, data):
         self.table.put_item(Item={'id': id, 'data': data})
 
-
 class S3Handler:
     def __init__(self):
         self.client = s3_client
         self.resource = s3_resource
 
-    def upload_file(self, data, file_name, file_type="json", public_read = False):
+    def upload_file(self, data, file_name, file_type="json", set_public_read = False):
         try:
             if file_type not in ["json", "pkl", "df_to_csv.gz"]:
                 raise ValueError("Unsupported file type. Use 'json' or 'pkl'.")
@@ -56,7 +54,7 @@ class S3Handler:
             file_path = f"{AZURE_CONST.SPS_FILE_PATH}/{file_name}"
             self.client.upload_fileobj(file, STORAGE_CONST.BUCKET_NAME, file_path)
 
-            if public_read:
+            if set_public_read:
                 object_acl = self.resource.ObjectAcl(STORAGE_CONST.BUCKET_NAME, file_path)
                 object_acl.put(ACL='public-read')
 

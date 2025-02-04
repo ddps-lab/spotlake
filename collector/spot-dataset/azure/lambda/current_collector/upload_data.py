@@ -170,7 +170,7 @@ def update_latest_sps(dataframe, time_utc):
     dataframe['AvailabilityZone'] = dataframe['AvailabilityZone'].where(pd.notna(dataframe['AvailabilityZone']), None)
 
     json_data = dataframe.to_dict(orient="records")
-    S3.upload_file(json_data, f"result/{AZURE_CONST.LATEST_SPS_FILENAME}", "json")
+    S3.upload_file(json_data, f"result/{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
 
 
 def save_raw_sps(dataframe, time_utc):
@@ -180,4 +180,4 @@ def save_raw_sps(dataframe, time_utc):
     s3_dir_name = time_utc.strftime("%Y/%m/%d")
     s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-    S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz")
+    S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", public_read=True)

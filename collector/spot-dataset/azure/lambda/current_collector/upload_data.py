@@ -178,4 +178,4 @@ def save_raw_sps(dataframe, time_utc):
     s3_dir_name = time_utc.strftime("%Y/%m/%d")
     s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-    S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", public_read=True)
+    S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)

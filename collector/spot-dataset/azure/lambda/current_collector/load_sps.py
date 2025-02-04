@@ -65,8 +65,6 @@ def collect_spot_placement_score_first_time(desired_count):
         assert get_variable_from_s3()
         initialize_sps_shared_resources()
 
-        print(f"Start to collect_spot_placement_score_first_time")
-
         start_time = time.time()
         res_price_api = collect_regions_and_instance_types_df_by_priceapi()
         regions_and_instance_types_df, SS_Resources.region_map_and_instance_map_tmp['region_map'], SS_Resources.region_map_and_instance_map_tmp['instance_map'] = res_price_api
@@ -128,7 +126,6 @@ def collect_spot_placement_score(desired_count):
     assert get_variable_from_s3()
     initialize_sps_shared_resources()
 
-    print(f"Start to collect_spot_placement_score")
     df_greedy_clustering_filtered = S3.read_file(AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME, 'pkl')
 
     sps_res_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count)

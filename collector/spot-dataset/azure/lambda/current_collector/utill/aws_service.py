@@ -58,6 +58,8 @@ class S3Handler:
                 object_acl = self.resource.ObjectAcl(STORAGE_CONST.BUCKET_NAME, file_path)
                 object_acl.put(ACL='public-read')
 
+            print(f"[S3]: Succeed to upload. Filename: [{file_name}]")
+
         except ValueError as ve:
             print(f"Validation error for {file_name}: {ve}")
         except Exception as e:

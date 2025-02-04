@@ -153,10 +153,10 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(locations) * 1)) as executor:
         futures = []
 
-        for index, row in api_calls_df.iterrows():
+        for row in api_calls_df.itertuples(index=False):
             future = executor.submit(
                 execute_spot_placement_score_api,
-                row['Regions'], row['InstanceTypes'], availability_zones, desired_count, max_retries=50
+                row.Regions, row.InstanceTypes, availability_zones, desired_count, max_retries=50
             )
             futures.append(future)
 

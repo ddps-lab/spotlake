@@ -43,9 +43,9 @@ def load_support_data_from_df(df):
     regions = set()
     instancetypes = set()
 
-    for _, row in df.iterrows():
-        region = row['RegionCode']
-        itype = row['InstanceType']
+    for row in df.itertuples(index=False):
+        region = row.RegionCode
+        itype = row.InstanceType
         support_set.add((region, itype))
         regions.add(region)
         instancetypes.add(itype)

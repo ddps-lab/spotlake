@@ -1,10 +1,8 @@
 import load_sps
-import requests
-import inspect
-import os
 from sps_module import sps_shared_resources
 from datetime import datetime
 from upload_data import update_latest_sps, save_raw_sps
+from utill import pub_service
 
 def lambda_handler(event, _):
     try:
@@ -35,8 +33,8 @@ def lambda_handler(event, _):
         return handle_response(200, f"Action '{action}' executed successfully")
 
     except Exception as e:
-        error_msg = f"TEST____TEST____AZURE SPS MODULE EXCEPTION!\n {e}"
-        send_slack_message(error_msg)
+        error_msg = f"AZURE SPS MODULE EXCEPTION!\n Error: {e}"
+        pub_service.send_slack_message(error_msg)
         return handle_response(400, f"Action '{action}' executed failed. Time: {event_time_utc}.", error_msg)
 
 
@@ -51,16 +49,3 @@ def handle_response(status_code, body, error_message=None):
         response["error_message"] = error_message
     print(f"Response: {response}")
     return response
-
-def send_slack_message(msg):
-    url = os.environ.get('error_notification_slack_webhook_url')
-
-    module_name = inspect.stack()[1][1]
-    line_no = inspect.stack()[1][2]
-    function_name = inspect.stack()[1][3]
-
-    message = f"File \"{module_name}\", line {line_no}, in {function_name} :\n{msg}"
-    slack_data = {
-        "text": message
-    }
-    requests.post(url, json=slack_data)

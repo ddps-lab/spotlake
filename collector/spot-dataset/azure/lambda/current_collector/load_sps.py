@@ -13,7 +13,7 @@ from functools import wraps
 from datetime import datetime
 from utill.azure_auth import get_sps_token_and_subscriptions
 from const_config import AzureCollector, Storage
-from utill.aws_service import S3
+from utill.pub_service import S3
 
 
 STORAGE_CONST = Storage()

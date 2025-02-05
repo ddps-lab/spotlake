@@ -2,7 +2,7 @@ import os
 import requests
 import time
 from azure.identity import ClientSecretCredential
-from utill.aws_service import db_AzureAuth
+from utill.pub_service import db_AzureAuth
 
 def get_token():
     db = db_AzureAuth

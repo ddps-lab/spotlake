@@ -2,6 +2,9 @@ import boto3
 import io
 import json
 import pickle
+import requests
+import inspect
+import os
 from const_config import AzureCollector, Storage
 
 STORAGE_CONST = Storage()
@@ -11,6 +14,7 @@ session = boto3.Session()
 dynamodb = session.resource('dynamodb', region_name='us-east-1')
 s3_client = session.client('s3', region_name='us-west-2')
 s3_resource = session.resource('s3', region_name='us-west-2')
+ssm_client = session.client('ssm', region_name='us-west-2')
 
 class DynamoDB:
     def __init__(self, table):
@@ -21,6 +25,18 @@ class DynamoDB:
 
     def put_item(self, id, data):
         self.table.put_item(Item={'id': id, 'data': data})
+
+class SsmHandler:
+    def __init__(self):
+        self.client = ssm_client
+
+    def get_parameter(self, name, with_decryption=False):
+        try:
+            response = self.client.get_parameter(Name=name, WithDecryption=with_decryption)
+            return response['Parameter']['Value']
+        except Exception as e:
+            print(f"Error retrieving parameter {name}: {e}")
+            return None
 
 class S3Handler:
     def __init__(self):
@@ -87,6 +103,24 @@ class S3Handler:
             print(f"Error reading {file_name} from S3: {e}")
             return None
 
-S3 = S3Handler()
 db_AzureAuth = DynamoDB("AzureAuth")
-db_AzureAuth_SPS = DynamoDB("AzureAuth_SPS")
+SSM = SsmHandler()
+S3 = S3Handler()
+
+def send_slack_message(msg):
+    url_key = 'error_notification_slack_webhook_url'
+    url = SSM.get_parameter(url_key, with_decryption=False)
+
+    if not url:
+        url = os.environ.get(url_key)
+
+    stack = inspect.stack()
+    module_name = stack[1][1]
+    line_no = stack[1][2]
+    function_name = stack[1][3]
+
+    message = f"File \"{module_name}\", line {line_no}, in {function_name} :\n{msg}"
+    slack_data = {
+        "text": message
+    }
+    requests.post(url, json=slack_data)

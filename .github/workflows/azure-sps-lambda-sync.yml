@@ -27,7 +27,7 @@ jobs:
       - name: Zip Lambda function code
         run: |
           rm -f azure_sps_lambda.zip
-          zip -j azure_sps_lambda.zip \
+          zip -j ./collector/spot-dataset/azure/lambda/current_collector/azure_sps_lambda.zip \
           ./collector/spot-dataset/azure/lambda/current_collector/load_price.py \
           ./collector/spot-dataset/azure/lambda/current_collector/upload_data.py \
           ./collector/spot-dataset/azure/lambda/current_collector/lambda_function_sps.py \

@@ -15,7 +15,6 @@ from utill.azure_auth import get_sps_token_and_subscriptions
 from const_config import AzureCollector, Storage
 from utill.pub_service import S3
 
-
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
 
@@ -23,7 +22,6 @@ SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager
 
 SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions()
-
 
 # 본 시간 수집 function은 추후 제거 예정입니다.
 def log_execution_time(func):

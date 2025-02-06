@@ -8,7 +8,7 @@ import pandas as pd
 from datetime import datetime
 from botocore.config import Config
 from const_config import AzureCollector, Storage
-import slack_msg_sender
+from utill import pub_service
 
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
@@ -20,8 +20,6 @@ write_client = session.client('timestream-write',
                                 retries={'max_attempts': 10})
                               )
 
-
-
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
     if recursive == 10:
@@ -30,7 +28,7 @@ def submit_batch(records, counter, recursive):
         result = write_client.write_records(DatabaseName=STORAGE_CONST.BUCKET_NAME, TableName=STORAGE_CONST.AZURE_TABLE_NAME, Records=records,CommonAttributes={})
 
     except write_client.exceptions.RejectedRecordsException as err:
-        slack_msg_sender.send_slack_message(err)
+        pub_service.send_slack_message(err)
         print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -38,7 +36,7 @@ def submit_batch(records, counter, recursive):
         submit_batch(re_records, counter, recursive + 1)
         exit()
     except Exception as err:
-        slack_msg_sender.send_slack_message(err)
+        pub_service.send_slack_message(err)
         print(err)
         exit()
 
@@ -158,3 +156,37 @@ def upload_cloudwatch(data, timestamp):
         logStreamName=AZURE_CONST.LOG_STREAM_NAME,
         logEvents=[log_event]
     )
+
+
+def update_latest_sps(dataframe, time_utc):
+    try:
+        formatted_time = time_utc.strftime("%Y-%m-%d %H:%M:%S")
+
+        dataframe['id'] = dataframe.index + 1
+        dataframe['time'] = formatted_time
+        dataframe = dataframe[['id', 'InstanceTier', 'InstanceType', 'Region', 'DesiredCount', 'AvailabilityZone', 'Score', 'InstanceTypeSPS', 'RegionCodeSPS', 'time']]
+        dataframe['AvailabilityZone'] = dataframe['AvailabilityZone'].where(pd.notna(dataframe['AvailabilityZone']), None)
+
+        json_data = dataframe.to_dict(orient="records")
+        pub_service.S3.upload_file(json_data, f"result/{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
+        return True
+
+    except Exception as e:
+        print(f"update_latest_sps failed. error: {e}")
+        return False
+
+
+def save_raw_sps(dataframe, time_utc):
+    try:
+        dataframe['Time'] = time_utc
+        dataframe = dataframe[['Time','InstanceTier','InstanceType', 'Region', 'DesiredCount', 'AvailabilityZone', 'Score', 'InstanceTypeSPS', 'RegionCodeSPS']]
+
+        s3_dir_name = time_utc.strftime("%Y/%m/%d")
+        s3_obj_name = time_utc.strftime("%H-%M-%S")
+
+        pub_service.S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)
+        return True
+
+    except Exception as e:
+        print(f"save_raw_sps failed. error: {e}")
+        return False

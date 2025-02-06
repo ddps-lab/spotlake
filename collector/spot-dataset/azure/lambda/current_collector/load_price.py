@@ -14,7 +14,6 @@ SKIP_NUM_LIST = [i*1000 for i in range(AZURE_CONST.MAX_SKIP)]
 event = threading.Event()
 lock = threading.Lock()
 
-
 # get instancetier from armSkuName
 def get_instaceTier(armSkuName):
     split_armSkuName = armSkuName.split('_')

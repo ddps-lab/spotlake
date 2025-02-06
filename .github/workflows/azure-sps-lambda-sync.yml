@@ -34,8 +34,11 @@ jobs:
             collector/spot-dataset/azure/lambda/current_collector/load_sps.py \
             const_config.py
 
-          cd collector/spot-dataset/azure/lambda/current_collector
-          zip -r ../../../azure_sps_lambda.zip utill sps_module
+          cd ./collector/spot-dataset/azure/lambda/current_collector/
+          zip -r azure_sps_lambda.zip ./utill/*
+          zip -r azure_sps_lambda.zip ./sps_module/*
+          cd ../../../../../
+          mv ./collector/spot-dataset/azure/lambda/current_collector/azure_sps_lambda.zip ./
 
       - name: Deploy to AWS Lambda
         run: |

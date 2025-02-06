@@ -28,11 +28,11 @@ jobs:
         run: |
           rm -f azure_sps_lambda.zip
           zip -j azure_sps_lambda.zip \
-            ./collector/spot-dataset/azure/lambda/current_collector/load_price.py \
-            ./collector/spot-dataset/azure/lambda/current_collector/upload_data.py \
-            ./collector/spot-dataset/azure/lambda/current_collector/lambda_function_sps.py \
-            ./collector/spot-dataset/azure/lambda/current_collector/load_sps.py \
-            const_config.py
+          ./collector/spot-dataset/azure/lambda/current_collector/load_price.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/upload_data.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/lambda_function_sps.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/load_sps.py \
+          ./const_config.py
 
           cd ./collector/spot-dataset/azure/lambda/current_collector/
           zip -r azure_sps_lambda.zip ./utill/*

@@ -401,6 +401,7 @@ def initialize_sps_shared_resources():
     SS_Resources.found_invalid_region_retry_count = 0
     SS_Resources.found_invalid_instance_type_retry_count = 0
 
+
 def save_tmp_files_to_s3():
     files_to_upload = {
         AZURE_CONST.INVALID_REGIONS_JSON_FILENAME: SS_Resources.invalid_regions_tmp,
@@ -459,6 +460,7 @@ def get_variable_from_s3():
     except Exception as e:
         print(f"Error loading files from S3: {e}")
         return False
+
 
 def collect_regions_and_instance_types_df_by_priceapi():
     """

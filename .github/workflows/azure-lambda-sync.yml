@@ -36,7 +36,8 @@ jobs:
             collector/spot-dataset/azure/lambda/current_collector/upload_data.py \
             const_config.py
           
-          zip -r azure_lambda.zip collector/spot-dataset/azure/lambda/current_collector/utill
+            cd collector/spot-dataset/azure/lambda/current_collector
+            zip -r ../../../azure_lambda.zip utill
 
       - name: Deploy to AWS Lambda
         run: |

@@ -8,7 +8,6 @@ from utill import pub_service
 
 AZURE_CONST = AzureCollector()
 
-
 price_list = []
 response_dict = {}
 SKIP_NUM_LIST = [i*1000 for i in range(AZURE_CONST.MAX_SKIP)]

@@ -79,6 +79,10 @@ class AzureCollector(object):
         return "latest_azure.json"
 
     @constant
+    def LATEST_SPS_FILENAME():
+        return "latest_azure_sps.json"
+
+    @constant
     def S3_LATEST_DATA_SAVE_PATH():
         return "latest_data/latest_azure.json"
 
@@ -126,6 +130,37 @@ class AzureCollector(object):
     def LOG_STREAM_NAME():
         return "Azure-Count"
 
+    @constant
+    def SPS_FILE_PATH():
+        return "sps-collector/azure"
+
+    @constant
+    def LOCATIONS_CALL_HISTORY_JSON_FILENAME():
+        return "locations_call_history.json"
+
+    @constant
+    def LOCATIONS_OVER_LIMIT_JSON_FILENAME():
+        return "locations_over_limit.json"
+
+    @constant
+    def INVALID_REGIONS_JSON_FILENAME():
+        return "invalid_regions.json"
+
+    @constant
+    def INVALID_INSTANCE_TYPES_JSON_FILENAME():
+        return "invalid_instance_types.json"
+
+    @constant
+    def LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME():
+        return "last_subscription_id_and_location.json"
+
+    @constant
+    def REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME():
+        return "region_map_and_instance_map.json"
+
+    @constant
+    def DF_TO_USE_TODAY_PKL_FILENAME():
+        return "df_to_use_today.pkl"
 
 class GcpCollector(object):
     @constant

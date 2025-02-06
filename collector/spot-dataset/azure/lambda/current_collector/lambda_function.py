@@ -1,7 +1,6 @@
 import os
 import json
 import boto3
-import slack_msg_sender
 import pandas as pd
 from const_config import AzureCollector, Storage
 from datetime import datetime, timezone
@@ -10,6 +9,7 @@ from merge_df import merge_df
 from load_price import collect_price_with_multithreading
 from upload_data import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch
 from compare_data import compare
+from utill import pub_service
 
 STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
@@ -32,7 +32,7 @@ def azure_collector(timestamp):
     except Exception as e:
         result_msg = """AZURE PRICE MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': result_msg}
-        slack_msg_sender.send_slack_message(result_msg)
+        pub_service.send_slack_message(result_msg)
         is_price_fetch_success = False
     
     try:
@@ -40,7 +40,7 @@ def azure_collector(timestamp):
     except Exception as e:
         result_msg = """AZURE IF MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': result_msg}
-        slack_msg_sender.send_slack_message(result_msg)
+        pub_service.send_slack_message(result_msg)
         is_if_fetch_success = False
 
     if is_price_fetch_success and is_if_fetch_success:
@@ -54,7 +54,7 @@ def azure_collector(timestamp):
     else:
         result_msg = """AZURE PRICE MODULE AND IF MODULE EXCEPTION!"""
         data = {'text': result_msg}
-        slack_msg_sender.send_slack_message(result_msg)
+        pub_service.send_slack_message(result_msg)
         return
     
     try:
@@ -81,7 +81,7 @@ def azure_collector(timestamp):
     except Exception as e:
         result_msg = """AZURE UPLOAD MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': result_msg}
-        slack_msg_sender.send_slack_message(result_msg)
+        pub_service.send_slack_message(result_msg)
         if_exception_flag = False
 
 def lambda_handler(event, context):

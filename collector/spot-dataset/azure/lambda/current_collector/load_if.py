@@ -1,8 +1,6 @@
-import json
-import boto3
 import requests
 import pandas as pd
-import slack_msg_sender
+from utill import pub_service
 from utill.azure_auth import get_token
 
 
@@ -72,4 +70,4 @@ def load_if():
     except Exception as e:
         result_msg = """AZURE Exception when load_if\n %s""" % (e)
         data = {'text': result_msg}
-        slack_msg_sender.send_slack_message(result_msg)
+        pub_service.send_slack_message(result_msg)

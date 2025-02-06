@@ -4,9 +4,14 @@ on:
     branches:
       - 'main'
     paths:
-      - 'collector/spot-dataset/azure/lambda/current_collector/**'
+      - 'collector/spot-dataset/azure/lambda/current_collector/utill/**'
+      - 'collector/spot-dataset/azure/lambda/current_collector/compare_data.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/lambda_function.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/load_if.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/load_price.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/merge_df.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/upload_data.py'
       - 'const_config.py'
-
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}

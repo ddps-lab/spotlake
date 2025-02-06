@@ -27,17 +27,19 @@ jobs:
       - name: Zip Lambda function code
         run: |
           rm -f azure_lambda.zip
-          zip -j azure_lambda.zip \
-            collector/spot-dataset/azure/lambda/current_collector/compare_data.py \
-            collector/spot-dataset/azure/lambda/current_collector/lambda_function.py \
-            collector/spot-dataset/azure/lambda/current_collector/load_if.py \
-            collector/spot-dataset/azure/lambda/current_collector/load_price.py \
-            collector/spot-dataset/azure/lambda/current_collector/merge_df.py \
-            collector/spot-dataset/azure/lambda/current_collector/upload_data.py \
-            const_config.py
+          zip -j ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip \
+          ./collector/spot-dataset/azure/lambda/current_collector/compare_data.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/lambda_function.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/load_if.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/load_price.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/merge_df.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/upload_data.py \
+          ./const_config.py
           
-            cd collector/spot-dataset/azure/lambda/current_collector
-            zip -r ../../../azure_lambda.zip utill
+          cd ./collector/spot-dataset/azure/lambda/current_collector/
+          zip -r azure_lambda.zip ./utill/*
+          cd ../../../../../
+          mv ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip ./
 
       - name: Deploy to AWS Lambda
         run: |

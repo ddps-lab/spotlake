@@ -1,12 +1,8 @@
-import logging
 import load_sps
 from datetime import datetime
 from sps_module import sps_shared_resources
 from utils.upload_data import update_latest_sps, save_raw_sps
-from utils.pub_service import send_slack_message
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+from utils.pub_service import send_slack_message, logger
 
 FIRST_TIME_ACTION = "First_Time"  # 첫 실행 액션
 EVERY_10MIN_ACTION = "Every_10Min"  # 10분마다 실행 액션
@@ -22,7 +18,7 @@ def lambda_handler(event, _):
         event_time_utc = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
         desired_count = sps_shared_resources.time_desired_count_map.get(event_time_utc.strftime("%H:%M"), 1)
 
-        logger.info(f"Lambda triggered: action={action}, event_time_utc={event_time_utc}, desired_count={desired_count}")
+        logger.info(f"Lambda triggered: action: {action}, event_time: {event_time_utc}, desired_count: {desired_count}")
 
         if action == FIRST_TIME_ACTION:
             sps_res_df = load_sps.collect_spot_placement_score_first_time(desired_count=desired_count)
@@ -67,7 +63,7 @@ def handle_response(status_code, body, action, time, error_message=None):
         "statusCode": status_code,
         "body": body,
         "action": action,
-        "time": time
+        "time": str(time)
     }
     if error_message:
         response["error_message"] = error_message

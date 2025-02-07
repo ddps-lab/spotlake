@@ -1,8 +1,7 @@
 import load_sps
 from sps_module import sps_shared_resources
 from datetime import datetime
-from upload_data import update_latest_sps, save_raw_sps
-from utill import pub_service
+from utils import send_slack_message, update_latest_sps, save_raw_sps
 
 def lambda_handler(event, _):
     try:
@@ -34,7 +33,7 @@ def lambda_handler(event, _):
 
     except Exception as e:
         error_msg = f"AZURE SPS MODULE EXCEPTION!\n Error: {e}"
-        pub_service.send_slack_message(error_msg)
+        send_slack_message(error_msg)
         return handle_response(400, f"Action '{action}' executed failed. Time: {event_time_utc}.", error_msg)
 
 

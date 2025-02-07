@@ -1,7 +1,6 @@
 import requests
 import pandas as pd
-from utill import pub_service
-from utill.azure_auth import get_token
+from utils import get_token, send_slack_message
 
 
 def get_data(token, skip_token, retry=3):
@@ -70,4 +69,4 @@ def load_if():
     except Exception as e:
         result_msg = """AZURE Exception when load_if\n %s""" % (e)
         data = {'text': result_msg}
-        pub_service.send_slack_message(result_msg)
+        send_slack_message(result_msg)

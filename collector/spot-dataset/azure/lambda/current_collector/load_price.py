@@ -2,12 +2,8 @@ import requests
 import pandas as pd
 import numpy as np
 import threading
-from const_config import AzureCollector
 from concurrent.futures import ThreadPoolExecutor
-from utill import pub_service
-
-AZURE_CONST = AzureCollector()
-
+from utils import send_slack_message, AZURE_CONST
 
 price_list = []
 response_dict = {}
@@ -133,7 +129,7 @@ def collect_price_with_multithreading():
 
     if response_dict:
         for i in response_dict:
-            pub_service.send_slack_message(f"{i} respones occurred {response_dict[i]} times")
+            send_slack_message(f"{i} respones occurred {response_dict[i]} times")
 
     price_df = pd.DataFrame(price_list)
     savings_df = preprocessing_price(price_df)

@@ -7,11 +7,7 @@ import pickle
 import pandas as pd
 from datetime import datetime
 from botocore.config import Config
-from const_config import AzureCollector, Storage
-from utill import pub_service
-
-STORAGE_CONST = Storage()
-AZURE_CONST = AzureCollector()
+from utils import send_slack_message, S3, AZURE_CONST, STORAGE_CONST
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write',
@@ -28,7 +24,7 @@ def submit_batch(records, counter, recursive):
         result = write_client.write_records(DatabaseName=STORAGE_CONST.BUCKET_NAME, TableName=STORAGE_CONST.AZURE_TABLE_NAME, Records=records,CommonAttributes={})
 
     except write_client.exceptions.RejectedRecordsException as err:
-        pub_service.send_slack_message(err)
+        send_slack_message(err)
         print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -36,7 +32,7 @@ def submit_batch(records, counter, recursive):
         submit_batch(re_records, counter, recursive + 1)
         exit()
     except Exception as err:
-        pub_service.send_slack_message(err)
+        send_slack_message(err)
         print(err)
         exit()
 
@@ -168,7 +164,7 @@ def update_latest_sps(dataframe, time_utc):
         dataframe['AvailabilityZone'] = dataframe['AvailabilityZone'].where(pd.notna(dataframe['AvailabilityZone']), None)
 
         json_data = dataframe.to_dict(orient="records")
-        pub_service.S3.upload_file(json_data, f"result/{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
+        S3.upload_file(json_data, f"result/{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
         return True
 
     except Exception as e:
@@ -184,7 +180,7 @@ def save_raw_sps(dataframe, time_utc):
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-        pub_service.S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)
+        S3.upload_file(dataframe, f"result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)
         return True
 
     except Exception as e:

@@ -7,8 +7,9 @@ import inspect
 import os
 from const_config import AzureCollector, Storage
 
-STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
+STORAGE_CONST = Storage()
+
 
 session = boto3.Session()
 dynamodb = session.resource('dynamodb', region_name='us-east-1')

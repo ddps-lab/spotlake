@@ -11,13 +11,7 @@ from sps_module import sps_prepare_parameters
 from json import JSONDecodeError
 from functools import wraps
 from datetime import datetime
-from utill.azure_auth import get_sps_token_and_subscriptions
-from const_config import AzureCollector, Storage
-from utill.pub_service import S3
-
-
-STORAGE_CONST = Storage()
-AZURE_CONST = AzureCollector()
+from utils import S3, get_sps_token_and_subscriptions, AZURE_CONST, STORAGE_CONST
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager

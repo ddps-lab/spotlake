@@ -5,7 +5,10 @@ import pandas as pd
 from datetime import datetime, timezone
 from load_if import load_if
 from load_price import collect_price_with_multithreading
-from utils import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch, compare, send_slack_message, merge_df, AZURE_CONST, STORAGE_CONST
+from utils.merge_df import merge_df
+from utils.compare_data import compare
+from utils.upload_data import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch
+from utils.pub_service import send_slack_message, AZURE_CONST, STORAGE_CONST
 
 BUCKET_NAME = os.environ.get('BUCKET_NAME')
 KEY = os.environ.get('S3_LATEST_DATA_SAVE_PATH')
@@ -18,7 +21,7 @@ timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
 def azure_collector(timestamp):
     is_price_fetch_success = True
     is_if_fetch_success = True
-    
+
     # collect azure price data with multithreading
     try:
         current_df = collect_price_with_multithreading()
@@ -27,7 +30,7 @@ def azure_collector(timestamp):
         data = {'text': result_msg}
         send_slack_message(result_msg)
         is_price_fetch_success = False
-    
+
     try:
         eviction_df = load_if()
     except Exception as e:
@@ -42,14 +45,15 @@ def azure_collector(timestamp):
         join_df = eviction_df
     elif is_price_fetch_success and not is_if_fetch_success:
         current_df['IF'] = -1.0
-        current_df = current_df[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+        current_df = current_df[
+            ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
         join_df = current_df
     else:
         result_msg = """AZURE PRICE MODULE AND IF MODULE EXCEPTION!"""
         data = {'text': result_msg}
         send_slack_message(result_msg)
         return
-    
+
     try:
         # load previous dataframe
         s3 = boto3.resource('s3')
@@ -76,6 +80,7 @@ def azure_collector(timestamp):
         data = {'text': result_msg}
         send_slack_message(result_msg)
         if_exception_flag = False
+
 
 def lambda_handler(event, context):
     azure_collector(timestamp)

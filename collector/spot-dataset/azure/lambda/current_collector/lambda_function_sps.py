@@ -1,7 +1,8 @@
 import load_sps
 from sps_module import sps_shared_resources
 from datetime import datetime
-from utils import send_slack_message, update_latest_sps, save_raw_sps
+from utils.upload_data import update_latest_sps, save_raw_sps
+from utils.pub_service import send_slack_message
 
 def lambda_handler(event, _):
     try:

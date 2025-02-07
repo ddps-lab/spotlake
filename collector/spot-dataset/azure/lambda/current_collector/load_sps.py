@@ -11,7 +11,8 @@ from sps_module import sps_prepare_parameters
 from json import JSONDecodeError
 from functools import wraps
 from datetime import datetime
-from utils import S3, get_sps_token_and_subscriptions, AZURE_CONST, STORAGE_CONST
+from utils.azure_auth import get_sps_token_and_subscriptions
+from utils.pub_service import S3, AZURE_CONST
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager

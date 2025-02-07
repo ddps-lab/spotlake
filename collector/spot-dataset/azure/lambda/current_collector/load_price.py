@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from utils import send_slack_message, AZURE_CONST
+from utils.pub_service import send_slack_message, AZURE_CONST
 
 price_list = []
 response_dict = {}

@@ -7,7 +7,7 @@ import pickle
 import pandas as pd
 from datetime import datetime
 from botocore.config import Config
-from utils import send_slack_message, S3, AZURE_CONST, STORAGE_CONST
+from utils.pub_service import send_slack_message, S3, AZURE_CONST, STORAGE_CONST
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write',

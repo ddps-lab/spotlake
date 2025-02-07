@@ -56,6 +56,7 @@ def collect_spot_placement_score_first_time(desired_count):
     6. regions_and_instance_types 원본을 invalid_region, invalid_instanceType 으로 필터링
     7. 다시 greedy_clustering 방법으로 하루애 이용 예정한 호출 파라미터 pool만들고 S3에 업로드
     '''
+    print(f"Executing: collect_spot_placement_score_first_time (desired_count={desired_count})")
     if initialize_files_in_s3():
         assert get_variable_from_s3()
         initialize_sps_shared_resources()
@@ -117,7 +118,7 @@ def collect_spot_placement_score(desired_count):
     1. 하루애 이용 예정한 호출 파라미터 pool을 S3에서 read.
     2. SPS 호출 및 invalid_region, invalid_instanceType 수집 및 필터링.
     '''
-
+    print(f"Executing: collect_spot_placement_score (desired_count={desired_count})")
     assert get_variable_from_s3()
     initialize_sps_shared_resources()
 

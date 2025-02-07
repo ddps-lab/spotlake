@@ -1,5 +1,6 @@
 import re
 import requests
+import traceback
 from sps_module import sps_shared_resources
 from datetime import datetime, timedelta, timezone
 
@@ -77,19 +78,16 @@ def get_next_available_location():
         clean_expired_over_limit_locations()
         clean_expired_over_call_history_locations()
 
-        # Get the list of subscription_ids
         subscription_ids = list(SS_Resources.locations_call_history_tmp.keys())
 
-        # Get the last used subscription_id and location
         last_subscription_id = SS_Resources.last_subscription_id_and_location_tmp.get('last_subscription_id')
         last_location = SS_Resources.last_subscription_id_and_location_tmp.get('last_location')
 
-        # Find the index of the last used subscription_id (use last_subscription_id directly)
         start_subscription_index = 0
         if last_subscription_id is not None and last_subscription_id in subscription_ids:
             start_subscription_index = subscription_ids.index(last_subscription_id)
 
-        # Iterate through subscription_ids (allow reusing the last subscription_id)
+
         for i in range(len(subscription_ids)):
             subscription_index = (start_subscription_index + i) % len(subscription_ids)
             subscription_id = subscription_ids[subscription_index]
@@ -97,33 +95,29 @@ def get_next_available_location():
             current_history = SS_Resources.locations_call_history_tmp[subscription_id]
             current_over_limit_locations = SS_Resources.locations_over_limit_tmp.get(subscription_id)
 
-            # Get the list of locations
             locations = list(current_history.keys())
 
-            # Find the index of the last used location and start from the next one
             start_location_index = 0
             if last_location is not None and last_location in locations:
-                start_location_index = (locations.index(last_location) + 1) % len(locations)  # Move to the next location
+                start_location_index = (locations.index(last_location) + 1) % len(locations)
 
-            # Iterate through locations (starting from the next one after last_location)
             for j in range(len(locations)):
                 location_index = (start_location_index + j) % len(locations)
                 location = locations[location_index]
 
-                # Check if the location can be called
                 if validation_can_call(location, current_history, current_over_limit_locations):
-                    # Update last used subscription_id (keep it) and location (move to next)
+
                     SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
                     SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
                     return subscription_id, location, current_history, current_over_limit_locations
 
-        return None  # No valid location found
-
-    except Exception as e:
-        print(f"Failed to get_next_available_location: {e}")
         return None
 
-
+    except Exception as e:
+        print("\n[ERROR] Exception occurred in get_next_available_location:")
+        print(traceback.format_exc())
+        print(f"\n[ERROR] Failed to get_next_available_location: {e}")
+        return None
 
 
 def collect_available_locations():

@@ -2,7 +2,8 @@ import os
 import requests
 import time
 from azure.identity import ClientSecretCredential
-from utill.pub_service import db_AzureAuth
+from utils.pub_service import db_AzureAuth
+from azure.core.exceptions import ClientAuthenticationError
 
 def get_token():
     db = db_AzureAuth
@@ -38,6 +39,15 @@ def get_sps_token_and_subscriptions():
     client_secret = os.environ.get('CLIENT_SECRET')
     subscriptions = os.environ.get('SUBSCRIPTIONS')
 
-    sps_token = ClientSecretCredential(tenant_id, client_id, client_secret).get_token_info("https://management.azure.com/.default").token
+    if not all([tenant_id, client_id, client_secret, subscriptions]):
+        raise ValueError("Missing required environment variables: TENANT_ID, CLIENT_ID, CLIENT_SECRET, or SUBSCRIPTIONS")
 
-    return sps_token, list(subscriptions)
+    subscriptions = [sub.strip() for sub in subscriptions.split(",") if sub.strip()]
+
+    try:
+        credential = ClientSecretCredential(tenant_id, client_id, client_secret)
+        sps_token = credential.get_token("https://management.azure.com/.default").token
+    except ClientAuthenticationError as e:
+        raise ValueError(f"Failed to authenticate with Azure: {e}")
+
+    return sps_token, subscriptions

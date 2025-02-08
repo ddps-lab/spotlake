@@ -5,10 +5,11 @@ import pickle
 import requests
 import inspect
 import os
+import logging
 from const_config import AzureCollector, Storage
 
-STORAGE_CONST = Storage()
 AZURE_CONST = AzureCollector()
+STORAGE_CONST = Storage()
 
 session = boto3.Session()
 dynamodb = session.resource('dynamodb', region_name='us-east-1')
@@ -103,9 +104,23 @@ class S3Handler:
             print(f"Error reading {file_name} from S3: {e}")
             return None
 
+class LoggerConfig(logging.Logger):
+    def __init__(self, level=logging.INFO, format_str='[%(levelname)s]: %(message)s'):
+        super().__init__(__name__, level)
+
+        if self.hasHandlers():
+            self.handlers.clear()
+
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(format_str)
+        handler.setFormatter(formatter)
+        self.addHandler(handler)
+
+
 db_AzureAuth = DynamoDB("AzureAuth")
 SSM = SsmHandler()
 S3 = S3Handler()
+logger = LoggerConfig()
 
 def send_slack_message(msg):
     url_key = 'error_notification_slack_webhook_url'

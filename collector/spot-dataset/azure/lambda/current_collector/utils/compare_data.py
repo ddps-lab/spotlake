@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 
-
 # compare previous collected workload with current collected workload
 # return changed workload
 def compare(previous_df, current_df, workload_cols, feature_cols):

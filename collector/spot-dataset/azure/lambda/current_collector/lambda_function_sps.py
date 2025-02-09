@@ -32,20 +32,15 @@ def lambda_handler(event, _):
                 return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc)
 
             sps_res_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
+
         else:
             raise ValueError(f"Invalid lambda action.")
 
 
-        # price_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
-        price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.LATEST_FILENAME, 'json'))
-        price_eviction_sps_df = merge_price_eviction_sps_df(price_if_df, sps_res_df)
-
         if sps_res_df is None: raise ValueError("sps_res_df is None")
-        if price_if_df is None: raise ValueError("price_if_df is None")
-        if price_eviction_sps_df is None: raise ValueError("price_eviction_sps_df is None")
 
-        if not update_and_save_res_df(price_eviction_sps_df, event_time_utc):
-            raise RuntimeError("Failed to update or save price_eviction_sps_df data")
+        if not handle_res_df(sps_res_df, event_time_utc):
+            raise RuntimeError("Failed to handle_res_df")
 
         return handle_response(200, "Executed Successfully!", action, event_time_utc)
 
@@ -56,11 +51,21 @@ def lambda_handler(event, _):
         return handle_response(500, "Execute Failed!", action, event_time_utc, str(e))
 
 
-def update_and_save_res_df(price_eviction_sps_df, event_time_utc):
+def handle_res_df(sps_res_df, event_time_utc):
     try:
-        update_result = update_latest_sps(price_eviction_sps_df, event_time_utc)
-        save_result = save_raw_sps(price_eviction_sps_df, event_time_utc)
-        return update_result and save_result
+        sps_res_df['time'] = event_time_utc.strftime("%Y-%m-%d %H:%M:%S")
+        sps_res_df['AvailabilityZone'] = sps_res_df['AvailabilityZone'].where(pd.notna(sps_res_df['AvailabilityZone']), None)
+
+
+        # price_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
+        price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.LATEST_FILENAME, 'json'))
+        price_eviction_sps_df = merge_price_eviction_sps_df(price_if_df, sps_res_df)
+
+        if price_if_df is None: raise ValueError("price_if_df is None")
+        if price_eviction_sps_df is None: raise ValueError("price_eviction_sps_df is None")
+
+        return update_latest_sps(price_eviction_sps_df) and save_raw_sps(price_eviction_sps_df, event_time_utc)
+
 
     except Exception as e:
         logger.error(f"Error in handle_res_df function: {e}")

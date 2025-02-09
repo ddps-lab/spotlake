@@ -161,17 +161,9 @@ def upload_cloudwatch(data, timestamp):
     )
 
 
-def update_latest_sps(dataframe, time_utc):
+def update_latest_sps(dataframe):
     try:
-        formatted_time = time_utc.strftime("%Y-%m-%d %H:%M:%S")
-
-        dataframe['id'] = dataframe.index + 1
-        dataframe['time'] = formatted_time
-        dataframe = dataframe[['id', 'InstanceTier', 'InstanceType', 'Region', 'DesiredCount', 'AvailabilityZone', 'Score', 'InstanceTypeSPS', 'RegionCodeSPS', 'time']]
-        dataframe['AvailabilityZone'] = dataframe['AvailabilityZone'].where(pd.notna(dataframe['AvailabilityZone']), None)
-
         json_data = dataframe.to_dict(orient="records")
-
         S3.upload_file(json_data, f"{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
         return True
 
@@ -182,9 +174,6 @@ def update_latest_sps(dataframe, time_utc):
 
 def save_raw_sps(dataframe, time_utc):
     try:
-        dataframe['Time'] = time_utc
-        dataframe = dataframe[['Time','InstanceTier','InstanceType', 'Region', 'DesiredCount', 'AvailabilityZone', 'Score', 'InstanceTypeSPS', 'RegionCodeSPS']]
-
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
         S3.upload_file(dataframe, f"sps-collector/azure/result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)

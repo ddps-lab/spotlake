@@ -17,7 +17,7 @@ def merge_price_eviction_df(price_df, eviction_df):
 def merge_price_eviction_sps_df(price_eviction_df, sps_df):
     join_df = pd.merge(price_eviction_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
     join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
-    join_df.drop(columns=['id_x', 'id_y'], inplace=True)
+    join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True)
     join_df = join_df[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
                            "PriceEviction_Update_Time", "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time"]]
 

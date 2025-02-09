@@ -162,10 +162,10 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                             score_data = {
                                 "DesiredCount": desired_count,
                                 "AvailabilityZone": score.get("availabilityZone", None),
-                                # "RegionCodeSPS": score.get("region", None),
+                                "RegionCodeSPS": score.get("region", None),
                                 "Region": SS_Resources.region_map_and_instance_map_tmp['region_map'].get(
                                     score.get("region", ""), ""),
-                                # "InstanceTypeSPS": score.get("sku", None),
+                                "InstanceTypeSPS": score.get("sku", None),
                                 "InstanceTier": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
                                     score.get("sku", ""), {}).get("InstanceTier", None),
                                 "InstanceType": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(

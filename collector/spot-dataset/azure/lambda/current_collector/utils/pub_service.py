@@ -6,6 +6,7 @@ import requests
 import inspect
 import os
 import logging
+import pandas as pd
 from const_config import AzureCollector, Storage
 
 AZURE_CONST = AzureCollector()
@@ -90,10 +91,13 @@ class S3Handler:
                 return json.load(file)
 
             elif file_type == "pkl":
-                return pickle.load(file)
+                return pd.read_pickle(file)
+
+            elif file_type == "pkl.gz":
+                return pd.read_pickle(file, compression="gzip")
 
             else:
-                raise ValueError("Unsupported file type. Use 'json' or 'pkl'.")
+                raise ValueError("Unsupported file type. Use 'json' or 'pkl' or 'pkl.gz'.")
 
         except json.JSONDecodeError:
             print(f"Warning: {file_path} is not a valid JSON file.")

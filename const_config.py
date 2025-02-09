@@ -79,8 +79,16 @@ class AzureCollector(object):
         return "latest_azure.json"
 
     @constant
+    def LATEST_PRICE_IF_PKL_GZIP_FILENAME():
+        return "latest_price_if_azure.pkl.gz"
+
+    @constant
     def LATEST_SPS_FILENAME():
         return "result/latest_azure_sps.json"
+
+    @constant
+    def S3_LATEST_PRICE_IF_GZIP_SAVE_PATH():
+        return "latest_data/latest_price_if_azure.pkl.gz"
 
     @constant
     def S3_LATEST_DATA_SAVE_PATH():

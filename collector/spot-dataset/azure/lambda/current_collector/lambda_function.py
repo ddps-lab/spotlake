@@ -10,8 +10,6 @@ from utils.compare_data import compare
 from utils.upload_data import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch
 from utils.pub_service import send_slack_message, AZURE_CONST, STORAGE_CONST
 
-BUCKET_NAME = os.environ.get('BUCKET_NAME')
-KEY = os.environ.get('S3_LATEST_DATA_SAVE_PATH')
 WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
 FEATURE_COLS = ['OndemandPrice', 'SpotPrice', 'IF']
 str_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")

@@ -61,8 +61,9 @@ def handle_res_df(sps_res_df, event_time_utc):
         price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.S3_LATEST_DATA_SAVE_PATH, 'json'))
         price_eviction_sps_df = merge_price_eviction_sps_df(price_if_df, sps_res_df)
 
-        return update_latest_sps(price_eviction_sps_df) and save_raw_sps(price_eviction_sps_df, event_time_utc)
-
+        if update_latest_sps(price_eviction_sps_df) and save_raw_sps(price_eviction_sps_df, event_time_utc):
+            logger.info(f"Successfully merge the price/if/sps df, and update_latest_result, save_raw!")
+            return True
 
     except Exception as e:
         logger.error(f"Error in handle_res_df function: {e}")

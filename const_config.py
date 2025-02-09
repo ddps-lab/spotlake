@@ -80,7 +80,7 @@ class AzureCollector(object):
 
     @constant
     def LATEST_SPS_FILENAME():
-        return "latest_azure_sps.json"
+        return "result/latest_azure_sps.json"
 
     @constant
     def S3_LATEST_DATA_SAVE_PATH():
@@ -132,7 +132,7 @@ class AzureCollector(object):
 
     @constant
     def SPS_FILE_PATH():
-        return "sps-collector/azure"
+        return "sps-collector/azure/"
 
     @constant
     def LOCATIONS_CALL_HISTORY_JSON_FILENAME():

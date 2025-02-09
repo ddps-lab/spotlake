@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime, timezone
 from load_if import load_if
 from load_price import collect_price_with_multithreading
-from utils.merge_df import merge_df
+from utils.merge_df import merge_price_eviction_df
 from utils.compare_data import compare
 from utils.upload_data import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch
 from utils.pub_service import send_slack_message, AZURE_CONST, STORAGE_CONST
@@ -40,7 +40,7 @@ def azure_collector(timestamp):
         is_if_fetch_success = False
 
     if is_price_fetch_success and is_if_fetch_success:
-        join_df = merge_df(current_df, eviction_df)
+        join_df = merge_price_eviction_df(current_df, eviction_df)
     elif not is_price_fetch_success and is_if_fetch_success:
         join_df = eviction_df
     elif is_price_fetch_success and not is_if_fetch_success:

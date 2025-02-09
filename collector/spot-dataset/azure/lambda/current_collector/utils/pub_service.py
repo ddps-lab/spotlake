@@ -44,7 +44,7 @@ class S3Handler:
         self.client = s3_client
         self.resource = s3_resource
 
-    def upload_file(self, data, file_name, file_type="json", set_public_read = False):
+    def upload_file(self, data, file_path, file_type="json", set_public_read = False):
         try:
             if file_type not in ["json", "pkl", "df_to_csv.gz"]:
                 raise ValueError("Unsupported file type. Use 'json' or 'pkl'.")
@@ -68,23 +68,21 @@ class S3Handler:
                 data.to_csv(file, index=False, compression="gzip")
                 file.seek(0)
 
-            file_path = f"{AZURE_CONST.SPS_FILE_PATH}/{file_name}"
             self.client.upload_fileobj(file, STORAGE_CONST.BUCKET_NAME, file_path)
 
             if set_public_read:
                 object_acl = self.resource.ObjectAcl(STORAGE_CONST.BUCKET_NAME, file_path)
                 object_acl.put(ACL='public-read')
 
-            print(f"[S3]: Succeed to upload. Filename: [{file_name}]")
+            print(f"[S3]: Succeed to upload. Filename: [{file_path}]")
 
         except ValueError as ve:
-            print(f"Validation error for {file_name}: {ve}")
+            print(f"Validation error for {file_path}: {ve}")
         except Exception as e:
-            print(f"Upload failed for {file_name}: {e}")
+            print(f"Upload failed for {file_path}: {e}")
 
-    def read_file(self, file_name, file_type="json"):
+    def read_file(self, file_path, file_type="json"):
         try:
-            file_path = f"{AZURE_CONST.SPS_FILE_PATH}/{file_name}"
             response = self.client.get_object(Bucket=STORAGE_CONST.BUCKET_NAME, Key=file_path)
             file = io.BytesIO(response['Body'].read())
 
@@ -98,10 +96,10 @@ class S3Handler:
                 raise ValueError("Unsupported file type. Use 'json' or 'pkl'.")
 
         except json.JSONDecodeError:
-            print(f"Warning: {file_name} is not a valid JSON file.")
+            print(f"Warning: {file_path} is not a valid JSON file.")
             return None
         except Exception as e:
-            print(f"Error reading {file_name} from S3: {e}")
+            print(f"Error reading {file_path} from S3: {e}")
             return None
 
 class LoggerConfig(logging.Logger):

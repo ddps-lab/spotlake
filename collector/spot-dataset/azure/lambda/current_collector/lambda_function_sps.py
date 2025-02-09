@@ -36,7 +36,8 @@ def lambda_handler(event, _):
             raise ValueError(f"Invalid lambda action.")
 
 
-        price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz'))
+        # price_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
+        price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.LATEST_FILENAME, 'json'))
         price_eviction_sps_df = merge_price_eviction_sps_df(price_if_df, sps_res_df)
 
         if sps_res_df is None: raise ValueError("sps_res_df is None")

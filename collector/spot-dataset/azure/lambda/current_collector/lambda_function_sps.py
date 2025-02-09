@@ -56,13 +56,10 @@ def handle_res_df(sps_res_df, event_time_utc):
         sps_res_df['time'] = event_time_utc.strftime("%Y-%m-%d %H:%M:%S")
         sps_res_df['AvailabilityZone'] = sps_res_df['AvailabilityZone'].where(pd.notna(sps_res_df['AvailabilityZone']), None)
 
-
         # price_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
-        price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.LATEST_FILENAME, 'json'))
+        # if price_if_df is None: raise ValueError("price_if_df is None")
+        price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.S3_LATEST_DATA_SAVE_PATH, 'json'))
         price_eviction_sps_df = merge_price_eviction_sps_df(price_if_df, sps_res_df)
-
-        if price_if_df is None: raise ValueError("price_if_df is None")
-        if price_eviction_sps_df is None: raise ValueError("price_eviction_sps_df is None")
 
         return update_latest_sps(price_eviction_sps_df) and save_raw_sps(price_eviction_sps_df, event_time_utc)
 

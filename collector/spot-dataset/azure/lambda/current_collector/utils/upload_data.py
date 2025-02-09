@@ -172,7 +172,7 @@ def update_latest_sps(dataframe, time_utc):
 
         json_data = dataframe.to_dict(orient="records")
 
-        S3.upload_file(json_data, f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
+        S3.upload_file(json_data, f"{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
         return True
 
     except Exception as e:
@@ -187,7 +187,7 @@ def save_raw_sps(dataframe, time_utc):
 
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
-        S3.upload_file(dataframe, f"{AZURE_CONST.SPS_FILE_PATH}result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)
+        S3.upload_file(dataframe, f"sps-collector/azure/result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)
         return True
 
     except Exception as e:

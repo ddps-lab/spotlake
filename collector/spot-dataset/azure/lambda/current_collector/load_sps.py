@@ -65,7 +65,7 @@ def collect_spot_placement_score_first_time(desired_count):
         res_price_api = collect_regions_and_instance_types_df_by_priceapi()
         regions_and_instance_types_df, SS_Resources.region_map_and_instance_map_tmp['region_map'], SS_Resources.region_map_and_instance_map_tmp['instance_map'] = res_price_api
 
-        S3.upload_file(SS_Resources.region_map_and_instance_map_tmp, f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", "json")
+        S3.upload_file(SS_Resources.region_map_and_instance_map_tmp, f"{AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", "json")
 
         end_time = time.time()
         elapsed = end_time - start_time
@@ -101,7 +101,7 @@ def collect_spot_placement_score_first_time(desired_count):
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
-        S3.upload_file(df_greedy_clustering_filtered, f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
+        S3.upload_file(df_greedy_clustering_filtered, f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
 
         end_time = time.time()
         elapsed = end_time - start_time
@@ -122,7 +122,7 @@ def collect_spot_placement_score(desired_count):
     assert get_variable_from_s3()
     initialize_sps_shared_resources()
 
-    df_greedy_clustering_filtered = S3.read_file(f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
+    df_greedy_clustering_filtered = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
 
     sps_res_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
@@ -323,8 +323,8 @@ def extract_invalid_values(error_message):
 def initialize_files_in_s3():
     try:
         files_to_initialize = {
-            f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}": [],
-            f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}": []
+            f"{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}": [],
+            f"{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}": []
         }
 
         for file_path, data in files_to_initialize.items():
@@ -401,11 +401,11 @@ def initialize_sps_shared_resources():
 
 def save_tmp_files_to_s3():
     files_to_upload = {
-        f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}": SS_Resources.invalid_regions_tmp,
-        f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}": SS_Resources.invalid_instance_types_tmp,
-        f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME}": SS_Resources.locations_call_history_tmp,
-        f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME}": SS_Resources.locations_over_limit_tmp,
-        f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}": {
+        f"{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}": SS_Resources.invalid_regions_tmp,
+        f"{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}": SS_Resources.invalid_instance_types_tmp,
+        f"{AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME}": SS_Resources.locations_call_history_tmp,
+        f"{AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME}": SS_Resources.locations_over_limit_tmp,
+        f"{AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}": {
             "last_subscription_id": SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'],
             "last_location": SS_Resources.last_subscription_id_and_location_tmp['last_location']
         },
@@ -417,12 +417,12 @@ def save_tmp_files_to_s3():
 
 def get_variable_from_s3():
     try:
-        invalid_regions_data = S3.read_file(f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}", 'json')
-        instance_types_data = S3.read_file(f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}", 'json')
-        call_history_data = S3.read_file(f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME}", 'json')
-        over_limit_data = S3.read_file(f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME}", 'json')
-        last_location_index_data = S3.read_file(f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}", 'json')
-        region_map_and_instance_map = S3.read_file(f"{AZURE_CONST.SPS_FILE_PATH}{AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", 'json')
+        invalid_regions_data = S3.read_file(f"{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}", 'json')
+        instance_types_data = S3.read_file(f"{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}", 'json')
+        call_history_data = S3.read_file(f"{AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME}", 'json')
+        over_limit_data = S3.read_file(f"{AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME}", 'json')
+        last_location_index_data = S3.read_file(f"{AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}", 'json')
+        region_map_and_instance_map = S3.read_file(f"{AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", 'json')
 
         SS_Resources.invalid_regions_tmp = invalid_regions_data
         SS_Resources.invalid_instance_types_tmp = instance_types_data

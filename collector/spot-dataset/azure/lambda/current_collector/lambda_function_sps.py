@@ -1,8 +1,10 @@
 import load_sps
+import pandas as pd
 from datetime import datetime
 from sps_module import sps_shared_resources
+from utils.merge_df import merge_price_eviction_sps_df
 from utils.upload_data import update_latest_sps, save_raw_sps
-from utils.pub_service import send_slack_message, logger
+from utils.pub_service import send_slack_message, logger, S3, AZURE_CONST
 
 FIRST_TIME_ACTION = "First_Time"  # 첫 실행 액션
 EVERY_10MIN_ACTION = "Every_10Min"  # 10분마다 실행 액션
@@ -33,11 +35,17 @@ def lambda_handler(event, _):
         else:
             raise ValueError(f"Invalid lambda action.")
 
-        # SPS 데이터 처리
-        if sps_res_df is None:
-            raise ValueError("sps_res_df is None")
-        if not handle_res_df(sps_res_df, event_time_utc):
-            raise RuntimeError("Failed to update or save SPS data")
+
+        # price_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
+        price_if_df = pd.DataFrame(S3.read_file(AZURE_CONST.LATEST_FILENAME, 'json'))
+        price_eviction_sps_df = merge_price_eviction_sps_df(price_if_df, sps_res_df)
+
+        if sps_res_df is None: raise ValueError("sps_res_df is None")
+        if price_if_df is None: raise ValueError("price_if_df is None")
+        if price_eviction_sps_df is None: raise ValueError("price_eviction_sps_df is None")
+
+        if not update_and_save_res_df(price_eviction_sps_df, event_time_utc):
+            raise RuntimeError("Failed to update or save price_eviction_sps_df data")
 
         return handle_response(200, "Executed Successfully!", action, event_time_utc)
 
@@ -48,10 +56,10 @@ def lambda_handler(event, _):
         return handle_response(500, "Execute Failed!", action, event_time_utc, str(e))
 
 
-def handle_res_df(sps_res_df, event_time_utc):
+def update_and_save_res_df(price_eviction_sps_df, event_time_utc):
     try:
-        update_result = update_latest_sps(sps_res_df, event_time_utc)
-        save_result = save_raw_sps(sps_res_df, event_time_utc)
+        update_result = update_latest_sps(price_eviction_sps_df, event_time_utc)
+        save_result = save_raw_sps(price_eviction_sps_df, event_time_utc)
         return update_result and save_result
 
     except Exception as e:

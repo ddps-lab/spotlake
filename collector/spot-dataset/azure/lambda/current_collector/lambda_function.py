@@ -12,11 +12,12 @@ from utils.pub_service import send_slack_message, AZURE_CONST, STORAGE_CONST
 
 WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
 FEATURE_COLS = ['OndemandPrice', 'SpotPrice', 'IF']
-str_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
-timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
 
 
-def azure_collector(timestamp):
+def lambda_handler(event, _):
+    event_time_utc = event.get("time")
+    event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
+
     is_price_fetch_success = True
     is_if_fetch_success = True
 
@@ -61,17 +62,17 @@ def azure_collector(timestamp):
         previous_df = pd.DataFrame(data)
 
         # upload latest azure price to s3
-        update_latest(join_df, timestamp)
-        save_raw(join_df, timestamp)
+        update_latest(join_df, event_time_utc_datetime)
+        save_raw(join_df, event_time_utc_datetime)
 
         # upload count-log to cloudwatch
-        upload_cloudwatch(join_df, timestamp)
+        upload_cloudwatch(join_df, event_time_utc_datetime)
 
         # compare and upload changed_df to timestream
         changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
         if not changed_df.empty:
             query_selector(changed_df)
-            upload_timestream(changed_df, timestamp)
+            upload_timestream(changed_df, event_time_utc_datetime)
 
     except Exception as e:
         result_msg = """AZURE UPLOAD MODULE EXCEPTION!\n %s""" % (e)
@@ -79,9 +80,6 @@ def azure_collector(timestamp):
         send_slack_message(result_msg)
         if_exception_flag = False
 
-
-def lambda_handler(event, context):
-    azure_collector(timestamp)
     return {
         'statusCode': 200,
     }

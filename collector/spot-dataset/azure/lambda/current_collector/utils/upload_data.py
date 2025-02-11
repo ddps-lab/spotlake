@@ -38,13 +38,13 @@ def submit_batch(records, counter, recursive):
 
 
 # Check Database And Table Are Exist and Upload Data to Timestream
-def upload_timestream(data, timestamp):
+def upload_timestream(data, time_datetime):
     data = data[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'IF']]
     data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
     data['SpotPrice'] = data['SpotPrice'].fillna(-1)
     data['IF'] = data['IF'].fillna(-1)
 
-    time_value = time.strptime(timestamp.strftime("%Y-%m-%d %H:%M"), '%Y-%m-%d %H:%M')
+    time_value = time_datetime
     time_value = time.mktime(time_value)
     time_value = str(int(round(time_value * 1000)))
 
@@ -78,14 +78,14 @@ def upload_timestream(data, timestamp):
 
 
 # Update latest_azure.json in S3
-def update_latest(data, timestamp):
+def update_latest(data, time_datetime):
     data['id'] = data.index + 1
     data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
     data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
     data['Savings'] = data['Savings'].fillna(-1)
     data['IF'] = data['IF'].fillna(-1)
 
-    data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
+    data['time'] = datetime.strftime(time_datetime, '%Y-%m-%d %H:%M:%S')
 
     data.to_json(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_FILENAME}", orient='records')
     data.to_pickle(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_PRICE_IF_PKL_GZIP_FILENAME}", compression="gzip")
@@ -110,21 +110,22 @@ def update_latest(data, timestamp):
 
 
 # Save raw data in S3
-def save_raw(data, timestamp):
-    data['Time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+def save_raw(data, time_datetime):
+    data['Time'] = time_datetime.strftime("%Y-%m-%d %H:%M:%S")
+    time_str = datetime.strftime(time_datetime, '%Y-%m-%d_%H-%M-%S')
     data = data[['Time','InstanceTier','InstanceType', 'Region', 'OndemandPrice','SpotPrice', 'IF', 'Savings']]
 
-    data.to_csv(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", index=False, compression="gzip")
+    data.to_csv(f"{AZURE_CONST.SERVER_SAVE_DIR}/{time_str}.csv.gz", index=False, compression="gzip")
 
     session = boto3.Session()
     s3 = session.client('s3')
 
-    s3_dir_name = timestamp.strftime("%Y/%m/%d")
-    s3_obj_name = timestamp.strftime("%H-%M-%S")
+    s3_dir_name = time_datetime.strftime("%Y/%m/%d")
+    s3_obj_name = time_datetime.strftime("%H-%M-%S")
 
-    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz", 'rb') as f:
+    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{time_str}.csv.gz", 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f"""rawdata/azure/{s3_dir_name}/{s3_obj_name}.csv.gz""")
-    os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{timestamp}.csv.gz")
+    os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{time_str}.csv.gz")
 
 
 # Update query-selector-azure.json in S3
@@ -142,7 +143,7 @@ def query_selector(data):
     response = object_acl.put(ACL='public-read')
 
 
-def upload_cloudwatch(data, timestamp):
+def upload_cloudwatch(data, time_datetime):
     ondemand_count = len(data.drop(columns=['IF', 'SpotPrice', 'Savings']).dropna())
     spot_count = len(data.drop(columns=['IF', 'OndemandPrice', 'Savings']).dropna())
     if_count = len(data.drop(columns=['OndemandPrice', 'SpotPrice', 'Savings']).dropna())
@@ -150,7 +151,7 @@ def upload_cloudwatch(data, timestamp):
     cw_client = boto3.client('logs')
 
     log_event = {
-        'timestamp': int(timestamp.timestamp()) * 1000,
+        'timestamp': int(time_datetime.timestamp()) * 1000,
         'message': f'AZUREONDEMAND: {ondemand_count} AZURESPOT: {spot_count} AZUREIF: {if_count}'
     }
 

@@ -104,10 +104,10 @@ def main():
     print(f"계정 시작 인덱스 : {current_credential_index}")
 
     # ------ Load Credential File ------
+    SPS_QUERY_BUCKET_NAME = "sps-query-data"
     CREDENTIAL_FILE_PATH = "aws/credentials/credential_3699.csv"
-    credentials = None
     try:
-        csv_content = s3.Object(BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
+        csv_content = s3.Object(SPS_QUERY_BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
         credentials = pd.read_csv(StringIO(csv_content))
     except Exception as e:
         send_slack_message(e)

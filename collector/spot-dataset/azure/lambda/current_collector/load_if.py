@@ -1,9 +1,7 @@
-import json
-import boto3
 import requests
 import pandas as pd
-import slack_msg_sender
-from utill.azure_auth import get_token
+from utils.azure_auth import get_token
+from utils.pub_service import send_slack_message
 
 
 def get_data(token, skip_token, retry=3):
@@ -50,26 +48,27 @@ def load_if():
                 break
             skip_token = data["$skipToken"]
 
-        eviction_df =  pd.DataFrame(datas)
+        eviction_df = pd.DataFrame(datas)
 
         eviction_df['InstanceTier'] = eviction_df['skuName'].str.split('_', n=1, expand=True)[0].str.capitalize()
         eviction_df['InstanceType'] = eviction_df['skuName'].str.split('_', n=1, expand=True)[1].str.capitalize()
-        
+
         frequency_map = {'0-5': 3.0, '5-10': 2.5, '10-15': 2.0, '15-20': 1.5, '20+': 1.0}
         eviction_df = eviction_df.replace({'evictionRate': frequency_map})
 
         eviction_df.rename(columns={'evictionRate': 'IF'}, inplace=True)
         eviction_df.rename(columns={'location': 'Region'}, inplace=True)
-        
+
         eviction_df['OndemandPrice'] = -1.0
         eviction_df['SpotPrice'] = -1.0
         eviction_df['Savings'] = 1.0
-        
-        eviction_df = eviction_df[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+
+        eviction_df = eviction_df[
+            ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
 
         return eviction_df
-    
+
     except Exception as e:
         result_msg = """AZURE Exception when load_if\n %s""" % (e)
         data = {'text': result_msg}
-        slack_msg_sender.send_slack_message(result_msg)
+        send_slack_message(result_msg)

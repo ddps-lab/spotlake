@@ -4,9 +4,11 @@ on:
     branches:
       - 'main'
     paths:
-      - 'collector/spot-dataset/azure/lambda/current_collector/**'
-      - 'utility/slack_msg_sender.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/lambda_function.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/load_price.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/load_if.py'
       - 'const_config.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/utils/**'
 
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
@@ -19,14 +21,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout source code
-        uses: actions/checkout@v1
-      - name: Zip lambda_function code
+        uses: actions/checkout@v4
+      - name: Zip Lambda function code
         run: |
-          zip -j ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip ./collector/spot-dataset/azure/lambda/current_collector/* ./const_config.py ./utility/slack_msg_sender.py
+          rm -f azure_lambda.zip
+          rm -f ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip
+
+          zip -j ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip \
+          ./collector/spot-dataset/azure/lambda/current_collector/lambda_function.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/load_price.py \
+          ./collector/spot-dataset/azure/lambda/current_collector/load_if.py \
+          ./const_config.py
+
           cd ./collector/spot-dataset/azure/lambda/current_collector/
-          zip -r azure_lambda.zip ./utill/*
+          zip -r azure_lambda.zip ./utils/*
+          
+          
           cd ../../../../../
           mv ./collector/spot-dataset/azure/lambda/current_collector/azure_lambda.zip ./
-      - name: Deploy to lambda
+
+      - name: Deploy to AWS Lambda
         run: |
           aws lambda update-function-code --function-name azure-collector --zip-file fileb://azure_lambda.zip

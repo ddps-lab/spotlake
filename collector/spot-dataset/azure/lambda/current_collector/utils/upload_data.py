@@ -7,11 +7,7 @@ import pickle
 import pandas as pd
 from datetime import datetime
 from botocore.config import Config
-from const_config import AzureCollector, Storage
-import slack_msg_sender
-
-STORAGE_CONST = Storage()
-AZURE_CONST = AzureCollector()
+from utils.pub_service import send_slack_message, S3, AZURE_CONST, STORAGE_CONST
 
 session = boto3.session.Session(region_name='us-west-2')
 write_client = session.client('timestream-write',
@@ -19,8 +15,6 @@ write_client = session.client('timestream-write',
                                 max_pool_connections=5000,
                                 retries={'max_attempts': 10})
                               )
-
-
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
@@ -30,7 +24,7 @@ def submit_batch(records, counter, recursive):
         result = write_client.write_records(DatabaseName=STORAGE_CONST.BUCKET_NAME, TableName=STORAGE_CONST.AZURE_TABLE_NAME, Records=records,CommonAttributes={})
 
     except write_client.exceptions.RejectedRecordsException as err:
-        slack_msg_sender.send_slack_message(err)
+        send_slack_message(err)
         print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -38,7 +32,7 @@ def submit_batch(records, counter, recursive):
         submit_batch(re_records, counter, recursive + 1)
         exit()
     except Exception as err:
-        slack_msg_sender.send_slack_message(err)
+        send_slack_message(err)
         print(err)
         exit()
 
@@ -93,16 +87,23 @@ def update_latest(data, timestamp):
 
     data['time'] = datetime.strftime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-    result = data.to_json(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_FILENAME }", orient='records')
+    data.to_json(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_FILENAME}", orient='records')
+    data.to_pickle(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_PRICE_IF_PKL_GZIP_FILENAME}", compression="gzip")
 
     session = boto3.Session()
     s3 = session.client('s3')
 
-    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_FILENAME }", 'rb') as f:
+    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_FILENAME}", 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_DATA_SAVE_PATH)
+
+    with open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.LATEST_PRICE_IF_PKL_GZIP_FILENAME}", 'rb') as f:
+        s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH)
 
     s3 = boto3.resource('s3')
     object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_DATA_SAVE_PATH)
+    response = object_acl.put(ACL='public-read')
+
+    object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH)
     response = object_acl.put(ACL='public-read')
 
     pickle.dump(data, open(f"{AZURE_CONST.SERVER_SAVE_DIR}/{AZURE_CONST.SERVER_SAVE_FILENAME}", "wb"))
@@ -158,3 +159,26 @@ def upload_cloudwatch(data, timestamp):
         logStreamName=AZURE_CONST.LOG_STREAM_NAME,
         logEvents=[log_event]
     )
+
+
+def update_latest_sps(dataframe):
+    try:
+        json_data = dataframe.to_dict(orient="records")
+        S3.upload_file(json_data, f"{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
+        return True
+
+    except Exception as e:
+        print(f"update_latest_sps failed. error: {e}")
+        return False
+
+
+def save_raw_sps(dataframe, time_utc):
+    try:
+        s3_dir_name = time_utc.strftime("%Y/%m/%d")
+        s3_obj_name = time_utc.strftime("%H-%M-%S")
+        S3.upload_file(dataframe, f"sps-collector/azure/result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)
+        return True
+
+    except Exception as e:
+        print(f"save_raw_sps failed. error: {e}")
+        return False

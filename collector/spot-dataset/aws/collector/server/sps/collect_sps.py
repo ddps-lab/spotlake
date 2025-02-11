@@ -14,7 +14,7 @@ from sps_query_api import query_sps
 
 def main():
     # ------ Setting Client ------
-    session = boto3.session.Session(profile_name="spotlake")
+    session = boto3.session.Session()
     s3 = session.resource("s3")
     s3_client = session.client("s3", region_name="us-west-2")
 

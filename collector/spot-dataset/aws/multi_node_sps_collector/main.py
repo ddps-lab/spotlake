@@ -22,10 +22,11 @@ s3_client = boto3.client('s3', region_name='us-west-2')
 log_client = boto3.client('logs', region_name='us-west-2')
 
 NUM_WORKER = 26
-CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/sps_collector/"
+
+CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/multi_node_sps_collector/"
 WORKLOAD_FILE_PATH = "rawdata/aws/workloads"
 CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
-BUCKET_NAME = "sps-query-data"
+BUCKET_NAME = "sps-query-test"
 WORKLOAD_BUCKET_NAME = "spotlake"
 
 CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}start_index.txt"

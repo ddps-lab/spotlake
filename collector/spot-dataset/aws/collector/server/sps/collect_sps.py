@@ -105,7 +105,7 @@ def main():
 
     # ------ Load Credential File ------
     SPS_QUERY_BUCKET_NAME = "sps-query-data"
-    CREDENTIAL_FILE_PATH = "credentials/credential_3699.csv"
+    CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
     credentials = None
     try:
         csv_content = s3.Object(SPS_QUERY_BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')

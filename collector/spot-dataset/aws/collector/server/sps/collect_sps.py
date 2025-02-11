@@ -169,6 +169,7 @@ def main():
 
     start_time = datetime.now(timezone.utc)
     # ------ Save Dataframe File ------
+    TEST_BUCKET_NAME = "sps-collector"
     try:
         object_name = f"{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl"
         saved_filename = f"{CURRENT_PATH}/" + f"{object_name}"
@@ -179,7 +180,7 @@ def main():
             send_slack_message(e)
             print(e)
         # memo: change the saving cloud path
-        s3_client.upload_fileobj(open(f"{saved_filename}.gz", "rb"), BUCKET_NAME, f"rawdata/aws/sps/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
+        s3_client.upload_fileobj(open(f"{saved_filename}.gz", "rb"), TEST_BUCKET_NAME, f"rawdata/aws/sps/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
         os.remove(f"{saved_filename}")
         os.remove(f"{saved_filename}.gz")
     except Exception as e:

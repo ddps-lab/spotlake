@@ -44,8 +44,7 @@ def upload_timestream(data, time_datetime):
     data['SpotPrice'] = data['SpotPrice'].fillna(-1)
     data['IF'] = data['IF'].fillna(-1)
 
-    time_value = time_datetime
-    time_value = time.mktime(time_value)
+    time_value = time.mktime(time_datetime.timetuple())
     time_value = str(int(round(time_value * 1000)))
 
     records = []

@@ -40,6 +40,8 @@ def submit_batch(records, counter, recursive):
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, time_datetime):
     data = data[['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'IF']]
+    data = data.copy()
+
     data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
     data['SpotPrice'] = data['SpotPrice'].fillna(-1)
     data['IF'] = data['IF'].fillna(-1)
@@ -80,6 +82,8 @@ def upload_timestream(data, time_datetime):
 def update_latest(data, time_datetime):
     data['id'] = data.index + 1
     data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+    data = data.copy()
+
     data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
     data['Savings'] = data['Savings'].fillna(-1)
     data['IF'] = data['IF'].fillna(-1)

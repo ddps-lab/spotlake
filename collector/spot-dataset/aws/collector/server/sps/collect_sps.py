@@ -20,7 +20,7 @@ def main():
 
     # ------ Create Index Files ------
     # memo: change the cloud path
-    CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/collector/"
+    CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/collector/server/sps"
 
     CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}/credential_index.txt"
     if not os.path.exists(CREDENTIAL_START_INDEX_FILE_NAME):

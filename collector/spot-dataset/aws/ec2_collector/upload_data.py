@@ -124,7 +124,7 @@ def save_raw(data, timestamp):
     with open(SAVE_FILENAME, 'rb') as f:
         s3.upload_fileobj(f, STORAGE_CONST.BUCKET_NAME, f"rawdata/aws/{s3_dir_name}/{s3_obj_name}.csv.gz")
     
-    for filename in os.listdir(f"{AWS_CONST.LOCAL_PATH}/"):
-        if "spotlake_" in filename:
-            os.remove(f"{AWS_CONST.LOCAL_PATH}/{filename}")
+    # for filename in os.listdir(f"{AWS_CONST.LOCAL_PATH}/"):
+    #     if "spotlake_" in filename:
+    #         os.remove(f"{AWS_CONST.LOCAL_PATH}/{filename}")
 

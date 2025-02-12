@@ -14,7 +14,7 @@ def upload_data_to_s3(s3_client, saved_filename, s3_dir_name, s3_obj_name, bucke
     with open(saved_filename, 'rb') as f:
         s3_client.upload_fileobj(f, bucket_name, f"aws/{s3_dir_name}/{s3_obj_name}")
     
-    os.remove(saved_filename)
+    # os.remove(saved_filename)
 
 def upload_log_event(log_client, log_group_name, log_stream_name, log_event_key, log_event_value):
     message = json.dumps({log_event_key : log_event_value})

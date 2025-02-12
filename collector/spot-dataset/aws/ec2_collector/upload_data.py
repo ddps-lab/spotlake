@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import boto3
 import time
 import pandas as pd
@@ -7,13 +8,19 @@ import os
 import json
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from const_config import AwsCollector, Storage
+from const_config import AwsCollector, Storage, Storage_sub
 
 sys.path.append('/home/ubuntu/spotlake/utility')
 
 from slack_msg_sender import send_slack_message
 
-STORAGE_CONST = Storage()
+current_time = datetime.now(timezone.utc)
+STORAGE_CONST = None
+if current_time >= datetime(2025, 2, 13, tzinfo=timezone.utc):
+    STORAGE_CONST = Storage_sub()
+    send_slack_message("EC2 Collector 보조 저장 경로 전환")
+else:
+    STORAGE_CONST = Storage()
 AWS_CONST = AwsCollector()
 
 session = boto3.session.Session(region_name='us-west-2')

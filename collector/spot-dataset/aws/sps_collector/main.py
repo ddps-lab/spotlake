@@ -26,7 +26,13 @@ CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/sps_collector/"
 WORKLOAD_FILE_PATH = "rawdata/aws/workloads"
 CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
 BUCKET_NAME = "sps-query-data"
-WORKLOAD_BUCKET_NAME = "spotlake"
+
+current_time = datetime.now(timezone.utc)
+WORKLOAD_BUCKET_NAME = None
+if current_time >= datetime(2025, 2, 13, tzinfo=timezone.utc):
+    WORKLOAD_BUCKET_NAME = "sps-collector"
+else:
+    WORKLOAD_BUCKET_NAME = "spotlake"
 
 CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}start_index.txt"
 if not os.path.exists(CREDENTIAL_START_INDEX_FILE_NAME):

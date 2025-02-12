@@ -5,12 +5,17 @@ import os
 import gzip
 import pandas as pd
 from decimal import Decimal
-from datetime import datetime, timedelta
-from const_config import AwsCollector, Storage
+from datetime import datetime, timedelta, timezone
+from const_config import AwsCollector, Storage, Storage_sub
 
 from load_metadata import get_regions
 
-STORAGE_CONST = Storage()
+current_time = datetime.now(timezone.utc)
+STORAGE_CONST = None
+if current_time >= datetime(2025, 2, 13, tzinfo=timezone.utc):
+    STORAGE_CONST = Storage_sub()
+else:
+    STORAGE_CONST = Storage()
 AWS_CONST = AwsCollector()
 
 # get spot price by all availability zone in single region

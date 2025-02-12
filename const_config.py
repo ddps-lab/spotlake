@@ -30,6 +30,18 @@ class Storage(object):
     def GCP_TABLE_NAME():
         return "gcp"
 
+class Storage_sub(object):
+    @constant
+    def BUCKET_NAME():
+        return "sps-collector"
+
+    @constant
+    def DATABASE_NAME():
+        return "collector-test"
+
+    @constant
+    def AWS_TABLE_NAME():
+        return "aws-test"
 
 class AwsCollector(object):
     @constant

@@ -8,7 +8,7 @@ import sys
 import os
 import time
 import gzip
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from multiprocessing import Pool
 
 from workload_binpacking import get_binpacked_workload
@@ -25,9 +25,16 @@ from slack_msg_sender import send_slack_message
 
 sys.path.append('/home/ubuntu/spotlake')
 
-from const_config import AwsCollector, Storage
+from const_config import AwsCollector, Storage, Storage_sub
 
-STORAGE_CONST = Storage()
+current_time = datetime.now(timezone.utc)
+STORAGE_CONST = None
+if current_time >= datetime(2025, 2, 13, tzinfo=timezone.utc):
+    STORAGE_CONST = Storage_sub()
+    send_slack_message("EC2 Collector 보조 저장 경로 전환")
+else:
+    STORAGE_CONST = Storage()
+
 AWS_CONST = AwsCollector()
 
 NUM_CPU = 2

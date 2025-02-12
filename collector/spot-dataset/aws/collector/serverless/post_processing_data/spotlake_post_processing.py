@@ -12,38 +12,45 @@ from upload_data import upload_timestream, update_latest, save_raw, update_query
 from compare_data import compare, compare_max_instance
 
 def main():
-    # ------ Set time data ------
     start_time = datetime.now(timezone.utc)
-    timestamp = start_time.replace(minute=((start_time.minute // 10) * 10), second=0) - timedelta(minutes=10)
-    S3_DIR_NAME = timestamp.strftime('%Y/%m/%d')
-    S3_OBJECT_PREFIX = timestamp.strftime('%H-%M')
-    time_value = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    # ------ Set Constants ------
+    BUCKET_NAME = os.environ.get('S3_BUCKET')
+    BUCKET_FILE_PATH = os.environ.get('PARENT_PATH')
+
+    TIMESTAMP = start_time.replace(minute=((start_time.minute // 10) * 10), second=0) - timedelta(minutes=10)
+    S3_DIR_NAME = TIMESTAMP.strftime('%Y/%m/%d')
+    S3_OBJECT_PREFIX = TIMESTAMP.strftime('%H-%M')
+    
+    SPS_FILE_PREFIX = f"{BUCKET_FILE_PATH}/sps/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz"
+    SPOTIF_FILE_NAME = f"{BUCKET_FILE_PATH}/spot_if/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_spot_if.pkl.gz"
+    ONDEMAND_PRICE_FILE_NAME = f"{BUCKET_FILE_PATH}/ondemand_price/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_ondemand_price.pkl.gz"
+    SPOTPRICE_FILE_NAME = f"{BUCKET_FILE_PATH}/spot_price/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_spot_price.pkl.gz"
+
+    # ------ Set time data ------
+    time_value = TIMESTAMP.strftime("%Y-%m-%d %H:%M:%S")
 
     # ------ Create Boto3 Session ------
     s3 = boto3.resource("s3")
+    s3_client = boto3.client('s3')
 
-    BUCKET_NAME = os.environ.get('S3_BUCKET')
-    BUCKET_FILE_PATH = os.environ.get('PARENT_PATH')
     target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
+    # ------ Find Sps File in S3 ------
+    sps_file_list = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=SPS_FILE_PREFIX)
+    sps_files = []
+    for obj in sps_file_list['Contents']:
+        if obj['Key'].startswith(f"{SPS_FILE_PREFIX}/{S3_OBJECT_PREFIX}"):
+            sps_files.append(obj['Key'])
+
+    sps_file_name = sps_files[0]
+    target_capacity = int(sps_file_name.split('/')[-1].split('_')[2].split('.')[0])
+
     # ------ Load Data from PKL File in S3 ------
-    config_path = "config.txt"
-    text = s3.Object(BUCKET_NAME, f"config/{config_path}").get()["Body"].read().decode('utf-8').split("\n")
-
-    target_capacity = int(text[0].strip())
-
-    keys = [line.format(
-                        BUCKET_FILE_PATH=BUCKET_FILE_PATH, 
-                        S3_DIR_NAME=S3_DIR_NAME, 
-                        S3_OBJECT_PREFIX=S3_OBJECT_PREFIX, 
-                        target_capacity=target_capacities[target_capacity]
-                    ) for line in text]
-
     try:
-        sps_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, keys[1].strip()).get()["Body"]))
-        spotinfo_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, keys[2].strip()).get()["Body"]))
-        ondemand_price_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, keys[3].strip()).get()["Body"]))
-        spot_price_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, keys[4].strip()).get()["Body"]))
+        sps_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, sps_file_name.strip()).get()["Body"]))
+        spotinfo_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, SPOTIF_FILE_NAME.strip()).get()["Body"]))
+        ondemand_price_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, ONDEMAND_PRICE_FILE_NAME.strip()).get()["Body"]))
+        spot_price_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, SPOTPRICE_FILE_NAME.strip()).get()["Body"]))
     except Exception as e:
         send_slack_message(e)
         print(e)
@@ -107,9 +114,8 @@ def main():
         # If system is first time uploading data, make a new one and upload it to TSDB
         try:
             update_latest(merge_df)
-            save_raw(merge_df, timestamp)
-            upload_timestream(merge_df, timestamp)
-            update_config(config_path, text, target_capacity, target_capacities)
+            save_raw(merge_df, TIMESTAMP)
+            upload_timestream(merge_df, TIMESTAMP)
         except Exception as e:
             send_slack_message(e)
             print(e)
@@ -127,7 +133,7 @@ def main():
     # ------ Upload Merge DF to s3 Bucket ------
     try:
         update_latest(current_df)
-        save_raw(current_df, timestamp)
+        save_raw(current_df, TIMESTAMP)
     except Exception as e:
         send_slack_message(e)
         print(e)
@@ -143,8 +149,8 @@ def main():
     start_time = datetime.now(timezone.utc)
     # ------ Upload TSDB ------
     try:
-        upload_timestream(changed_df, timestamp)
-        upload_timestream(removed_df, timestamp)
+        upload_timestream(changed_df, TIMESTAMP)
+        upload_timestream(removed_df, TIMESTAMP)
     except Exception as e:
         send_slack_message(e)
         print(e)
@@ -160,9 +166,6 @@ def main():
         print(e)
     end_time = datetime.now(timezone.utc)
     print(f"Uploading time of query selector data is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
-
-    # ------ Write Target Capacity Value in Text File ------
-    update_config(config_path, text, target_capacity, target_capacities)
 
 def lambda_handler(event, context):
     start_time = datetime.now(timezone.utc)

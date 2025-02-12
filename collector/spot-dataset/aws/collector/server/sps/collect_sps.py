@@ -13,20 +13,26 @@ from slack_msg_sender import send_slack_message
 from sps_query_api import query_sps
 
 def main():
+    # ------ Setting Constants ------
+    BUCKET_NAME = "sps-collector" # test
+    CURRENT_LOCAL_BASE_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/collector/server/sps"
+    WORKLOAD_BASE_PATH = "rawdata/aws/workloads"
+    SPS_BASE_PATH = "rawdata/aws/sps"
+    CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
+    LOG_GROUP_NAME = "SPS-Server-Data-Count"
+    LOG_STREAM_NAME = "aws"
+
     # ------ Setting Client ------
     session = boto3.session.Session()
     s3 = session.resource("s3")
     s3_client = session.client("s3", region_name="us-west-2")
 
     # ------ Create Index Files ------
-    # memo: change the cloud path
-    CURRENT_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/collector/server/sps"
-
-    CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_PATH}/credential_index.txt"
+    CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_LOCAL_BASE_PATH}/credential_index.txt"
     if not os.path.exists(CREDENTIAL_START_INDEX_FILE_NAME):
         with open(CREDENTIAL_START_INDEX_FILE_NAME, 'w') as file:
             file.write('0\n0')
-    TARGET_CAPACITY_INDEX_FILE_NAME = f"{CURRENT_PATH}/target_capacity_index.txt"
+    TARGET_CAPACITY_INDEX_FILE_NAME = f"{CURRENT_LOCAL_BASE_PATH}/target_capacity_index.txt"
     if not os.path.exists(TARGET_CAPACITY_INDEX_FILE_NAME):
         with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'w') as file:
             file.write('0\n0')
@@ -58,22 +64,19 @@ def main():
     target_capacity = target_capacities[target_capacity_index]
 
     # ------ Load Workload File -------
-    BUCKET_NAME = "spotlake"
-    BUCKET_FILE_PATH = "rawdata/aws/workloads"
-
     start_time = datetime.now(timezone.utc)
     workload = None
     try:
-        key = f"{BUCKET_FILE_PATH}/{S3_DIR_NAME}/binpacked_workloads.pkl.gz"
+        key = f"{WORKLOAD_BASE_PATH}/{S3_DIR_NAME}/binpacked_workloads.pkl.gz"
         workload = pickle.load(gzip.open(s3.Object(BUCKET_NAME, key).get()["Body"]))
 
-        local_workload_path = f"{CURRENT_PATH}/{date}_binpacked_workloads.pkl.gz"
+        local_workload_path = f"{CURRENT_LOCAL_BASE_PATH}/{date}_binpacked_workloads.pkl.gz"
         
         # workload파일을 새로 받았다면 다운로드
         if not os.path.exists(local_workload_path):
-            for filename in os.listdir(f"{CURRENT_PATH}"):
+            for filename in os.listdir(f"{CURRENT_LOCAL_BASE_PATH}"):
                 if "_binpacked_workloads.pkl.gz" in filename:
-                    os.remove(f"{CURRENT_PATH}/{filename}")
+                    os.remove(f"{CURRENT_LOCAL_BASE_PATH}/{filename}")
             
             s3_client.download_file(BUCKET_NAME, key, local_workload_path)
             # workload 파일이 바뀌었으므로 계정 묶음 change
@@ -89,10 +92,10 @@ def main():
         send_slack_message(message)
         print(message)
         is_local = False
-        for filename in os.listdir(f"{CURRENT_PATH}"):
+        for filename in os.listdir(f"{CURRENT_LOCAL_BASE_PATH}"):
             if "_binpacked_workloads.pkl.gz" in filename:
-                print(f"로컬 워크로드 파일 {CURRENT_PATH}/{filename} 사용")
-                with open(f"{CURRENT_PATH}/{filename}", 'rb') as f:
+                print(f"로컬 워크로드 파일 {CURRENT_LOCAL_BASE_PATH}/{filename} 사용")
+                with open(f"{CURRENT_LOCAL_BASE_PATH}/{filename}", 'rb') as f:
                     workload = pickle.load(gzip.open(f))
                 is_local = True
                 break
@@ -104,11 +107,10 @@ def main():
     print(f"계정 시작 인덱스 : {current_credential_index}")
 
     # ------ Load Credential File ------
-    SPS_QUERY_BUCKET_NAME = "sps-query-data"
-    CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
+   
     credentials = None
     try:
-        csv_content = s3.Object(SPS_QUERY_BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
+        csv_content = s3.Object(BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
         credentials = pd.read_csv(StringIO(csv_content))
     except Exception as e:
         send_slack_message(e)
@@ -169,10 +171,9 @@ def main():
 
     start_time = datetime.now(timezone.utc)
     # ------ Save Dataframe File ------
-    TEST_BUCKET_NAME = "sps-collector"
     try:
         object_name = f"{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl"
-        saved_filename = f"{CURRENT_PATH}/" + f"{object_name}"
+        saved_filename = f"{CURRENT_LOCAL_BASE_PATH}/" + f"{object_name}"
         try:
             pickle.dump(sps_df, open(saved_filename, "wb"))
             gzip.open(f"{saved_filename}.gz", "wb").writelines(open(f"{saved_filename}", "rb"))
@@ -180,7 +181,7 @@ def main():
             send_slack_message(e)
             print(e)
         # memo: change the saving cloud path
-        s3_client.upload_fileobj(open(f"{saved_filename}.gz", "rb"), TEST_BUCKET_NAME, f"rawdata/aws/sps/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
+        s3_client.upload_fileobj(open(f"{saved_filename}.gz", "rb"), BUCKET_NAME, f"{SPS_BASE_PATH}/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
         os.remove(f"{saved_filename}")
         os.remove(f"{saved_filename}.gz")
     except Exception as e:
@@ -202,17 +203,14 @@ def main():
     # ------ Upload Collecting Data Number at Cloud Logs ------
     log_client = session.client('logs', 'us-west-2')
     # memo: change the log group name
-    log_group_name = "SPS-Server-Data-Count"
-    log_stream_name = "aws"
-    
     try:
         message = json.dumps({"MUMBER_ROWS" : sps_df.shape[0]})
         timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
         try:
             response = log_client.put_log_events(
-                logGroupName = log_group_name,
-                logStreamName = log_stream_name,
-                logEvents = [
+                logGroupName=LOG_GROUP_NAME,
+                logStreamName=LOG_STREAM_NAME,
+                logEvents=[
                     {
                         'timestamp' : timestamp,
                         'message' : message

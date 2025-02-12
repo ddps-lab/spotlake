@@ -107,7 +107,6 @@ def main():
     print(f"계정 시작 인덱스 : {current_credential_index}")
 
     # ------ Load Credential File ------
-   
     credentials = None
     try:
         csv_content = s3.Object(BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')

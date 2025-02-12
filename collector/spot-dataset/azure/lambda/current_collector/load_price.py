@@ -121,7 +121,7 @@ def preprocessing_price(df):
 
 # collect azure price with multithreading
 def collect_price_with_multithreading():
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=12) as executor:
         for skip_num in SKIP_NUM_LIST:
             future = executor.submit(get_price, skip_num)
         event.wait()

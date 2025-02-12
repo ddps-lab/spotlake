@@ -10,10 +10,12 @@ FIRST_TIME_ACTION = "First_Time"  # 첫 실행 액션
 EVERY_10MIN_ACTION = "Every_10Min"  # 10분마다 실행 액션
 UTC_1500_TIME = "15:00"  # UTC 15:00 (KST 00:00)
 
-def lambda_handler(event, _):
+def lambda_handler(event, context):
+    request_id = getattr(context, "aws_request_id", "No Request ID")
     action = event.get("action")
     event_time_utc = event.get("time")
     event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
+
     try:
         if not action or not event_time_utc:
             raise ValueError("Invalid event info: action or time is missing")
@@ -29,7 +31,7 @@ def lambda_handler(event, _):
             # UTC 15:00 (KST 00:00)인 경우 실행 건너뛰기
             if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
                 logger.info("Skipping scheduled time (UTC 15:00, KST 00:00)")
-                return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc)
+                return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc_datetime)
 
             sps_res_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
 
@@ -47,7 +49,7 @@ def lambda_handler(event, _):
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         logger.error(error_msg)
-        send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg}")
+        send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg}\nLambda request_id: {request_id}")
         return handle_response(500, "Execute Failed!", action, event_time_utc_datetime, str(e))
 
 

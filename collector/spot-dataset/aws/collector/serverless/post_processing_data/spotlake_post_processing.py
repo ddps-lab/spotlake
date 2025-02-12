@@ -36,8 +36,6 @@ def main():
         s3 = boto3.resource("s3")
         s3_client = boto3.client('s3')
 
-        target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-
         # ------ Find Sps File in S3 ------
         sps_file_list = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=SPS_FILE_PREFIX)
         sps_files = []
@@ -47,7 +45,7 @@ def main():
 
         sps_file_name = sps_files[0]
         print(sps_file_name)
-        target_capacity = target_capacities.index(int(sps_file_name.split('/')[-1].split('_')[2].split('.')[0]))
+        target_capacity = int(sps_file_name.split('/')[-1].split('_')[2].split('.')[0])
 
         # ------ Load Data from PKL File in S3 ------
         sps_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, sps_file_name).get()["Body"]))
@@ -120,7 +118,7 @@ def main():
         start_time = datetime.now(timezone.utc)
     
         # ------ Compare T3 and T2 Data ------
-        current_df = compare_max_instance(merge_df, previous_df, target_capacities, target_capacity)
+        current_df = compare_max_instance(merge_df, previous_df, target_capacity)
 
         # ------ Upload Merge DF to s3 Bucket ------
         update_latest(current_df)

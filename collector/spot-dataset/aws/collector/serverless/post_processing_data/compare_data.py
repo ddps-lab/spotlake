@@ -84,7 +84,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
     return changed_df, removed_df
 
 # ------ Compare the values of T3 and T2 ------
-def compare_max_instance(merge_df, previous_df, target_capacities, target_capacity):
+def compare_max_instance(merge_df, previous_df, target_capacity):
     condition = (previous_df['InstanceType'] == merge_df['InstanceType']) & (previous_df['AZ'] == merge_df['AZ'])
     current_df = merge_df
 
@@ -95,9 +95,9 @@ def compare_max_instance(merge_df, previous_df, target_capacities, target_capaci
         previous_df.loc[condition, 'T2'], merge_df.loc[condition, 'T2']
     )
 
-    current_df.loc[condition & (merge_df['T3'] == target_capacities[target_capacity]), 'T2'] = target_capacities[target_capacity]
+    current_df.loc[condition & (merge_df['T3'] == target_capacity), 'T2'] = target_capacity
     
-    if target_capacity == 0:
+    if target_capacity == 1:
         current_df.loc[condition & (merge_df['T3'] == 0), 'T3'] = 0
         current_df.loc[condition & (merge_df['T2'] == 0), 'T2'] = 0
     else:

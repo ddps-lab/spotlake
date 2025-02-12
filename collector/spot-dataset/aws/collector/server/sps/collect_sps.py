@@ -14,8 +14,18 @@ from sps_query_api import query_sps
 
 def main():
     # ------ Setting Constants ------
-    BUCKET_NAME = "sps-collector" # test
     CURRENT_LOCAL_BASE_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/collector/server/sps"
+
+    current_time = datetime.now(timezone.utc)
+    BUCKET_NAME = None
+    if current_time >= datetime(2025, 2, 13, tzinfo=timezone.utc):
+        BUCKET_NAME = "spotlake"
+        os.remove(f"{CURRENT_LOCAL_BASE_PATH}/credential_index.txt")
+        os.remove(f"{CURRENT_LOCAL_BASE_PATH}/target_capacity_index.txt")
+        send_slack_message("신규 SPS Collector 주 저장 경로 전환")
+    else:
+        BUCKET_NAME = "sps-collector" # test
+
     WORKLOAD_BASE_PATH = "rawdata/aws/workloads"
     SPS_BASE_PATH = "rawdata/aws/sps"
     CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"

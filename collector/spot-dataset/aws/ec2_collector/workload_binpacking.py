@@ -8,7 +8,7 @@ import sys
 import os
 import gzip
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from ortools.linear_solver import pywraplp
 from load_metadata import num_az_by_region
 
@@ -18,9 +18,15 @@ from slack_msg_sender import send_slack_message
 
 sys.path.append('/home/ubuntu/spotlake')
 
-from const_config import AwsCollector, Storage
+from const_config import AwsCollector, Storage, Storage_sub
 
-STORAGE_CONST = Storage()
+current_time = datetime.now(timezone.utc)
+STORAGE_CONST = None
+if current_time >= datetime(2025, 2, 12, tzinfo=timezone.utc):
+    STORAGE_CONST = Storage_sub()
+    send_slack_message("워크로드 Collector 보조 저장 경로 전환")
+else:
+    STORAGE_CONST = Storage()
 AWS_CONST = AwsCollector()
 
 # create object of bin packing input data

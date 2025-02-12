@@ -18,7 +18,9 @@ current_time = datetime.now(timezone.utc)
 STORAGE_CONST = None
 if current_time >= datetime(2025, 2, 13, tzinfo=timezone.utc):
     STORAGE_CONST = Storage_sub()
-    send_slack_message("EC2 Collector 보조 저장 경로 전환")
+    if current_time.hour == 0 and current_time.minute <= 15:
+        send_slack_message("EC2 Collector 보조 업로드 경로 전환")
+    
 else:
     STORAGE_CONST = Storage()
 AWS_CONST = AwsCollector()

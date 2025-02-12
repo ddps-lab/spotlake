@@ -172,20 +172,24 @@ def main():
     # ------ Save Dataframe File ------
     try:
         object_name = f"{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl"
-        saved_filename = f"{CURRENT_LOCAL_BASE_PATH}/" + f"{object_name}"
-        try:
-            pickle.dump(sps_df, open(saved_filename, "wb"))
-            gzip.open(f"{saved_filename}.gz", "wb").writelines(open(f"{saved_filename}", "rb"))
-        except Exception as e:
-            send_slack_message(e)
-            print(e)
-        # memo: change the saving cloud path
-        s3_client.upload_fileobj(open(f"{saved_filename}.gz", "rb"), BUCKET_NAME, f"{SPS_BASE_PATH}/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
-        os.remove(f"{saved_filename}")
-        os.remove(f"{saved_filename}.gz")
+        saved_filename = f"{CURRENT_LOCAL_BASE_PATH}/{object_name}"
+        gz_filename = f"{saved_filename}.gz"
+
+        with open(saved_filename, "wb") as f:
+            pickle.dump(sps_df, f)
+
+        with open(saved_filename, "rb") as f_in, gzip.open(gz_filename, "wb") as f_out:
+            f_out.writelines(f_in)
+
+        with open(gz_filename, "rb") as f:
+            s3_client.upload_fileobj(f, BUCKET_NAME, f"{SPS_BASE_PATH}/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
+
+        os.remove(saved_filename)
+        os.remove(gz_filename)
+
     except Exception as e:
         send_slack_message(e)
-        print(e)
+        print(f"파일 저장 및 업로드 중 오류 발생: {e}")
         raise e
     end_time = datetime.now(timezone.utc)
     print(f"Saving time of DF File is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")

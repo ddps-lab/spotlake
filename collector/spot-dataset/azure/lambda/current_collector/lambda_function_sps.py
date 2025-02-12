@@ -29,7 +29,7 @@ def lambda_handler(event, _):
             # UTC 15:00 (KST 00:00)인 경우 실행 건너뛰기
             if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
                 logger.info("Skipping scheduled time (UTC 15:00, KST 00:00)")
-                return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc)
+                return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc_datetime)
 
             sps_res_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
 

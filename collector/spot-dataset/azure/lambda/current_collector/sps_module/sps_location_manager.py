@@ -35,10 +35,10 @@ def check_and_add_available_locations():
                     updated = True
 
         if updated:
-            print("Updated available locations to locations_call_history_tmp successfully.")
+            print("Updated available locations to locations_call_history_tmp or locations_call_history_tmp successfully.")
             return True
         else:
-            print("No new available locations found. locations_call_history_tmp unchanged.")
+            print("No new available locations found. locations_call_history_tmp or locations_call_history_tmp unchanged.")
             return False
 
     except Exception as e:

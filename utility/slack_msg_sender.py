@@ -18,7 +18,7 @@ def send_slack_message(msg):
         "text": message
     }
 
-    # requests.post(url, json=slack_data)
+    requests.post(url, json=slack_data)
 
 
 def get_webhook_url():

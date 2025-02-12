@@ -143,7 +143,7 @@ def main():
                     send_slack_message(e)
                     print(e)
                     raise e
-            break
+
         sps_df = pd.concat(df_list, axis=0, ignore_index=True)
     except Exception as e:
         message = f"error at query_sps\nerror : {e}"

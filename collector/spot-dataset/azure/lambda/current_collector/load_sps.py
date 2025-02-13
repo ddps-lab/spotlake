@@ -82,7 +82,7 @@ def collect_spot_placement_score_first_time(desired_count):
         SL_Manager.check_and_add_available_locations()
 
         start_time = time.time()
-        sps_res_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count)
+        sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count)
         print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
         print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
         print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
@@ -101,6 +101,13 @@ def collect_spot_placement_score_first_time(desired_count):
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
+        sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
+        print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
+        print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
+        print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
+        print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
+        print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
+
         S3.upload_file(df_greedy_clustering_filtered, f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
 
         end_time = time.time()
@@ -108,7 +115,7 @@ def collect_spot_placement_score_first_time(desired_count):
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Prepare the request pool. time: {minutes}min {seconds}sec")
 
-        return sps_res_df
+        return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
 
 
 @log_execution_time
@@ -124,14 +131,22 @@ def collect_spot_placement_score(desired_count):
 
     df_greedy_clustering_filtered = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
 
-    sps_res_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count)
+    sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
     print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
     print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
     print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
     print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
-    return sps_res_df
+    sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
+    print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
+    print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
+    print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
+    print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
+    print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
+
+
+    return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
 
 
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count):
@@ -161,17 +176,19 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                         for score in result["placementScores"]:
                             score_data = {
                                 "DesiredCount": desired_count,
-                                "AvailabilityZone": score.get("availabilityZone", None),
-                                "RegionCodeSPS": score.get("region", None),
+                                "RegionCodeSPS": score.get("region"),
                                 "Region": SS_Resources.region_map_and_instance_map_tmp['region_map'].get(
                                     score.get("region", ""), ""),
-                                "InstanceTypeSPS": score.get("sku", None),
+                                "InstanceTypeSPS": score.get("sku"),
                                 "InstanceTier": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
-                                    score.get("sku", ""), {}).get("InstanceTier", None),
+                                    score.get("sku", ""), {}).get("InstanceTier"),
                                 "InstanceType": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
-                                    score.get("sku", ""), {}).get("InstanceTypeOld", None),
-                                "Score": score.get("score", None)
+                                    score.get("sku", ""), {}).get("InstanceTypeOld"),
+                                "Score": score.get("score")
                             }
+                            if availability_zones:
+                                score_data["AvailabilityZone"] = score.get("availabilityZone")
+
                             results.append(score_data)
 
                     elif result == "NO_AVAILABLE_LOCATIONS":
@@ -195,13 +212,14 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
     sps_res_df = pd.DataFrame(results)
 
-    sps_res_df.drop_duplicates(
-        subset=["RegionCodeSPS", "InstanceTypeSPS", "AvailabilityZone"],
-        keep="last",
-        inplace=True
-    )
+    if availability_zones is True:
+        subset_cols = ["RegionCodeSPS", "InstanceTypeSPS", "AvailabilityZone"]
+    else:
+        subset_cols = ["RegionCodeSPS", "InstanceTypeSPS"]
 
-    print("execute_spot_placement_score_task_by_parameter_pool_df. Successfully.")
+    sps_res_df.drop_duplicates(subset=subset_cols, keep="last", inplace=True)
+
+    print(f"execute_spot_placement_score_task_by_parameter_pool_df Successfully! availability_zones: {availability_zones}")
     return sps_res_df
 
 

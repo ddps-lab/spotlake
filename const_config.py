@@ -136,27 +136,27 @@ class AzureCollector(object):
 
     @constant
     def LOCATIONS_CALL_HISTORY_JSON_FILENAME():
-        return "sps-collector/azure/locations_call_history.json"
+        return "sps-collector/azure/saved_variable/locations_call_history.json"
 
     @constant
     def LOCATIONS_OVER_LIMIT_JSON_FILENAME():
-        return "sps-collector/azure/locations_over_limit.json"
+        return "sps-collector/azure/saved_variable/locations_over_limit.json"
 
     @constant
     def INVALID_REGIONS_JSON_FILENAME():
-        return "sps-collector/azure/invalid_regions.json"
+        return "sps-collector/azure/saved_variable/invalid_regions.json"
 
     @constant
     def INVALID_INSTANCE_TYPES_JSON_FILENAME():
-        return "sps-collector/azure/invalid_instance_types.json"
+        return "sps-collector/azure/saved_variable/invalid_instance_types.json"
 
     @constant
     def LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME():
-        return "sps-collector/azure/last_subscription_id_and_location.json"
+        return "sps-collector/azure/saved_variable/last_subscription_id_and_location.json"
 
     @constant
     def REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME():
-        return "sps-collector/azure/region_map_and_instance_map.json"
+        return "sps-collector/azure/saved_variable/region_map_and_instance_map.json"
 
     @constant
     def DF_TO_USE_TODAY_PKL_FILENAME():
@@ -164,7 +164,15 @@ class AzureCollector(object):
 
     @constant
     def LATEST_SPS_FILENAME():
-        return "sps-collector/azure/result/latest_azure_sps.json"
+        return "sps-collector/azure/result/latest_azure_sps_zone_true.json"
+
+    @constant
+    def LATEST_SPS_AVAILABILITY_ZONE_FALSE_FILENAME():
+        return "sps-collector/azure/result/latest_azure_sps_zone_false.json"
+
+    @constant
+    def LATEST_SPS_RAW_DATA_PATH():
+        return "sps-collector/azure/result/rawdata"
 
 class GcpCollector(object):
     @constant

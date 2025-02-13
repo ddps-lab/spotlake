@@ -44,11 +44,11 @@ jobs:
           set -e
 
           declare -A LAMBDA_FUNCTIONS=(
-            ["ondemand-price-collector"]="ondemand_price_collector_lambda.zip"
-            ["spotlake-post-processing"]="spotlake_post_processing_lambda.zip"
-            ["spot-if-collector"]="spot_if_collector_lambda.zip"
-            ["spot-price-collector"]="spot_price_collector_lambda.zip"
-            ["binpacked-workloads-generator"]="binpacked_workloads_generator_lambda.zip"
+            ["ondemand_price_collector"]="ondemand_price_collector_lambda.zip"
+            ["spotlake_post_processing"]="spotlake_post_processing_lambda.zip"
+            ["spot_if_collector"]="spot_if_collector_lambda.zip"
+            ["spot_price_collector"]="spot_price_collector_lambda.zip"
+            ["binpacked_workloads_generator"]="binpacked_workloads_generator_lambda.zip"
           )
 
           for function_name in "${!LAMBDA_FUNCTIONS[@]}"; do

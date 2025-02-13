@@ -35,8 +35,8 @@ jobs:
 
           for zip_name in "${!LAMBDA_PATHS[@]}"; do
             echo "Creating ZIP: $zip_name"
-            zip -r "$zip_name" utility/slack_msg_sender.py
-            (cd "${LAMBDA_PATHS[$zip_name]}" && zip -r ../../../../"$zip_name" .)
+            zip -j "$zip_name" utility/slack_msg_sender.py
+            zip -j "$zip_name" "${LAMBDA_PATHS[$zip_name]}"/*
           done
 
       - name: Deploy to AWS Lambda

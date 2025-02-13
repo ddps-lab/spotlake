@@ -105,7 +105,7 @@ def main():
                 previous_df = previous_df.drop(columns=['Id'])
         except:
             # If system is first time uploading data, make a new one and upload it to TSDB
-            update_latest(merge_df)
+            update_latest(merge_df, TIMESTAMP)
             save_raw(merge_df, TIMESTAMP)
             upload_timestream(merge_df, TIMESTAMP)
             end_time = datetime.now(timezone.utc)
@@ -121,7 +121,7 @@ def main():
         current_df = compare_max_instance(merge_df, previous_df, target_capacity)
 
         # ------ Upload Merge DF to s3 Bucket ------
-        update_latest(current_df)
+        update_latest(current_df, TIMESTAMP)
         save_raw(current_df, TIMESTAMP)
             
         # ------ Compare All Data ------

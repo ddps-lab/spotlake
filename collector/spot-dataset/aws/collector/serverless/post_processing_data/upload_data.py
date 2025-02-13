@@ -65,12 +65,13 @@ def upload_timestream(data, timestamp):
         submit_batch(records, counter, 0)
 
 
-def update_latest(data):
+def update_latest(data, timestamp):
     # Upload file to use as previous collection data
     filename = 'latest_aws.json'
     LATEST_PATH = f'latest_data/{filename}'
 
     data['id'] = data.index+1
+    data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
     result = data.to_json(f"/tmp/{filename}", orient="records")
 
     s3 = boto3.resource('s3')

@@ -12,7 +12,7 @@ BUCKET_NAME = os.environ.get('S3_BUCKET')
 BUCKET_FILE_PATH = os.environ.get('PARENT_PATH')
 
 DATABASE_NAME = os.environ.get('DATABASE')
-AWS_TABLE_NAME = "aws"
+AWS_TABLE_NAME = os.environ.get('DATABASE_TABLE')
 write_client = boto3.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
 
 # Submit Batch To Timestream

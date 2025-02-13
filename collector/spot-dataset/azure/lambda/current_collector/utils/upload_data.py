@@ -165,10 +165,15 @@ def upload_cloudwatch(data, time_datetime):
     )
 
 
-def update_latest_sps(dataframe):
+def update_latest_sps(dataframe, availability_zones=True):
     try:
+        if availability_zones:
+            path = f"{AZURE_CONST.LATEST_SPS_FILENAME}"
+        else:
+            path = f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_FALSE_FILENAME}"
+
         json_data = dataframe.to_dict(orient="records")
-        S3.upload_file(json_data, f"{AZURE_CONST.LATEST_SPS_FILENAME}", "json", set_public_read=True)
+        S3.upload_file(json_data, path, "json", set_public_read=True)
         return True
 
     except Exception as e:
@@ -176,11 +181,17 @@ def update_latest_sps(dataframe):
         return False
 
 
-def save_raw_sps(dataframe, time_utc):
+def save_raw_sps(dataframe, time_utc, availability_zones=True):
     try:
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
-        S3.upload_file(dataframe, f"sps-collector/azure/result/rawdata/{s3_dir_name}/{s3_obj_name}.csv.gz", "df_to_csv.gz", set_public_read=True)
+
+        if availability_zones:
+            path = f"{AZURE_CONST.LATEST_SPS_RAW_DATA_PATH}/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        else:
+            path = f"{AZURE_CONST.LATEST_SPS_RAW_DATA_PATH}/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
+
+        S3.upload_file(dataframe, path, "df_to_csv.gz", set_public_read=True)
         return True
 
     except Exception as e:

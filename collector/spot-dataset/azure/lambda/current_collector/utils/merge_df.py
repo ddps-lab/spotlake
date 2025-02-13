@@ -14,11 +14,17 @@ def merge_price_eviction_df(price_df, eviction_df):
     return join_df
 
 
-def merge_price_eviction_sps_df(price_eviction_df, sps_df):
+def merge_price_eviction_sps_df(price_eviction_df, sps_df, availability_zones=True):
     join_df = pd.merge(price_eviction_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
     join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True)
-    join_df = join_df[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-                           "PriceEviction_Update_Time", "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time"]]
+
+    columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
+        "PriceEviction_Update_Time", "DesiredCount", "Score", "SPS_Update_Time"]
+
+    if availability_zones:
+        columns.insert(-2, "AvailabilityZone")  # "Score" 앞에 삽입
+
+    join_df = join_df[columns]
 
     return join_df

@@ -70,7 +70,7 @@ def update_latest(data):
     filename = 'latest_aws.json'
     LATEST_PATH = f'latest_data/{filename}'
 
-    data['Id'] = data.index+1
+    data['id'] = data.index+1
     result = data.to_json(f"/tmp/{filename}", orient="records")
 
     s3 = boto3.resource('s3')
@@ -81,7 +81,7 @@ def update_latest(data):
     object_acl = s3.ObjectAcl(BUCKET_NAME, LATEST_PATH)
     response = object_acl.put(ACL='public-read')
     
-    data.drop(['Id'], axis=1, inplace=True)
+    data.drop(['id'], axis=1, inplace=True)
 
 
 def update_query_selector(changed_df):

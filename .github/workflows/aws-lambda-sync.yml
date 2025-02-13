@@ -1,0 +1,57 @@
+name: deploy AWS files to lambda
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "collector/spot-dataset/aws/serverless/**"
+      - "utility/slack_msg_sender.py"
+  workflow_dispatch:
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: "us-west-2"
+
+jobs:
+  deploy_source:
+    name: deploy lambda from source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Zip lambda function code
+        run: |
+          set -e
+
+          declare -A LAMBDA_PATHS=(
+            ["ondemand_price_collector_lambda.zip"]="collector/spot-dataset/aws/serverless/ondemand_price"
+            ["spotlake_post_processing_lambda.zip"]="collector/spot-dataset/aws/serverless/post_processing_data"
+            ["spot_if_collector_lambda.zip"]="collector/spot-dataset/aws/serverless/spot_if"
+            ["spot_price_collector_lambda.zip"]="collector/spot-dataset/aws/serverless/spot_price"
+            ["binpacked_workloads_generator_lambda.zip"]="collector/spot-dataset/aws/serverless/workload"
+          )
+
+          for zip_name in "${!LAMBDA_PATHS[@]}"; do
+            echo "Creating ZIP: $zip_name"
+            zip -r "$zip_name" utility/slack_msg_sender.py
+            (cd "${LAMBDA_PATHS[$zip_name]}" && zip -r ../../../../"$zip_name" .)
+          done
+
+      - name: Deploy to AWS Lambda
+        run: |
+          set -e
+
+          declare -A LAMBDA_FUNCTIONS=(
+            ["ondemand-price-collector"]="ondemand_price_collector_lambda.zip"
+            ["spotlake-post-processing"]="spotlake_post_processing_lambda.zip"
+            ["spot-if-collector"]="spot_if_collector_lambda.zip"
+            ["spot-price-collector"]="spot_price_collector_lambda.zip"
+            ["binpacked-workloads-generator"]="binpacked_workloads_generator_lambda.zip"
+          )
+
+          for function_name in "${!LAMBDA_FUNCTIONS[@]}"; do
+            echo "Deploying: $function_name"
+            aws lambda update-function-code --function-name "$function_name" --zip-file "fileb://${LAMBDA_FUNCTIONS[$function_name]}"
+          done

@@ -115,7 +115,6 @@ function Home() {
           severity: "error",
         });
       });
-    setLatestData(["ss"]);
   };
 
   const LinearProgressWithLabel = (props) => {

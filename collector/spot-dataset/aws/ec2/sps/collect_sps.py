@@ -14,7 +14,7 @@ from sps_query_api import query_sps
 
 def main():
     # ------ Setting Constants ------
-    CURRENT_LOCAL_BASE_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/collector/server/sps"
+    CURRENT_LOCAL_BASE_PATH = "/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2/sps"
 
     current_time = datetime.now(timezone.utc)
     BUCKET_NAME = None

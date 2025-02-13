@@ -4,7 +4,7 @@ on:
     branches:
       - "main"
     paths:
-      - "collector/spot-dataset/aws/serverless/**"
+      - "collector/spot-dataset/aws/lambda/**"
       - "utility/slack_msg_sender.py"
   workflow_dispatch:
 
@@ -26,11 +26,11 @@ jobs:
           set -e
 
           declare -A LAMBDA_PATHS=(
-            ["ondemand_price_collector_lambda.zip"]="collector/spot-dataset/aws/serverless/ondemand_price"
-            ["spotlake_post_processing_lambda.zip"]="collector/spot-dataset/aws/serverless/post_processing_data"
-            ["spot_if_collector_lambda.zip"]="collector/spot-dataset/aws/serverless/spot_if"
-            ["spot_price_collector_lambda.zip"]="collector/spot-dataset/aws/serverless/spot_price"
-            ["binpacked_workloads_generator_lambda.zip"]="collector/spot-dataset/aws/serverless/workload"
+            ["ondemand_price_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/ondemand_price"
+            ["spotlake_post_processing_lambda.zip"]="collector/spot-dataset/aws/lambda/post_processing_data"
+            ["spot_if_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/spot_if"
+            ["spot_price_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/spot_price"
+            ["binpacked_workloads_generator_lambda.zip"]="collector/spot-dataset/aws/lambda/workload"
           )
 
           for zip_name in "${!LAMBDA_PATHS[@]}"; do

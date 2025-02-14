@@ -31,6 +31,7 @@ jobs:
             ["spot_if_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/spot_if"
             ["spot_price_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/spot_price"
             ["binpacked_workloads_generator_lambda.zip"]="collector/spot-dataset/aws/lambda/workload"
+            ["sps_monitoring_lambda.zip"]="collector/spot-dataset/aws/lambda/sps_monitoring"
           )
 
           for zip_name in "${!LAMBDA_PATHS[@]}"; do
@@ -49,6 +50,7 @@ jobs:
             ["spot_if_collector"]="spot_if_collector_lambda.zip"
             ["spot_price_collector"]="spot_price_collector_lambda.zip"
             ["binpacked_workloads_generator"]="binpacked_workloads_generator_lambda.zip"
+            ["sps_monitoring"]="sps_monitoring_lambda.zip"
           )
 
           for function_name in "${!LAMBDA_FUNCTIONS[@]}"; do

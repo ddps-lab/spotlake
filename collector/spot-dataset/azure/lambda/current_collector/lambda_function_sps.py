@@ -50,7 +50,7 @@ def lambda_handler(event, _):
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         logger.error(error_msg)
-        send_slack_message(f"TEST_TEST_TEST_AZURE SPS MODULE EXCEPTION!\n{error_msg}\nEvent_id: {event_id}")
+        send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg}\nEvent_id: {event_id}")
         return handle_response(500, "Execute Failed!", action, event_time_utc_datetime, str(e))
 
 

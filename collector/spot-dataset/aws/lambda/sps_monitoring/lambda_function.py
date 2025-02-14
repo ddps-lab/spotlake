@@ -10,20 +10,16 @@ from send_slack_block import send_slack_block
 
 
 def main():
-    TARGET_DATE = datetime.now(timezone.utc) - timedelta(days=1)
-
     # ------ Set Constants ------
+    TARGET_DATE = datetime.now(timezone.utc) - timedelta(days=1)
     BUCKET_NAME = "spotlake"
     BUCKET_FILE_PATH = "rawdata/aws"
-
-    # BUCKET_NAME = os.environ.get('S3_BUCKET')
-    # BUCKET_FILE_PATH = os.environ.get('PARENT_PATH')
     S3_DIR_NAME = TARGET_DATE.strftime('%Y/%m/%d')
-    
     SPS_FILE_PREFIX = f"{BUCKET_FILE_PATH}/sps/{S3_DIR_NAME}"
+    
     s3 = boto3.client('s3')
-
     response = s3.list_objects_v2(Bucket=BUCKET_NAME, Prefix=SPS_FILE_PREFIX)
+    
     sps_df = pd.DataFrame()
     if 'Contents' in response:
         for obj in response['Contents']:
@@ -37,14 +33,15 @@ def main():
 
     target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
     count_target_capacities = { capacity: 0 for capacity in target_capacities }
+
     if not sps_df.empty:
         grouped = sps_df.groupby('TargetCapacity').size()
         for capacity in target_capacities:
             count = grouped.get(capacity, 0)
             count_target_capacities[capacity] = count
     total_number = sps_df[sps_df['SPS'] > 0].shape[0]
+
     slack_message = generate_slack_message(count_target_capacities, total_number)
-    print(json.dumps(slack_message, indent=2))
     send_slack_block(slack_message)
 
 def generate_slack_message(count_target_capacities, total_number):

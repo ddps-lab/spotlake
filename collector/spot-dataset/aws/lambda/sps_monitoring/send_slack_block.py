@@ -30,6 +30,5 @@ def get_webhook_url():
     except Exception as e:
         print(f"Error retrieving Slack webhook URL: {e}")
         url = os.environ.get('error_notification_slack_webhook_url')
-        url = "https://hooks.slack.com/services/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"
 
     return url

@@ -16,9 +16,7 @@ from utils.pub_service import S3, AZURE_CONST
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager
-
 SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions()
-
 
 # 본 시간 수집 function은 추후 제거 예정입니다.
 def log_execution_time(func):
@@ -223,7 +221,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     return sps_res_df
 
 
-def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=10):
+def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=12):
     '''
     실제 SPS API호출 메서드.
     '''
@@ -258,12 +256,11 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             "Content-Type": "application/json",
         }
         try:
-            response = requests.post(url, headers=headers, json=request_body, timeout=15)
+            response = requests.post(url, headers=headers, json=request_body, timeout=35)
             response.raise_for_status()
             return response.json()
 
         except requests.exceptions.Timeout:
-            "Timeout"
             retries = handle_retry("Timeout", retries, max_retries)
 
         except requests.exceptions.HTTPError as http_err:

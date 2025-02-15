@@ -185,7 +185,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                                 "Score": score.get("score")
                             }
                             if availability_zones:
-                                score_data["AvailabilityZone"] = score.get("availabilityZone")
+                                score_data["AvailabilityZone"] = score.get("availabilityZone", "SINGLE_ZONE")
 
                             results.append(score_data)
 

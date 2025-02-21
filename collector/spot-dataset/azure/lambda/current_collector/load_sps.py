@@ -256,7 +256,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             "Content-Type": "application/json",
         }
         try:
-            response = requests.post(url, headers=headers, json=request_body, timeout=35)
+            response = requests.post(url, headers=headers, json=request_body, timeout=40)
             response.raise_for_status()
             return response.json()
 

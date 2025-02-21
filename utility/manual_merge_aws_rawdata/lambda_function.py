@@ -8,7 +8,7 @@ import os
 import sys
 
 # ------ import user module ------
-sys.path.append("/Users/taeyoon/Desktop/spotlake/utility")
+sys.path.append("./spotlake/utility")
 from slack_msg_sender import send_slack_message
 from upload_data import upload_timestream, update_latest, save_raw, update_query_selector, update_config
 from compare_data import compare, compare_max_instance

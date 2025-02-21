@@ -99,12 +99,8 @@ class AzureCollector(object):
         return "query-selector/query-selector-azure.json"
 
     @constant
-    def DF_WORKLOAD_COLS():
-        return ['InstanceTier', 'InstanceType', 'Region']
-
-    @constant
-    def DF_FEATURE_COLS():
-        return ['OndemandPrice', 'SpotPrice', 'IF']
+    def S3_QUERY_SELECTOR_ALL_SAVE_PATH():
+        return "query-selector/query-selector-azure-all.json"
 
     @constant
     def SERVER_SAVE_DIR():
@@ -133,6 +129,10 @@ class AzureCollector(object):
     @constant
     def LOG_STREAM_NAME():
         return "Azure-Count"
+
+    @constant
+    def ALL_LOG_STREAM_NAME():
+        return "Azure-Count-All"
 
     @constant
     def LOCATIONS_CALL_HISTORY_JSON_FILENAME():
@@ -165,6 +165,10 @@ class AzureCollector(object):
     @constant
     def LATEST_SPS_FILENAME():
         return "sps-collector/azure/result/latest_azure_sps_zone_true.json"
+
+    @constant
+    def LATEST_SPS_AVAILABILITY_ZONE_TRUE_PKL_GZIP_FILENAME():
+        return "sps-collector/azure/result/latest_azure_sps_zone_true.pkl.gz"
 
     @constant
     def LATEST_SPS_AVAILABILITY_ZONE_FALSE_FILENAME():

@@ -6,25 +6,18 @@ import boto3
 import pickle
 import pandas as pd
 from datetime import datetime
-from botocore.config import Config
-from utils.pub_service import send_slack_message, S3, AZURE_CONST, STORAGE_CONST
+from utils.pub_service import AZURE_CONST, STORAGE_CONST, CW, S3, TimestreamWrite
 
 session = boto3.session.Session(region_name='us-west-2')
-write_client = session.client('timestream-write',
-                              config=Config(read_timeout=20,
-                                max_pool_connections=5000,
-                                retries={'max_attempts': 10})
-                              )
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=STORAGE_CONST.BUCKET_NAME, TableName=STORAGE_CONST.AZURE_TABLE_NAME, Records=records,CommonAttributes={})
+        result = TimestreamWrite.client.write_records(DatabaseName=STORAGE_CONST.BUCKET_NAME, TableName=STORAGE_CONST.AZURE_TABLE_NAME, Records=records,CommonAttributes={})
 
-    except write_client.exceptions.RejectedRecordsException as err:
-        send_slack_message(err)
+    except TimestreamWrite.client.exceptions.RejectedRecordsException as err:
         print(err)
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -32,7 +25,6 @@ def submit_batch(records, counter, recursive):
         submit_batch(re_records, counter, recursive + 1)
         exit()
     except Exception as err:
-        send_slack_message(err)
         print(err)
         exit()
 
@@ -145,35 +137,127 @@ def query_selector(data):
     object_acl = s3.ObjectAcl(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH)
     response = object_acl.put(ACL='public-read')
 
-
 def upload_cloudwatch(data, time_datetime):
     ondemand_count = len(data.drop(columns=['IF', 'SpotPrice', 'Savings']).dropna())
     spot_count = len(data.drop(columns=['IF', 'OndemandPrice', 'Savings']).dropna())
     if_count = len(data.drop(columns=['OndemandPrice', 'SpotPrice', 'Savings']).dropna())
 
-    cw_client = boto3.client('logs')
-
-    log_event = {
+    log_event = [{
         'timestamp': int(time_datetime.timestamp()) * 1000,
         'message': f'AZUREONDEMAND: {ondemand_count} AZURESPOT: {spot_count} AZUREIF: {if_count}'
-    }
-
-    cw_client.put_log_events(
-        logGroupName=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
-        logStreamName=AZURE_CONST.LOG_STREAM_NAME,
-        logEvents=[log_event]
+    }]
+    CW.client.put_log_events(
+        log_group=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
+        log_stream=AZURE_CONST.LOG_STREAM_NAME,
+        log_event=log_event
     )
+
+# Submit Batch To Timestream
+def submit_batch_sps(records, counter, recursive):
+    if recursive == 10:
+        return
+    try:
+        common_attrs = {'MeasureName': 'azure_values','MeasureValueType': 'MULTI'}
+        TimestreamWrite.client.write_records(
+            DatabaseName='spotlake-test',
+            TableName='azure-sps-test',
+            Records=records,
+            CommonAttributes=common_attrs
+        )
+
+    except TimestreamWrite.client.exceptions.RejectedRecordsException as err:
+        print(err)
+        re_records = []
+        for rr in err.response["RejectedRecords"]:
+            re_records.append(records[rr["RecordIndex"]])
+        submit_batch_sps(re_records, counter, recursive + 1)
+    except Exception as err:
+        print(err)
+
+
+# Check Database And Table Are Exist and Upload Data to Timestream
+def upload_timestream_sps(data, time_datetime):
+    try:
+        data = data.copy()
+        data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
+            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time"]]
+
+        fill_values = {
+            "InstanceTier": 'NaN',
+            "InstanceType": 'NaN',
+            "Region": 'NaN',
+            'OndemandPrice': -1,
+            'Savings': -1,
+            'SpotPrice': -1,
+            'IF': -1,
+            'Score': 'NaN',
+            'AvailabilityZone': 'NaN',
+            'DesiredCount': -2,
+            'SPS_Update_Time': 'NaN'
+        }
+        data = data.fillna(fill_values)
+
+        time_value = str(int(round(time_datetime.timestamp() * 1000)))
+
+        records = []
+        counter = 0
+        for idx, row in data.iterrows():
+
+            dimensions = []
+            for column in ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']:
+                dimensions.append({'Name': column, 'Value': str(row[column])})
+
+            submit_data = {
+                'Dimensions': dimensions,
+                'MeasureValues': [],
+                'Time': time_value
+            }
+
+            measure_columns = [
+                ('DesiredCount', 'DOUBLE'),
+                ('OndemandPrice', 'DOUBLE'),
+                ('SpotPrice', 'DOUBLE'),
+                ('IF', 'DOUBLE'),
+                ('Score', 'VARCHAR'),
+                ('SPS_Update_Time', 'VARCHAR')
+            ]
+
+            for column, value_type in measure_columns:
+                submit_data['MeasureValues'].append({
+                    'Name': column,
+                    'Value': str(row[column]),
+                    'Type': value_type
+                })
+
+            records.append(submit_data)
+            counter += 1
+            if len(records) == 100:
+                submit_batch_sps(records, counter, 0)
+                records = []
+
+        if len(records) != 0:
+            submit_batch_sps(records, counter, 0)
+        return True
+
+    except Exception as e:
+        print(f"upload_timestream_sps failed. error: {e}")
+        return False
 
 
 def update_latest_sps(dataframe, availability_zones=True):
     try:
-        if availability_zones:
-            path = f"{AZURE_CONST.LATEST_SPS_FILENAME}"
-        else:
-            path = f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_FALSE_FILENAME}"
-
         json_data = dataframe.to_dict(orient="records")
-        S3.upload_file(json_data, path, "json", set_public_read=True)
+
+        if availability_zones:
+            json_path = f"{AZURE_CONST.LATEST_SPS_FILENAME}"
+            pkl_gzip_path = f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_TRUE_PKL_GZIP_FILENAME}"
+
+            S3.upload_file(json_data, json_path, "json", set_public_read=True)
+            S3.upload_file(dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
+
+        else:
+            json_path = f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_FALSE_FILENAME}"
+            S3.upload_file(json_data, json_path, "json", set_public_read=True)
         return True
 
     except Exception as e:
@@ -196,4 +280,53 @@ def save_raw_sps(dataframe, time_utc, availability_zones=True):
 
     except Exception as e:
         print(f"save_raw_sps failed. error: {e}")
+        return False
+
+
+def query_selector_sps(data):
+    try:
+        prev_query_selector_data = S3.read_file(AZURE_CONST.S3_QUERY_SELECTOR_ALL_SAVE_PATH, 'json')
+        if prev_query_selector_data:
+            prev_selector_df = pd.DataFrame(prev_query_selector_data)
+            selector_df = pd.concat([
+                prev_selector_df[['InstanceTier', 'InstanceType', 'Region', 'DesiredCount']],
+                data[['InstanceTier', 'InstanceType', 'Region', 'DesiredCount']]
+            ], ignore_index=True).dropna().drop_duplicates().reset_index(drop=True)
+        else:
+            selector_df = data[['InstanceTier', 'InstanceType', 'Region', 'DesiredCount']].dropna().drop_duplicates().reset_index(drop=True)
+
+        S3.upload_file(
+            selector_df.to_dict(orient="records"),
+            AZURE_CONST.S3_QUERY_SELECTOR_ALL_SAVE_PATH,
+            'json',
+            set_public_read=True
+        )
+        return True
+
+    except Exception as e:
+        print(f"query_selector_sps failed. error: {e}")
+        return False
+
+
+def upload_cloudwatch_sps(data, time_datetime):
+    try:
+        ondemand_count = len(data.drop(columns=['IF', 'SpotPrice', 'Savings', 'Score']).dropna())
+        spot_count = len(data.drop(columns=['IF', 'OndemandPrice', 'Savings', 'Score']).dropna())
+        if_count = len(data.drop(columns=['OndemandPrice', 'SpotPrice', 'Savings', 'Score']).dropna())
+        sps_count = len(data.drop(columns=['IF', 'OndemandPrice', 'SpotPrice', 'Savings']).dropna())
+
+        log_event = [{
+            'timestamp': int(time_datetime.timestamp()) * 1000,
+            'message': f'AZUREONDEMAND: {ondemand_count} AZURESPOT: {spot_count} AZUREIF: {if_count} AZURESPS: {sps_count}'
+        }]
+
+        CW.client.put_log(
+            log_group=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
+            log_stream=AZURE_CONST.ALL_LOG_STREAM_NAME,
+            log_event=log_event
+        )
+        return True
+
+    except Exception as e:
+        print(f"upload_cloudwatch_sps failed. error: {e}")
         return False

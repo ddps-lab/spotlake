@@ -1,18 +1,11 @@
-import os
-import json
-import boto3
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import datetime
 from load_if import load_if
 from load_price import collect_price_with_multithreading
 from utils.merge_df import merge_price_eviction_df
 from utils.compare_data import compare
 from utils.upload_data import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch
-from utils.pub_service import send_slack_message, AZURE_CONST, STORAGE_CONST
-
-WORKLOAD_COLS = ['InstanceTier', 'InstanceType', 'Region']
-FEATURE_COLS = ['OndemandPrice', 'SpotPrice', 'IF']
-
+from utils.pub_service import send_slack_message, AZURE_CONST, S3
 
 def lambda_handler(event, _):
     event_time_utc = event.get("time")
@@ -55,11 +48,7 @@ def lambda_handler(event, _):
 
     try:
         # load previous dataframe
-        s3 = boto3.resource('s3')
-        object = s3.Object(STORAGE_CONST.BUCKET_NAME, AZURE_CONST.S3_LATEST_DATA_SAVE_PATH)
-        response = object.get()
-        data = json.load(response['Body'])
-        previous_df = pd.DataFrame(data)
+        previous_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
 
         # upload latest azure price to s3
         update_latest(join_df, event_time_utc_datetime)
@@ -69,7 +58,9 @@ def lambda_handler(event, _):
         upload_cloudwatch(join_df, event_time_utc_datetime)
 
         # compare and upload changed_df to timestream
-        changed_df = compare(previous_df, join_df, AZURE_CONST.DF_WORKLOAD_COLS, AZURE_CONST.DF_FEATURE_COLS)
+        workload_cols = ['InstanceTier', 'InstanceType', 'Region']
+        feature_cols = ['OndemandPrice', 'SpotPrice', 'IF']
+        changed_df = compare(previous_df, join_df, workload_cols, feature_cols)
         if not changed_df.empty:
             query_selector(changed_df)
             upload_timestream(changed_df, event_time_utc_datetime)

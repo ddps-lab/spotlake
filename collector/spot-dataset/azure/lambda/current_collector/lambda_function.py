@@ -3,9 +3,8 @@ from datetime import datetime
 from load_if import load_if
 from load_price import collect_price_with_multithreading
 from utils.merge_df import merge_price_eviction_df
-from utils.compare_data import compare
-from utils.upload_data import upload_timestream, update_latest, save_raw, query_selector, upload_cloudwatch
-from utils.pub_service import send_slack_message, AZURE_CONST, S3
+from utils.upload_data import update_latest, save_raw
+from utils.pub_service import send_slack_message
 
 def lambda_handler(event, _):
     event_time_utc = event.get("time")
@@ -47,23 +46,9 @@ def lambda_handler(event, _):
         return
 
     try:
-        # load previous dataframe
-        previous_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
-
         # upload latest azure price to s3
         update_latest(join_df, event_time_utc_datetime)
         save_raw(join_df, event_time_utc_datetime)
-
-        # upload count-log to cloudwatch
-        upload_cloudwatch(join_df, event_time_utc_datetime)
-
-        # compare and upload changed_df to timestream
-        workload_cols = ['InstanceTier', 'InstanceType', 'Region']
-        feature_cols = ['OndemandPrice', 'SpotPrice', 'IF']
-        changed_df = compare(previous_df, join_df, workload_cols, feature_cols)
-        if not changed_df.empty:
-            query_selector(changed_df)
-            upload_timestream(changed_df, event_time_utc_datetime)
 
     except Exception as e:
         result_msg = """AZURE UPLOAD MODULE EXCEPTION!\n %s""" % (e)

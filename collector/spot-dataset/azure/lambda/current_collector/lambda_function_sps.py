@@ -4,7 +4,7 @@ import traceback
 from datetime import datetime
 from sps_module import sps_shared_resources
 from utils.merge_df import merge_price_eviction_sps_df
-from utils.upload_data import update_latest_sps, save_raw_sps, upload_timestream_sps, query_selector_sps, upload_cloudwatch_sps
+from utils.upload_data import update_latest_sps, save_raw_sps, upload_timestream, query_selector, upload_cloudwatch
 from utils.compare_data import compare_sps
 from utils.pub_service import send_slack_message, Logger, S3, AZURE_CONST
 
@@ -98,11 +98,11 @@ def process_zone_data(price_if_df, sps_res_df, time_datetime, is_true_zone):
 
             update_success = update_latest_sps(price_eviction_sps_zone_df, is_true_zone)
             save_success = save_raw_sps(price_eviction_sps_zone_df, time_datetime, is_true_zone)
-            cloudwatch_success = upload_cloudwatch_sps(price_eviction_sps_zone_df, time_datetime)
+            cloudwatch_success = upload_cloudwatch(price_eviction_sps_zone_df, time_datetime)
 
             if changed_df is not None and not changed_df.empty:
-                query_success = query_selector_sps(changed_df)
-                timestream_success = upload_timestream_sps(changed_df, time_datetime)
+                query_success = query_selector(changed_df)
+                timestream_success = upload_timestream(changed_df, time_datetime)
             else:
                 query_success = True
                 timestream_success = True

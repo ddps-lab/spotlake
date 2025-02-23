@@ -11,10 +11,10 @@ def compare_sps(previous_df, current_df, workload_cols, feature_cols):
         'OndemandPrice': -1,
         'Savings': -1,
         'IF': -1,
-        'Score': -1,
-        'AvailabilityZone': -1,
         'DesiredCount': -1,
-        'SPS_Update_Time': -1
+        'AvailabilityZone': 'NaN',
+        'Score': 'NaN',
+        'SPS_Update_Time': 'NaN'
     }
     previous_df = previous_df.fillna(fill_values)
     current_df = current_df.fillna(fill_values)

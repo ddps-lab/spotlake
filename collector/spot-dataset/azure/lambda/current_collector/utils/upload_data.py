@@ -88,7 +88,7 @@ def upload_cloudwatch(data, time_datetime):
 
 def query_selector(data):
     try:
-        prev_query_selector_data = S3.read_file(AZURE_CONST.S3_QUERY_SELECTOR_ALL_SAVE_PATH, 'json')
+        prev_query_selector_data = S3.read_file(AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH, 'json')
         if prev_query_selector_data:
             prev_selector_df = pd.DataFrame(prev_query_selector_data)
             selector_df = pd.concat([
@@ -100,7 +100,7 @@ def query_selector(data):
 
         S3.upload_file(
             selector_df.to_dict(orient="records"),
-            AZURE_CONST.S3_QUERY_SELECTOR_ALL_SAVE_PATH,
+            AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH,
             'json',
             set_public_read=True
         )

@@ -99,10 +99,6 @@ class AzureCollector(object):
         return "query-selector/query-selector-azure.json"
 
     @constant
-    def S3_QUERY_SELECTOR_ALL_SAVE_PATH():
-        return "query-selector/query-selector-azure-all.json"
-
-    @constant
     def SERVER_SAVE_DIR():
         return "/tmp"
 
@@ -129,10 +125,6 @@ class AzureCollector(object):
     @constant
     def LOG_STREAM_NAME():
         return "Azure-Count"
-
-    @constant
-    def ALL_LOG_STREAM_NAME():
-        return "Azure-Count-All"
 
     @constant
     def LOCATIONS_CALL_HISTORY_JSON_FILENAME():

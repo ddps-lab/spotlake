@@ -190,9 +190,9 @@ def upload_timestream_sps(data, time_datetime):
             'Savings': -1,
             'SpotPrice': -1,
             'IF': -1,
+            'DesiredCount': -1,
             'Score': 'NaN',
             'AvailabilityZone': 'NaN',
-            'DesiredCount': -2,
             'SPS_Update_Time': 'NaN'
         }
         data = data.fillna(fill_values)

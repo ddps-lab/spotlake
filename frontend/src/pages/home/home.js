@@ -184,6 +184,7 @@ function Home() {
             setGetdata={setGetdata}
             setGCPData={setGCPData}
             setAZUREData={setAZUREData}
+            setSnackbar={setSnackbar}
           />
 
           <style.table>

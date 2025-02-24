@@ -89,8 +89,9 @@ def process_zone_data(price_if_df, sps_res_df, time_datetime, is_true_zone):
 
         if is_true_zone:
             price_eviction_sps_zone_previous_df = S3.read_file(f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_TRUE_PKL_GZIP_FILENAME}", 'pkl.gz')
+            price_eviction_sps_zone_previous_df.drop(columns=['id'], inplace=True)
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
-            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
+            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time', 'PriceEviction_Update_Time']
 
             changed_df = None
             if price_eviction_sps_zone_previous_df is not None and not price_eviction_sps_zone_previous_df.empty:

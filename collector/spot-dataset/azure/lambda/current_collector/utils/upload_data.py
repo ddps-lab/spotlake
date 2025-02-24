@@ -138,20 +138,21 @@ def upload_timestream(data, time_datetime):
     try:
         data = data.copy()
         data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time"]]
+            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time", "PriceEviction_Update_Time"]]
 
         fill_values = {
-            "InstanceTier": 'NaN',
-            "InstanceType": 'NaN',
-            "Region": 'NaN',
+            "InstanceTier": 'N/A',
+            "InstanceType": 'N/A',
+            "Region": 'N/A',
             'OndemandPrice': -1,
             'Savings': -1,
             'SpotPrice': -1,
             'IF': -1,
             'DesiredCount': -1,
-            'AvailabilityZone': 'NaN',
-            'Score': 'NaN',
-            'SPS_Update_Time': 'NaN'
+            'AvailabilityZone': 'N/A',
+            'Score': 'N/A',
+            'SPS_Update_Time': 'N/A',
+            "PriceEviction_Update_Time": 'N/A'
         }
         data = data.fillna(fill_values)
 
@@ -204,6 +205,7 @@ def upload_timestream(data, time_datetime):
 
 def update_latest_sps(dataframe, availability_zones=True):
     try:
+        dataframe['id'] = dataframe.index + 1
         json_data = dataframe.to_dict(orient="records")
 
         if availability_zones:

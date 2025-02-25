@@ -3,8 +3,8 @@ import pandas as pd
 import traceback
 from datetime import datetime
 from sps_module import sps_shared_resources
-from utils.merge_df import merge_price_eviction_sps_df
-from utils.upload_data import update_latest_sps, save_raw_sps, upload_timestream, query_selector, upload_cloudwatch
+from utils.merge_df import merge_if_saving_price_sps_df
+from utils.upload_data import update_latest, save_raw, upload_timestream, query_selector, upload_cloudwatch
 from utils.compare_data import compare_sps
 from utils.pub_service import send_slack_message, Logger, S3, AZURE_CONST
 
@@ -64,12 +64,12 @@ def handle_res_df(sps_res_true_df, sps_res_false_df, time_datetime):
 
         sps_res_true_df['AvailabilityZone'] = sps_res_true_df['AvailabilityZone'].where(pd.notna(sps_res_true_df['AvailabilityZone']), None)
 
-        price_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_IF_GZIP_SAVE_PATH, 'pkl.gz')
-        if price_if_df is None:
+        price_saving_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH, 'pkl.gz')
+        if price_saving_if_df is None:
             raise ValueError("price_if_df is None")
 
-        success_availability_zone_true = process_zone_data(price_if_df, sps_res_true_df, time_datetime, True)
-        success_availability_zone_false = process_zone_data(price_if_df, sps_res_false_df, time_datetime, False)
+        success_availability_zone_true = process_zone_data(price_saving_if_df, sps_res_true_df, time_datetime, True)
+        success_availability_zone_false = process_zone_data(price_saving_if_df, sps_res_false_df, time_datetime, False)
 
         if success_availability_zone_true and success_availability_zone_false:
             Logger.info("Successfully merged the price/if/sps df, process_zone_data!")
@@ -83,23 +83,23 @@ def handle_res_df(sps_res_true_df, sps_res_false_df, time_datetime):
         return False
 
 
-def process_zone_data(price_if_df, sps_res_df, time_datetime, is_true_zone):
+def process_zone_data(price_saving_if_df, sps_res_df, time_datetime, is_true_zone):
     try:
-        price_eviction_sps_zone_df = merge_price_eviction_sps_df(price_if_df, sps_res_df, is_true_zone)
+        price_saving_if_sps_zone_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_res_df, is_true_zone)
 
         if is_true_zone:
-            price_eviction_sps_zone_previous_df = S3.read_file(f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_TRUE_PKL_GZIP_FILENAME}", 'pkl.gz')
-            price_eviction_sps_zone_previous_df.drop(columns=['id'], inplace=True)
+            availability_zone_true_all_data_prev_df = S3.read_file(f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
+            availability_zone_true_all_data_prev_df.drop(columns=['id'], inplace=True)
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
             feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
 
             changed_df = None
-            if price_eviction_sps_zone_previous_df is not None and not price_eviction_sps_zone_previous_df.empty:
-                changed_df = compare_sps(price_eviction_sps_zone_previous_df, price_eviction_sps_zone_df, workload_cols, feature_cols)
+            if availability_zone_true_all_data_prev_df is not None and not availability_zone_true_all_data_prev_df.empty:
+                changed_df = compare_sps(availability_zone_true_all_data_prev_df, price_saving_if_sps_zone_df, workload_cols, feature_cols)
 
-            update_success = update_latest_sps(price_eviction_sps_zone_df, is_true_zone)
-            save_success = save_raw_sps(price_eviction_sps_zone_df, time_datetime, is_true_zone)
-            cloudwatch_success = upload_cloudwatch(price_eviction_sps_zone_df, time_datetime)
+            update_success = update_latest(price_saving_if_sps_zone_df, is_true_zone)
+            save_success = save_raw(price_saving_if_sps_zone_df, time_datetime, is_true_zone)
+            cloudwatch_success = upload_cloudwatch(price_saving_if_sps_zone_df, time_datetime)
 
             if changed_df is not None and not changed_df.empty:
                 query_success = query_selector(changed_df)
@@ -115,8 +115,8 @@ def process_zone_data(price_if_df, sps_res_df, time_datetime, is_true_zone):
                 f"query: {query_success}, timestream: {timestream_success}"
             )
         else:
-            update_success = update_latest_sps(price_eviction_sps_zone_df, is_true_zone)
-            save_success = save_raw_sps(price_eviction_sps_zone_df, time_datetime, is_true_zone)
+            update_success = update_latest(price_saving_if_sps_zone_df, is_true_zone)
+            save_success = save_raw(price_saving_if_sps_zone_df, time_datetime, is_true_zone)
 
             success = update_success and save_success
             log_details = f"update: {update_success}, save: {save_success}"

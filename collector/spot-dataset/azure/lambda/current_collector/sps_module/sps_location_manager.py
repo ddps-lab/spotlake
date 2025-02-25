@@ -106,7 +106,6 @@ def get_next_available_location():
                 location = locations[location_index]
 
                 if validation_can_call(location, current_history, current_over_limit_locations):
-
                     SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
                     SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
                     return subscription_id, location, current_history, current_over_limit_locations

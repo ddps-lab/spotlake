@@ -19,7 +19,7 @@ def merge_price_eviction_sps_df(price_eviction_df, sps_df, availability_zones=Tr
     join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True)
 
-    columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF", "PriceEviction_Update_Time",
+    columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
         "DesiredCount", "Score", "SPS_Update_Time"]
 
     if availability_zones:
@@ -38,8 +38,7 @@ def merge_price_eviction_sps_df(price_eviction_df, sps_df, availability_zones=Tr
         "DesiredCount": -1,
         "Score": "N/A",
         "AvailabilityZone": "N/A",
-        "SPS_Update_Time": "N/A",
-        "PriceEviction_Update_Time": "N/A"
+        "SPS_Update_Time": "N/A"
     }, inplace=True)
 
     return join_df

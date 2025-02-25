@@ -138,7 +138,7 @@ def upload_timestream(data, time_datetime):
     try:
         data = data.copy()
         data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time", "PriceEviction_Update_Time"]]
+            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time"]]
 
         fill_values = {
             "InstanceTier": 'N/A',
@@ -151,8 +151,7 @@ def upload_timestream(data, time_datetime):
             'DesiredCount': -1,
             'AvailabilityZone': 'N/A',
             'Score': 'N/A',
-            'SPS_Update_Time': 'N/A',
-            "PriceEviction_Update_Time": 'N/A'
+            'SPS_Update_Time': 'N/A'
         }
         data = data.fillna(fill_values)
 
@@ -203,21 +202,32 @@ def upload_timestream(data, time_datetime):
         return False
 
 
-def update_latest_sps(dataframe, availability_zones=True):
+def update_latest_sps(full_dataframe, availability_zones=True):
     try:
-        dataframe['id'] = dataframe.index + 1
-        json_data = dataframe.to_dict(orient="records")
+        full_dataframe['id'] = full_dataframe.index + 1
+
+        dataframe_desired_count_1_df = full_dataframe[full_dataframe["DesiredCount"].isin([1, -1])].copy()
+        dataframe_desired_count_1_df['id'] = dataframe_desired_count_1_df.index + 1
+
+        full_json_data = full_dataframe.to_dict(orient="records")
+        desired_count_1_json_data = dataframe_desired_count_1_df.to_dict(orient="records")
 
         if availability_zones:
-            json_path = f"{AZURE_CONST.LATEST_SPS_FILENAME}"
+            full_json_path = f"{AZURE_CONST.LATEST_SPS_FILENAME}"
+            desired_count_1_json_path = f"{AZURE_CONST.LATEST_SPS_DESIRED_COUNT_1_FILENAME}"
             pkl_gzip_path = f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_TRUE_PKL_GZIP_FILENAME}"
 
-            S3.upload_file(json_data, json_path, "json", set_public_read=True)
-            S3.upload_file(dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
+
+            # FE 노출용 json, ["DesiredCount"].isin([1, -1])
+            S3.upload_file(desired_count_1_json_data, desired_count_1_json_path, "json", set_public_read=True)
+            # Full data json
+            S3.upload_file(full_json_data, full_json_path, "json", set_public_read=True)
+            # Full data pkl.gz, data 비교용
+            S3.upload_file(full_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
 
         else:
             json_path = f"{AZURE_CONST.LATEST_SPS_AVAILABILITY_ZONE_FALSE_FILENAME}"
-            S3.upload_file(json_data, json_path, "json", set_public_read=True)
+            S3.upload_file(full_json_data, json_path, "json", set_public_read=True)
         return True
 
     except Exception as e:
@@ -225,7 +235,7 @@ def update_latest_sps(dataframe, availability_zones=True):
         return False
 
 
-def save_raw_sps(dataframe, time_utc, availability_zones=True):
+def save_raw_sps(full_dataframe, time_utc, availability_zones=True):
     try:
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
@@ -235,7 +245,8 @@ def save_raw_sps(dataframe, time_utc, availability_zones=True):
         else:
             path = f"{AZURE_CONST.LATEST_SPS_RAW_DATA_PATH}/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
-        S3.upload_file(dataframe, path, "df_to_csv.gz", set_public_read=True)
+        # Full data df_to_csv.gz, data 분석용
+        S3.upload_file(full_dataframe, path, "df_to_csv.gz", set_public_read=True)
         return True
 
     except Exception as e:

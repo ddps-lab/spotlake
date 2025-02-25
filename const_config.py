@@ -159,6 +159,10 @@ class AzureCollector(object):
         return "sps-collector/azure/result/latest_azure_sps_zone_true.json"
 
     @constant
+    def LATEST_SPS_DESIRED_COUNT_1_FILENAME():
+        return "sps-collector/azure/result/latest_azure_sps_zone_true_desired_count_1.json"
+
+    @constant
     def LATEST_SPS_AVAILABILITY_ZONE_TRUE_PKL_GZIP_FILENAME():
         return "sps-collector/azure/result/latest_azure_sps_zone_true.pkl.gz"
 

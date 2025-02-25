@@ -21,6 +21,7 @@ const Query = ({
   setGetdata,
   setGCPData,
   setAZUREData,
+  setSnackbar,
 }) => {
   const url =
     "https://ohu7b2tglrqpl7qlogbu7pduq40flbgg.lambda-url.us-west-2.on.aws/";
@@ -142,7 +143,11 @@ const Query = ({
       (vendor === "AWS" && !Boolean(searchFilter?.az)) ||
       (vendor === "AZURE" && !Boolean(searchFilter?.tier));
     if (invalidQuery || invalidQueryForVendor) {
-      alert("The query is invalid. \nPlease check your search option.");
+      setSnackbar({
+        open: true,
+        message: "The query is invalid. \nPlease check your search option.",
+        severity: "error",
+      });
       return;
     }
     //start_date , end_date 비교 후 start_date가 end_date보다 이전일 경우에만 데이터 요청
@@ -171,9 +176,17 @@ const Query = ({
         .get(url, { params })
         .then((res) => {
           if (res.data.Status === 403) {
-            alert("Invalid Access");
+            setSnackbar({
+              open: true,
+              message: "Invalid Access",
+              severity: "error",
+            });
           } else if (res.data.Status === 500) {
-            alert("Internal Server Error");
+            setSnackbar({
+              open: true,
+              message: "Internal Server Error",
+              severity: "error",
+            });
           } else {
             // Status 성공 시,
             let parseData = JSON.parse(JSON.parse(res.data.Data));
@@ -187,11 +200,18 @@ const Query = ({
             setQueryData(parseData);
             let dataCnt = parseData.length;
             if (dataCnt < 20000) {
-              alert("Total " + dataCnt + " data points have been returned");
+              setSnackbar({
+                open: true,
+                message: `Total ${dataCnt} data points have been returned`,
+                severity: "success",
+              });
             } else if (dataCnt === 20000) {
-              alert(
-                "The maximum number of data points has been returned (20,000)"
-              );
+              setSnackbar({
+                open: true,
+                message:
+                  "The maximum number of data points has been returned (20,000)",
+                severity: "warning",
+              });
             }
           }
           // button load false로 설정
@@ -201,13 +221,20 @@ const Query = ({
           setLoad(false);
           console.log(e);
           if (e.message === "Network Error") {
-            alert("A network error occurred. Try it again. ");
+            setSnackbar({
+              open: true,
+              message: "A network error occurred. Try it again.",
+              severity: "error",
+            });
           }
         });
     } else {
-      alert(
-        "The date range for the query is invalid. Please set the date correctly."
-      );
+      setSnackbar({
+        open: true,
+        message:
+          "The date range for the query is invalid. Please set the date correctly.",
+        severity: "error",
+      });
     }
   };
   const ResetSelected = () => {

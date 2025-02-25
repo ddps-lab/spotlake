@@ -2,11 +2,11 @@ import os
 import requests
 import time
 from azure.identity import ClientSecretCredential
-from utils.pub_service import db_AzureAuth
+from utils.pub_service import DB_AzureAuth
 from azure.core.exceptions import ClientAuthenticationError
 
 def get_token():
-    db = db_AzureAuth
+    db = DB_AzureAuth
 
     now = int(time.time())
 

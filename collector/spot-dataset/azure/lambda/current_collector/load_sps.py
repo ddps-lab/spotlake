@@ -138,19 +138,24 @@ def collect_spot_placement_score(desired_count):
     print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
     get_sps_count_true = SS_Resources.successfully_to_get_sps_count
-    SS_Resources.successfully_to_get_sps_count = 0
+    get_next_available_location_count_true = SS_Resources.successfully_to_get_next_available_location_count
+    SS_Resources.successfully_to_get_sps_count = SS_Resources.successfully_to_get_next_available_location_count = 0
     sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
     print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
     print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
     print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
     print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
-    
+
     print(f'\n========================================')
     print(f'df_greedy_clustering_filtered lens: {len(df_greedy_clustering_filtered)}')
     print(f'Successfully_to_get_sps_count_true: {get_sps_count_true}')
     print(f'Successfully_to_get_sps_count_false: {SS_Resources.successfully_to_get_sps_count}')
     print(f'Successfully_to_get_sps_count_all: {SS_Resources.successfully_to_get_sps_count + get_sps_count_true}')
+
+    print(f'Successfully_get_next_available_location_count_true: {get_next_available_location_count_true}')
+    print(f'Successfully_get_next_available_location_count_false: {SS_Resources.successfully_to_get_next_available_location_count}')
+    print(f'Successfully_get_next_available_location_count_all: {SS_Resources.successfully_to_get_next_available_location_count + get_next_available_location_count_true}')
     print(f'========================================')
 
 
@@ -261,6 +266,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             if res is None:
                 return "NO_AVAILABLE_LOCATIONS"
             else:
+                SS_Resources.successfully_to_get_next_available_location_count += 1
                 subscription_id, location, history, over_limit_locations = res
                 SL_Manager.update_call_history(subscription_id, location, history)
 
@@ -428,6 +434,7 @@ def initialize_sps_shared_resources():
     SS_Resources.found_invalid_region_retry_count = 0
     SS_Resources.found_invalid_instance_type_retry_count = 0
     SS_Resources.successfully_to_get_sps_count = 0
+    SS_Resources.successfully_to_get_next_available_location_count = 0
 
 def save_tmp_files_to_s3():
     files_to_upload = {

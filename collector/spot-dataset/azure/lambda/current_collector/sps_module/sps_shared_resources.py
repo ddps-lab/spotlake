@@ -6,6 +6,7 @@ found_invalid_instance_type_retry_count = 0
 found_invalid_region_retry_count = 0
 time_out_retry_count = 0
 successfully_to_get_sps_count = 0
+successfully_to_get_next_available_location_count = 0
 too_many_requests_count = 0
 too_many_requests_count_2 = 0
 lock = RLock()

@@ -11,7 +11,7 @@ from sps_module import sps_shared_resources
 from sps_module import sps_prepare_parameters
 from json import JSONDecodeError
 from functools import wraps
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from utils.azure_auth import get_sps_token_and_subscriptions
 from utils.pub_service import S3, AZURE_CONST
 
@@ -207,7 +207,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
                     elif result == "NO_AVAILABLE_LOCATIONS":
                         # NO_AVAILABLE_LOCATIONS인 경우 나머지 작업 취소
-                        current_utc_time = datetime.now(UTC).strftime("%Y_%m_%dT%H_%M_%S")
+                        current_utc_time = datetime.now(timezone.utc).strftime("%Y_%m_%dT%H_%M_%S")
                         S3.upload_file(SS_Resources.locations_call_history_tmp, f"{AZURE_CONST.ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH}/{current_utc_time}.json", "json")
                         print("No available locations found. Cancelling remaining tasks. ")
                         for f in futures:

@@ -131,6 +131,10 @@ class AzureCollector(object):
         return "sps-collector/azure/saved_variable/locations_call_history.json"
 
     @constant
+    def ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH():
+        return "sps-collector/azure/saved_variable/error_locations_call_history"
+
+    @constant
     def LOCATIONS_OVER_LIMIT_JSON_FILENAME():
         return "sps-collector/azure/saved_variable/locations_over_limit.json"
 

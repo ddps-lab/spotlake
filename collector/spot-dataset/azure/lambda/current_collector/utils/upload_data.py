@@ -74,7 +74,7 @@ def upload_cloudwatch(data, time_datetime):
             'message': f'AZUREONDEMAND: {ondemand_count} AZURESPOT: {spot_count} AZUREIF: {if_count} AZURESPS: {sps_count}'
         }]
 
-        CW.client.put_log(
+        CW.client.put_log_events(
             log_group=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
             log_stream=AZURE_CONST.LOG_STREAM_NAME,
             log_event=log_event

@@ -36,6 +36,8 @@ const Query = ({
   const [searchFilter, setSearchFilter] = useState({
     instance: "",
     region: "",
+    tier: "",
+    az: "",
     start_date: "",
     end_date: "",
   });
@@ -141,7 +143,7 @@ const Query = ({
       .includes(false);
     const invalidQueryForVendor =
       (vendor === "AWS" && !Boolean(searchFilter?.az)) ||
-      (vendor === "AZURE" && !Boolean(searchFilter?.tier));
+        (vendor === "AZURE" && !Boolean(searchFilter?.tier)) || (vendor === "AZURE" && !Boolean(searchFilter?.az));
     if (invalidQuery || invalidQueryForVendor) {
       setSnackbar({
         open: true,
@@ -166,6 +168,9 @@ const Query = ({
         ...(vendor === "AZURE" && {
           InstanceTier:
             searchFilter["tier"] === "ALL" ? "*" : searchFilter["tier"],
+        }),
+        ...(vendor === "AZURE" && {
+          AvailabilityZone: searchFilter["az"] === "ALL" ? "*" : searchFilter["az"],
         }),
         Start:
           searchFilter["start_date"] === "" ? "*" : searchFilter["start_date"],
@@ -364,13 +369,13 @@ const Query = ({
         >
           {assoInstance
             ? assoInstance.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
             : instance
             ? instance.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
@@ -392,13 +397,13 @@ const Query = ({
         >
           {assoRegion
             ? assoRegion.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
             : region
             ? region.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
@@ -421,13 +426,13 @@ const Query = ({
           >
             {assoAZ
               ? assoAZ.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
+                  <style.selectItem key={e} value={e} vendor={vendor}>
                     {e}
                   </style.selectItem>
                 ))
               : az
               ? az.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
+                  <style.selectItem key={e} value={e} vendor={vendor}>
                     {e}
                   </style.selectItem>
                 ))
@@ -436,34 +441,50 @@ const Query = ({
         </FormControl>
       ) : null}
       {vendor === "AZURE" && (
-        <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
-          <style.filterLabel id="instance-tier-input-label" vendor={vendor}>
-            Tier
-          </style.filterLabel>
-          <style.filterSelect
-            labelId="instance-tier-input-label"
-            id="instance-tier-input"
-            value={searchFilter["tier"]}
-            onChange={setFilter}
-            label="tier"
-            name="tier"
-            vendor={vendor}
-          >
-            {assoTier
-              ? assoTier.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
-                    {e}
-                  </style.selectItem>
-                ))
-              : assoTier
-              ? assoTier.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
-                    {e}
-                  </style.selectItem>
-                ))
-              : null}
-          </style.filterSelect>
-        </FormControl>
+          <>
+            <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+              <style.filterLabel id="az-input-label" vendor={vendor}>
+                AZ
+              </style.filterLabel>
+              <style.filterSelect
+                  labelId="az-input-label"
+                  id="az-input"
+                  value={searchFilter["az"] ?? "ALL"}
+                  onChange={setFilter}
+                  label="AZ"
+                  name="az"
+                  vendor={vendor}
+              >
+                {["ALL", 1, 2, 3, "Single"].map((e) => (
+                    <style.selectItem key={e} value={e} vendor={vendor}>
+                      {e}
+                    </style.selectItem>
+                ))}
+              </style.filterSelect>
+            </FormControl>
+            <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+              <style.filterLabel id="instance-tier-input-label" vendor={vendor}>
+                Tier
+              </style.filterLabel>
+              <style.filterSelect
+                  labelId="instance-tier-input-label"
+                  id="instance-tier-input"
+                  value={searchFilter["tier"] ?? "ALL"}
+                  onChange={setFilter}
+                  label="Tier"
+                  name="tier"
+                  vendor={vendor}
+              >
+                {assoTier
+                    ? assoTier.map((e) => (
+                        <style.selectItem key={e} value={e} vendor={vendor}>
+                          {e}
+                        </style.selectItem>
+                    ))
+                    : null}
+              </style.filterSelect>
+            </FormControl>
+          </>
       )}
       <FormControl
         variant="standard"

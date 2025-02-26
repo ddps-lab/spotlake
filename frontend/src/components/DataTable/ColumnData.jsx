@@ -223,94 +223,83 @@ const ColumnData = () => {
   ];
   //AZURE columns
   const AZUREcolumns = [
-    { field: "id", headerName: "ID", flex: 1, filterable: false, hide: true },
-    {
-      field: "InstanceTier",
-      headerName: "InstanceTier",
-      flex: 1,
-      headerAlign: "center",
+    { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
+    { field: 'InstanceTier', headerName: 'InstanceTier', flex: 0.8 ,
+      headerAlign: 'center',
       valueGetter: (params) => {
-        return params.row.instanceTier == -1 ? "N/A" : params.row.InstanceTier;
-      },
+        return params.row.InstanceTier == -1 ? "N/A" : params.row.InstanceTier;
+      }
     },
-    {
-      field: "InstanceType",
-      headerName: "InstanceType",
-      flex: 1,
-      headerAlign: "center",
+    { field: 'InstanceType', headerName: 'InstanceType', flex: 1,
+      headerAlign: 'center',
       valueGetter: (params) => {
-        return params.row.instanceType == -1 ? "N/A" : params.row.InstanceType;
-      },
+        return params.row.InstanceType == -1 ? "N/A" : params.row.InstanceType;
+      }
     },
-    {
-      field: "Region",
-      headerName: "Region",
-      flex: 1,
-      headerAlign: "center",
+    { field: 'Region', headerName: 'Region', flex: 1,
+      headerAlign: 'center',
       valueGetter: (params) => {
-        return params.row.region == -1 ? "N/A" : params.row.Region;
-      },
+        return params.row.Region == -1 ? "N/A" : params.row.Region;
+      }
     },
-    {
-      field: "OndemandPrice",
-      headerName: "OndemandPrice",
-      flex: 1,
-      type: "number",
-      headerAlign: "center",
+    { field: 'OndemandPrice', headerName: 'OndemandPrice', flex: 0.9, type: 'number',
+      headerAlign: 'center',
       valueGetter: (params) => {
-        return params.row.ondemandPrice == -1
-          ? "N/A"
-          : params.row.OndemandPrice;
-      },
+        return params.row.OndemandPrice == -1 ? "N/A" : params.row.OndemandPrice;
+      }
     },
-    {
-      field: "SpotPrice",
-      headerName: "SpotPrice",
-      flex: 1.3,
-      type: "number",
-      headerAlign: "center",
+    { field: 'SpotPrice', headerName: 'SpotPrice', flex: 0.9, type: 'number',
+      headerAlign: 'center',
       valueGetter: (params) => {
-        return params.row.spotPrice == -1 ? "N/A" : params.row.SpotPrice;
-      },
+        return params.row.SpotPrice == -1 ? "N/A" : params.row.SpotPrice;
+      }
     },
-    {
-      field: "IF",
-      headerName: "IF",
-      flex: 1.3,
-      type: "number",
-      description:
-        'Interruption Free (IF) score refers to the interruption ratio offered by Azure. Please check the score calculation in the About page. For IF score being "N/A", the Azure portal might provide valid score value.',
-      headerAlign: "center",
+    { field: 'IF', headerName: 'IF', flex: 0.9, type: 'number', description: 'Interruption Free (IF) score refers to the interruption ratio offered by Azure. Please check the score calculation in the About page. For IF score being "N/A", the Azure portal might provide valid score value.',
+      headerAlign: 'center',
       valueGetter: (params) => {
         return params.row.IF == -1 ? "N/A" : params.row.IF;
-      },
+      }
     },
-    {
-      field: "savings",
-      headerName: "Savings (%)",
-      flex: 1.3,
-      type: "number",
-      headerAlign: "center",
+    { field: 'savings', headerName: 'Savings (%)', flex: 0.9, type: 'number',
+      headerAlign: 'center',
       valueGetter: (params) => {
-        if (!params.row.OndemandPrice || !params.row.SpotPrice)
-          return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
-        else if (params.row.OndemandPrice == -1 || params.row.SpotPrice == -1)
-          return "N/A"; // 값이 -1일 경우 (string, num...)
-        let savings = Math.round(
-          ((params.row.OndemandPrice - params.row.SpotPrice) /
-            params.row.OndemandPrice) *
-            100
-        );
+        if (!params.row.OndemandPrice || !params.row.SpotPrice) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+        else if (params.row.OndemandPrice == -1 || params.row.SpotPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
+        let savings = Math.round((params.row.OndemandPrice - params.row.SpotPrice) / params.row.OndemandPrice * 100)
         return isNaN(savings) ? "N/A" : savings;
-      },
+      }
+    },
+    { field: 'Score', headerName: 'Availability', flex: 1.5,
+      headerAlign: 'center',
+      valueGetter: (params) => {
+        return params.row.Score == "NaN" ? "N/A" : params.row.Score;
+      }
+    },
+    { field: 'AvailabilityZone', headerName: 'AZ', flex: 1,
+      headerAlign: 'center',
+      valueGetter: (params) => {
+        return params.row.AvailabilityZone == "NaN" ? "N/A" : params.row.AvailabilityZone;
+      }
     },
     {
-      field: "time",
-      headerName: "Date",
-      type: "date",
-      flex: 2,
-      headerAlign: "center",
-    },
+      field: 'SPS_Update_Time',
+      headerName: 'Date',
+      flex: 1.7,
+      headerAlign: 'center',
+      valueGetter: (params) => {
+        const value = params.row.SPS_Update_Time;
+
+        if (typeof value === "string" && value.length >= 16) {
+          return value.substring(0, 16);
+        }
+
+        if (value instanceof Date) {
+          return value.toISOString().substring(0, 16).replace("T", " ");
+        }
+
+        return value;
+      }
+    }
   ];
   return {
     columns,

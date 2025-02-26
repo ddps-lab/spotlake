@@ -85,21 +85,21 @@ def handle_res_df(sps_res_true_df, sps_res_false_df, time_datetime):
 
 def process_zone_data(price_saving_if_df, sps_res_df, time_datetime, is_true_zone):
     try:
-        price_saving_if_sps_zone_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_res_df, is_true_zone)
+        all_data_zone_true_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_res_df, is_true_zone)
 
         if is_true_zone:
-            availability_zone_true_all_data_prev_df = S3.read_file(f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
-            availability_zone_true_all_data_prev_df.drop(columns=['id'], inplace=True)
+            prev_availability_zone_true_all_data_df = S3.read_file(f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
+            prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
             feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
 
             changed_df = None
-            if availability_zone_true_all_data_prev_df is not None and not availability_zone_true_all_data_prev_df.empty:
-                changed_df = compare_sps(availability_zone_true_all_data_prev_df, price_saving_if_sps_zone_df, workload_cols, feature_cols)
+            if prev_availability_zone_true_all_data_df is not None and not prev_availability_zone_true_all_data_df.empty:
+                changed_df = compare_sps(prev_availability_zone_true_all_data_df, all_data_zone_true_df, workload_cols, feature_cols)
 
-            update_success = update_latest(price_saving_if_sps_zone_df, is_true_zone)
-            save_success = save_raw(price_saving_if_sps_zone_df, time_datetime, is_true_zone)
-            cloudwatch_success = upload_cloudwatch(price_saving_if_sps_zone_df, time_datetime)
+            update_success = update_latest(all_data_zone_true_df, is_true_zone)
+            save_success = save_raw(all_data_zone_true_df, time_datetime, is_true_zone)
+            cloudwatch_success = upload_cloudwatch(all_data_zone_true_df, time_datetime)
 
             if changed_df is not None and not changed_df.empty:
                 query_success = query_selector(changed_df)
@@ -115,8 +115,8 @@ def process_zone_data(price_saving_if_df, sps_res_df, time_datetime, is_true_zon
                 f"query: {query_success}, timestream: {timestream_success}"
             )
         else:
-            update_success = update_latest(price_saving_if_sps_zone_df, is_true_zone)
-            save_success = save_raw(price_saving_if_sps_zone_df, time_datetime, is_true_zone)
+            update_success = update_latest(all_data_zone_true_df, is_true_zone)
+            save_success = save_raw(all_data_zone_true_df, time_datetime, is_true_zone)
 
             success = update_success and save_success
             log_details = f"update: {update_success}, save: {save_success}"

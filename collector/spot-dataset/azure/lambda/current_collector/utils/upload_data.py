@@ -207,26 +207,17 @@ def update_latest(all_data_dataframe, availability_zones=True):
 
         dataframe_desired_count_1_df = all_data_dataframe[all_data_dataframe["DesiredCount"].isin([1, -1])].copy()
         dataframe_desired_count_1_df['id'] = dataframe_desired_count_1_df.index + 1
-
-        full_json_data = all_data_dataframe.to_dict(orient="records")
         desired_count_1_json_data = dataframe_desired_count_1_df.to_dict(orient="records")
 
         if availability_zones:
-            full_json_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_SAVE_PATH}"
             desired_count_1_json_path = f"{AZURE_CONST.S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH}"
             pkl_gzip_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}"
 
-
-            # Full data json
-            S3.upload_file(full_json_data, full_json_path, "json", set_public_read=True)
             # FE 노출용 json, ["DesiredCount"].isin([1, -1])
             S3.upload_file(desired_count_1_json_data, desired_count_1_json_path, "json", set_public_read=True)
             # Full data pkl.gz, data 비교용
             S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
 
-        else:
-            json_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_FALSE_SAVE_PATH}"
-            S3.upload_file(full_json_data, json_path, "json", set_public_read=True)
         return True
 
     except Exception as e:
@@ -245,13 +236,13 @@ def save_raw(all_data_dataframe, time_utc, availability_zones=True):
             all_data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
             # 기존 경로 유지
             desired_count_1_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+            S3.upload_file(dataframe_desired_count_1_df, desired_count_1_path, "df_to_csv.gz", set_public_read=True)
         else:
             all_data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
-            desired_count_1_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
         # data 분석용
         S3.upload_file(all_data_dataframe, all_data_path, "df_to_csv.gz", set_public_read=True)
-        S3.upload_file(dataframe_desired_count_1_df, desired_count_1_path, "df_to_csv.gz", set_public_read=True)
+
         return True
 
     except Exception as e:

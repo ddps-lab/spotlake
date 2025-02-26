@@ -90,7 +90,6 @@ class AzureCollector(object):
     def S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH():
         return "latest_data/latest_price_saving_if.pkl.gz"
 
-
     @constant
     def QUERY_SELECTOR_FILENAME():
         return "query-selector-azure.json"
@@ -154,14 +153,6 @@ class AzureCollector(object):
     @constant
     def DF_TO_USE_TODAY_PKL_FILENAME():
         return "sps-collector/azure/df_to_use_today.pkl"
-
-    @constant
-    def S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_SAVE_PATH():
-        return "latest_data/latest_all_data_zone_true.json"
-
-    @constant
-    def S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_FALSE_SAVE_PATH():
-        return "latest_data/latest_all_data_zone_false.json"
 
     @constant
     def S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH():

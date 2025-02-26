@@ -75,9 +75,9 @@ def upload_cloudwatch(data, time_datetime):
         }]
 
         CW.client.put_log_events(
-            log_group=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
-            log_stream=AZURE_CONST.LOG_STREAM_NAME,
-            log_event=log_event
+            logGroupName=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
+            logStreamName=AZURE_CONST.LOG_STREAM_NAME,
+            logEvents=log_event
         )
         return True
 

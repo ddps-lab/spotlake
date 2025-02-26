@@ -89,12 +89,13 @@ def process_zone_data(price_saving_if_df, sps_res_df, time_datetime, is_true_zon
 
         if is_true_zone:
             prev_availability_zone_true_all_data_df = S3.read_file(f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
-            prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
+
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
             feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
 
             changed_df = None
             if prev_availability_zone_true_all_data_df is not None and not prev_availability_zone_true_all_data_df.empty:
+                prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
                 changed_df = compare_sps(prev_availability_zone_true_all_data_df, all_data_zone_true_df, workload_cols, feature_cols)
 
             update_success = update_latest(all_data_zone_true_df, is_true_zone)

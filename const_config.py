@@ -75,20 +75,20 @@ class AzureCollector(object):
         return 2000
 
     @constant
-    def LATEST_FILENAME():
-        return "latest_azure.json"
+    def LATEST_PRICE_SAVING_IF_FILENAME():
+        return "latest_price_saving_if.json"
 
     @constant
-    def LATEST_PRICE_IF_PKL_GZIP_FILENAME():
-        return "latest_price_if_azure.pkl.gz"
+    def LATEST_PRICE_SAVING_IF_PKL_GZIP_FILENAME():
+        return "latest_price_saving_if.pkl.gz"
 
     @constant
-    def S3_LATEST_PRICE_IF_GZIP_SAVE_PATH():
-        return "latest_data/latest_price_if_azure.pkl.gz"
+    def S3_LATEST_PRICE_SAVING_IF_DATA_SAVE_PATH():
+        return "latest_data/latest_price_saving_if.json"
 
     @constant
-    def S3_LATEST_DATA_SAVE_PATH():
-        return "latest_data/latest_azure.json"
+    def S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH():
+        return "latest_data/latest_price_saving_if.pkl.gz"
 
     @constant
     def QUERY_SELECTOR_FILENAME():
@@ -97,14 +97,6 @@ class AzureCollector(object):
     @constant
     def S3_QUERY_SELECTOR_SAVE_PATH():
         return "query-selector/query-selector-azure.json"
-
-    @constant
-    def DF_WORKLOAD_COLS():
-        return ['InstanceTier', 'InstanceType', 'Region']
-
-    @constant
-    def DF_FEATURE_COLS():
-        return ['OndemandPrice', 'SpotPrice', 'IF']
 
     @constant
     def SERVER_SAVE_DIR():
@@ -163,16 +155,16 @@ class AzureCollector(object):
         return "sps-collector/azure/df_to_use_today.pkl"
 
     @constant
-    def LATEST_SPS_FILENAME():
-        return "sps-collector/azure/result/latest_azure_sps_zone_true.json"
+    def S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH():
+        return "latest_data/latest_azure.json"
 
     @constant
-    def LATEST_SPS_AVAILABILITY_ZONE_FALSE_FILENAME():
-        return "sps-collector/azure/result/latest_azure_sps_zone_false.json"
+    def S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH():
+        return "latest_data/latest_sps_zone_true_azure.pkl.gz"
 
     @constant
-    def LATEST_SPS_RAW_DATA_PATH():
-        return "sps-collector/azure/result/rawdata"
+    def S3_RAW_DATA_PATH():
+        return "rawdata/azure"
 
 class GcpCollector(object):
     @constant

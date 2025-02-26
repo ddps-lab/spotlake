@@ -1,6 +1,7 @@
 import re
 import random
 import requests
+import traceback
 import concurrent.futures
 import time
 import load_price
@@ -185,24 +186,26 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                                 "Score": score.get("score")
                             }
                             if availability_zones:
-                                score_data["AvailabilityZone"] = score.get("availabilityZone", "SINGLE_ZONE")
+                                score_data["AvailabilityZone"] = score.get("availabilityZone", "Single")
 
                             results.append(score_data)
 
                     elif result == "NO_AVAILABLE_LOCATIONS":
                         # NO_AVAILABLE_LOCATIONS인 경우 나머지 작업 취소
+                        print("No available locations found. Cancelling remaining tasks.")
+                        print(f"SS_Resources.locations_call_history_tmp: {SS_Resources.locations_call_history_tmp}")
                         for f in futures:
                             if not f.done():
                                 f.cancel()
+                        executor.shutdown(wait=False)
 
                 except JSONDecodeError as e:
-                    print(
-                        f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
+                    print(f"execute_spot_placement_score_task_by_parameter_pool_df func. JSON decoding error: {str(e)}")
                     raise
 
                 except Exception as e:
-                    print(
-                        f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
+                    print(f"execute_spot_placement_score_task_by_parameter_pool_df func. An unexpected error occurred: {e}")
+                    print(traceback.format_exc())
                     raise
         finally:
             save_tmp_files_to_s3()
@@ -245,7 +248,6 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
         with SS_Resources.location_lock:
             res = SL_Manager.get_next_available_location()
             if res is None:
-                print("No available locations with remaining calls.")
                 return "NO_AVAILABLE_LOCATIONS"
             subscription_id, location, history, over_limit_locations = res
             SL_Manager.update_call_history(subscription_id, location, history)
@@ -256,7 +258,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             "Content-Type": "application/json",
         }
         try:
-            response = requests.post(url, headers=headers, json=request_body, timeout=35)
+            response = requests.post(url, headers=headers, json=request_body, timeout=40)
             response.raise_for_status()
             return response.json()
 

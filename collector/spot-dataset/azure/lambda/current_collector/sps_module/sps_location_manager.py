@@ -51,7 +51,7 @@ def validation_can_call(location, history, over_limit_locations):
     이 메서드는 지정된 location으로 호출 가능한지 확인합니다.
     초과 요청 여부와 호출 이력의 크기를 기준으로 판단합니다.
     """
-    if over_limit_locations is not None:
+    if over_limit_locations:
         if ((location not in over_limit_locations)
                 and (len(history[location]) < 10)):
             return True
@@ -106,7 +106,6 @@ def get_next_available_location():
                 location = locations[location_index]
 
                 if validation_can_call(location, current_history, current_over_limit_locations):
-
                     SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
                     SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
                     return subscription_id, location, current_history, current_over_limit_locations

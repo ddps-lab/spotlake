@@ -27,24 +27,26 @@ def lambda_handler(event, context):
         Logger.info(f"Lambda triggered: action: {action}, event_time: {datetime.strftime(event_time_utc_datetime, '%Y-%m-%d %H:%M:%S')}, desired_count: {desired_count}")
 
         if action == FIRST_TIME_ACTION:
-            sps_res_availability_zones_true_df, sps_res_availability_zones_false_df = load_sps.collect_spot_placement_score_first_time(desired_count=desired_count)
+            # sps_res_availability_zones_true_df, sps_res_availability_zones_false_df = load_sps.collect_spot_placement_score_first_time(desired_count=desired_count)
+            sps_res_availability_zones_true_df = load_sps.collect_spot_placement_score_first_time(desired_count=desired_count)
 
         elif action == EVERY_10MIN_ACTION:
             # UTC 15:00 (KST 00:00)인 경우 실행 건너뛰기
             if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
                 Logger.info("Skipping scheduled time (UTC 15:00, KST 00:00)")
                 return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc_datetime)
-
-            sps_res_availability_zones_true_df, sps_res_availability_zones_false_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
+            # sps_res_availability_zones_true_df, sps_res_availability_zones_false_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
+            sps_res_availability_zones_true_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
 
         else:
             raise ValueError(f"Invalid lambda action.")
 
 
         if sps_res_availability_zones_true_df is None: raise ValueError("sps_res_true_df is None")
-        if sps_res_availability_zones_false_df is None: raise ValueError("sps_res_false_df is None")
+        # if sps_res_availability_zones_false_df is None: raise ValueError("sps_res_false_df is None")
 
-        if not handle_res_df(sps_res_availability_zones_true_df, sps_res_availability_zones_false_df, event_time_utc_datetime):
+        # if not handle_res_df(sps_res_availability_zones_true_df, sps_res_availability_zones_false_df, event_time_utc_datetime):
+        if not handle_res_df(sps_res_availability_zones_true_df, event_time_utc_datetime):
             raise RuntimeError("Failed to handle_res_df")
 
         return handle_response(200, "Executed Successfully!", action, event_time_utc_datetime)
@@ -55,12 +57,12 @@ def lambda_handler(event, context):
         send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg}\Log_stream_id: {log_stream_id}")
         return handle_response(500, "Execute Failed!", action, event_time_utc_datetime, str(e))
 
-
-def handle_res_df(sps_res_true_df, sps_res_false_df, time_datetime):
+# def handle_res_df(sps_res_true_df, sps_res_false_df, time_datetime):
+def handle_res_df(sps_res_true_df, time_datetime):
     try:
         time_str = time_datetime.strftime("%Y-%m-%d %H:%M:%S")
         sps_res_true_df['time'] = time_str
-        sps_res_false_df['time'] = time_str
+        # sps_res_false_df['time'] = time_str
 
         sps_res_true_df['AvailabilityZone'] = sps_res_true_df['AvailabilityZone'].where(pd.notna(sps_res_true_df['AvailabilityZone']), None)
 
@@ -69,9 +71,10 @@ def handle_res_df(sps_res_true_df, sps_res_false_df, time_datetime):
             raise ValueError("price_if_df is None")
 
         success_availability_zone_true = process_zone_data(price_saving_if_df, sps_res_true_df, time_datetime, True)
-        success_availability_zone_false = process_zone_data(price_saving_if_df, sps_res_false_df, time_datetime, False)
+        # success_availability_zone_false = process_zone_data(price_saving_if_df, sps_res_false_df, time_datetime, False)
 
-        if success_availability_zone_true and success_availability_zone_false:
+        # if success_availability_zone_true and success_availability_zone_false:
+        if success_availability_zone_true:
             Logger.info("Successfully merged the price/if/sps df, process_zone_data!")
             return True
         else:

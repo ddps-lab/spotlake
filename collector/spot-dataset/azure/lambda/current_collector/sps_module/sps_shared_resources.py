@@ -20,6 +20,7 @@ locations_over_limit_tmp = None
 last_subscription_id_and_location_tmp = None
 region_map_and_instance_map_tmp = None
 subscriptions = None
+available_locations = None
 
 
 def generate_time_to_desired_count_map():

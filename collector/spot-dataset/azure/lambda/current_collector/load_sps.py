@@ -98,12 +98,12 @@ def collect_spot_placement_score_first_time(desired_count):
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
-        # sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
-        # print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
-        # print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
-        # print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
-        # print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
-        # print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
+        sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
+        print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
+        print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
+        print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
+        print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
+        print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
         S3.upload_file(df_greedy_clustering_filtered, f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
 
@@ -112,8 +112,7 @@ def collect_spot_placement_score_first_time(desired_count):
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Prepare the request pool. time: {minutes}min {seconds}sec")
 
-        # return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
-        return sps_res_availability_zones_true_df
+        return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
 
 
 @log_execution_time
@@ -137,27 +136,26 @@ def collect_spot_placement_score(desired_count):
 
     get_sps_count_true = SS_Resources.succeed_to_get_sps_count
     get_next_available_location_count_true = SS_Resources.succeed_to_get_next_available_location_count
-    # SS_Resources.succeed_to_get_sps_count = SS_Resources.succeed_to_get_next_available_location_count = 0
-    # sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
-    # print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
-    # print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
-    # print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
-    # print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
-    # print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
+    SS_Resources.succeed_to_get_sps_count = SS_Resources.succeed_to_get_next_available_location_count = 0
+    sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
+    print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
+    print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
+    print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
+    print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
+    print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
     print(f'\n========================================')
     print(f'df_greedy_clustering_filtered lens: {len(df_greedy_clustering_filtered)}')
     print(f'Successfully_to_get_sps_count_true: {get_sps_count_true}')
-    # print(f'Successfully_to_get_sps_count_false: {SS_Resources.succeed_to_get_sps_count}')
-    # print(f'Successfully_to_get_sps_count_all: {SS_Resources.succeed_to_get_sps_count + get_sps_count_true}')
+    print(f'Successfully_to_get_sps_count_false: {SS_Resources.succeed_to_get_sps_count}')
+    print(f'Successfully_to_get_sps_count_all: {SS_Resources.succeed_to_get_sps_count + get_sps_count_true}')
 
     print(f'Successfully_get_next_available_location_count_true: {get_next_available_location_count_true}')
-    # print(f'Successfully_get_next_available_location_count_false: {SS_Resources.succeed_to_get_next_available_location_count}')
-    # print(f'Successfully_get_next_available_location_count_all: {SS_Resources.succeed_to_get_next_available_location_count + get_next_available_location_count_true}')
+    print(f'Successfully_get_next_available_location_count_false: {SS_Resources.succeed_to_get_next_available_location_count}')
+    print(f'Successfully_get_next_available_location_count_all: {SS_Resources.succeed_to_get_next_available_location_count + get_next_available_location_count_true}')
     print(f'========================================')
 
-    # return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
-    return sps_res_availability_zones_true_df
+    return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
 
 
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count):

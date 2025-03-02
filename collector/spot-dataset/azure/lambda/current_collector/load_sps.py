@@ -57,12 +57,12 @@ def collect_spot_placement_score_first_time(desired_count):
     '''
     print(f"Executing: collect_spot_placement_score_first_time (desired_count={desired_count})")
     if initialize_files_in_s3():
-        assert get_variable_from_s3()
-        initialize_sps_shared_resources()
+        assert prepare_the_variables()
 
         start_time = time.time()
-        res_price_api = collect_regions_and_instance_types_df_by_priceapi()
-        regions_and_instance_types_df, SS_Resources.region_map_and_instance_map_tmp['region_map'], SS_Resources.region_map_and_instance_map_tmp['instance_map'] = res_price_api
+        regions_and_instance_types_df, SS_Resources.region_map_and_instance_map_tmp['region_map'], \
+        SS_Resources.region_map_and_instance_map_tmp[
+            'instance_map'] = collect_regions_and_instance_types_df_by_priceapi()
 
         S3.upload_file(SS_Resources.region_map_and_instance_map_tmp, f"{AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", "json")
 
@@ -77,8 +77,6 @@ def collect_spot_placement_score_first_time(desired_count):
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"greedy_clustering_to_create_optimized_request_list. time: {minutes}min {seconds}sec")
-
-        SL_Manager.check_and_add_available_locations()
 
         start_time = time.time()
         sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count)
@@ -126,8 +124,7 @@ def collect_spot_placement_score(desired_count):
     2. SPS 호출 및 invalid_region, invalid_instanceType 수집 및 필터링.
     '''
     print(f"Executing: collect_spot_placement_score (desired_count={desired_count})")
-    assert get_variable_from_s3()
-    initialize_sps_shared_resources()
+    assert prepare_the_variables()
 
     df_greedy_clustering_filtered = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
 
@@ -428,7 +425,7 @@ def filter_invalid_items(items, invalid_type):
     return filtered_items if filtered_items else None
 
 
-def initialize_sps_shared_resources():
+def initialize_sps_count_resources():
     SS_Resources.bad_request_retry_count = 0
     SS_Resources.time_out_retry_count = 0
     SS_Resources.too_many_requests_count = 0
@@ -528,3 +525,10 @@ def collect_regions_and_instance_types_df_by_priceapi():
     except Exception as e:
         print(f"Failed to collect_regions_and_instance_types_df_by_priceapi, Error: {e}")
         return None
+
+
+def prepare_the_variables():
+    res = get_variable_from_s3()
+    SL_Manager.check_and_add_available_locations()
+    initialize_sps_count_resources()
+    return res

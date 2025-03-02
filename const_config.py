@@ -155,6 +155,10 @@ class AzureCollector(object):
         return "sps-collector/azure/saved_variable/region_map_and_instance_map.json"
 
     @constant
+    def AVAILABLE_LOCATIONS_JSON_FILENAME():
+        return "sps-collector/azure/saved_variable/available_locations.json"
+
+    @constant
     def DF_TO_USE_TODAY_PKL_FILENAME():
         return "sps-collector/azure/df_to_use_today.pkl"
 

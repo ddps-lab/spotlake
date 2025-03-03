@@ -74,6 +74,7 @@ const Query = ({
   const setFilter = ({ target }) => {
     //filter value 저장
     const { name, value } = target;
+
     // 날짜가 입력 될 경우
     if (name.includes("start_date")) setDate(name, value);
     setSearchFilter({ ...searchFilter, [name]: value });
@@ -96,6 +97,7 @@ const Query = ({
             console.log(e);
           }
         } else if (vendor === "AZURE") {
+
           setAssoInstance([...AZURE_REGION[value]]);
           try {
             let newAssoTier = new Set();
@@ -106,6 +108,11 @@ const Query = ({
               ]);
             });
             setAssoTier(["ALL", ...newAssoTier]);
+            setSearchFilter((prev) => ({
+              ...prev,
+              tier: prev.tier || "ALL",
+              az: prev.az || "ALL",
+            }));
           } catch (e) {
             console.log(e);
           }
@@ -142,9 +149,7 @@ const Query = ({
       })
       .includes(false);
     const invalidQueryForVendor =
-      (vendor === "AWS" && !Boolean(searchFilter?.az)) ||
-      (vendor === "AZURE" && !Boolean(searchFilter?.tier)) ||
-      (vendor === "AZURE" && !Boolean(searchFilter?.az));
+      (vendor === "AWS" && !Boolean(searchFilter?.az))
     if (invalidQuery || invalidQueryForVendor) {
       setSnackbar({
         open: true,
@@ -167,12 +172,8 @@ const Query = ({
         InstanceType:
           searchFilter["instance"] === "ALL" ? "*" : searchFilter["instance"],
         ...(vendor === "AZURE" && {
-          InstanceTier:
-            searchFilter["tier"] === "ALL" ? "*" : searchFilter["tier"],
-        }),
-        ...(vendor === "AZURE" && {
-          AvailabilityZone:
-            searchFilter["az"] === "ALL" ? "*" : searchFilter["az"],
+          InstanceTier:searchFilter["tier"] === "ALL" ? "*" : searchFilter["tier"],
+          AvailabilityZone: searchFilter["az"] === "ALL" ? "*" : searchFilter["az"]
         }),
         Start:
           searchFilter["start_date"] === "" ? "*" : searchFilter["start_date"],

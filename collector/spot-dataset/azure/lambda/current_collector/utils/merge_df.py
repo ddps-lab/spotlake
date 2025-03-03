@@ -19,6 +19,8 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, availability_zones=
     join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True)
 
+    join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
+
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
         "DesiredCount", "Score", "SPS_Update_Time"]
 

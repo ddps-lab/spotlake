@@ -272,13 +272,13 @@ const ColumnData = () => {
     { field: 'Score', headerName: 'Availability', flex: 1.5,
       headerAlign: 'center',
       valueGetter: (params) => {
-        return params.row.Score == "NaN" ? "N/A" : params.row.Score;
+        return (!params.row.Score || params.row.Score === "NaN") ? "N/A" : params.row.Score;
       }
     },
     { field: 'AvailabilityZone', headerName: 'AZ', flex: 1,
       headerAlign: 'center',
       valueGetter: (params) => {
-        return params.row.AvailabilityZone == "NaN" ? "N/A" : params.row.AvailabilityZone;
+        return (!params.row.AvailabilityZone || params.row.AvailabilityZone === "NaN") ? "N/A" : params.row.AvailabilityZone;
       }
     },
     {

@@ -34,7 +34,6 @@ def lambda_handler(event, context):
             if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
                 Logger.info("Skipping scheduled time (UTC 15:00, KST 00:00)")
                 return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc_datetime)
-
             sps_res_availability_zones_true_df, sps_res_availability_zones_false_df = load_sps.collect_spot_placement_score(desired_count=desired_count)
 
         else:
@@ -52,9 +51,8 @@ def lambda_handler(event, context):
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         Logger.error(error_msg)
-        send_slack_message(f"LOCAL_TEST_AZURE SPS MODULE EXCEPTION!\n{error_msg}\Log_stream_id: {log_stream_id}")
+        send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg}\Log_stream_id: {log_stream_id}")
         return handle_response(500, "Execute Failed!", action, event_time_utc_datetime, str(e))
-
 
 def handle_res_df(sps_res_true_df, sps_res_false_df, time_datetime):
     try:
@@ -89,12 +87,13 @@ def process_zone_data(price_saving_if_df, sps_res_df, time_datetime, is_true_zon
 
         if is_true_zone:
             prev_availability_zone_true_all_data_df = S3.read_file(f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
-            prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
+
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
             feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
 
             changed_df = None
             if prev_availability_zone_true_all_data_df is not None and not prev_availability_zone_true_all_data_df.empty:
+                prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
                 changed_df = compare_sps(prev_availability_zone_true_all_data_df, all_data_zone_true_df, workload_cols, feature_cols)
 
             update_success = update_latest(all_data_zone_true_df, is_true_zone)

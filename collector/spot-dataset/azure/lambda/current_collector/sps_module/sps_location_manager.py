@@ -3,6 +3,7 @@ import requests
 import traceback
 from sps_module import sps_shared_resources
 from datetime import datetime, timedelta, timezone
+from utils.pub_service import S3, AZURE_CONST
 
 SS_Resources = sps_shared_resources
 
@@ -11,10 +12,13 @@ def check_and_add_available_locations():
     이 메서드는 최신 사용 가능한 location을 수집하고, locations_call_history_tmp 변수에 저장된 기존 구독 기록과 비교하고 갱신합니다.
     """
     try:
-        available_locations = collect_available_locations()
-        if not available_locations:
-            print("No available locations collected. Skipping update.")
-            return False
+        SS_Resources.available_locations = collect_available_locations()
+        if not SS_Resources.available_locations:
+            print("No available locations collected. Reading the S3 file")
+            SS_Resources.available_locations = S3.read_file(f"{AZURE_CONST.AVAILABLE_LOCATIONS_JSON_FILENAME}", 'json')
+        else:
+            S3.upload_file(SS_Resources.available_locations, f"{AZURE_CONST.AVAILABLE_LOCATIONS_JSON_FILENAME}", 'json')
+
 
         # 기존 location_call_history 데이터가 없으면 빈 딕셔너리로 초기화
         if SS_Resources.locations_call_history_tmp is None:
@@ -29,7 +33,7 @@ def check_and_add_available_locations():
             if subscription_id not in SS_Resources.locations_over_limit_tmp:
                 SS_Resources.locations_over_limit_tmp[subscription_id] = {}
 
-            for location in available_locations:
+            for location in SS_Resources.available_locations:
                 if location not in SS_Resources.locations_call_history_tmp[subscription_id]:
                     SS_Resources.locations_call_history_tmp[subscription_id][location] = []
                     updated = True
@@ -39,7 +43,6 @@ def check_and_add_available_locations():
             return True
         else:
             print("No new available locations found. locations_call_history_tmp or locations_call_history_tmp unchanged.")
-            return False
 
     except Exception as e:
         print(f"Error in check_and_add_available_locations: {e}")

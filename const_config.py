@@ -131,6 +131,10 @@ class AzureCollector(object):
         return "sps-collector/azure/saved_variable/locations_call_history.json"
 
     @constant
+    def ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH():
+        return "sps-collector/azure/saved_variable/error_locations_call_history"
+
+    @constant
     def LOCATIONS_OVER_LIMIT_JSON_FILENAME():
         return "sps-collector/azure/saved_variable/locations_over_limit.json"
 
@@ -149,6 +153,10 @@ class AzureCollector(object):
     @constant
     def REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME():
         return "sps-collector/azure/saved_variable/region_map_and_instance_map.json"
+
+    @constant
+    def AVAILABLE_LOCATIONS_JSON_FILENAME():
+        return "sps-collector/azure/saved_variable/available_locations.json"
 
     @constant
     def DF_TO_USE_TODAY_PKL_FILENAME():

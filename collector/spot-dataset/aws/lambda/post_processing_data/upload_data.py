@@ -13,14 +13,18 @@ BUCKET_FILE_PATH = os.environ.get('PARENT_PATH')
 
 DATABASE_NAME = os.environ.get('DATABASE')
 AWS_TABLE_NAME = os.environ.get('DATABASE_TABLE')
-write_client = boto3.client('timestream-write', config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts':10}))
+write_client = boto3.client('timestream-write', config=Config(read_timeout=20,
+                            max_pool_connections=5000, retries={'max_attempts': 10}))
 
 # Submit Batch To Timestream
+
+
 def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName = AWS_TABLE_NAME, Records=records, CommonAttributes={})
+        result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName=AWS_TABLE_NAME,
+                                            Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
         for rr in err.response["RejectedRecords"]:
@@ -44,17 +48,17 @@ def upload_timestream(data, timestamp):
         dimensions = []
         for column in data.columns:
             if column in ['InstanceType', 'Region', 'AZ', 'OndemandPrice', 'Ceased']:
-                dimensions.append({'Name':column, 'Value': str(row[column])})
+                dimensions.append({'Name': column, 'Value': str(row[column])})
         submit_data = {
-                'Dimensions': dimensions,
-                'MeasureName': 'aws_values',
-                'MeasureValues': [],
-                'MeasureValueType': 'MULTI',
-                'Time': time_value
+            'Dimensions': dimensions,
+            'MeasureName': 'aws_values',
+            'MeasureValues': [],
+            'MeasureValueType': 'MULTI',
+            'Time': time_value
         }
         for column, types in [('SPS', 'BIGINT'), ('T3', 'BIGINT'), ('T2', 'BIGINT'), ('IF', 'DOUBLE'), ('SpotPrice', 'DOUBLE')]:
-            submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type' : types})
-        
+            submit_data['MeasureValues'].append({'Name': column, 'Value': str(row[column]), 'Type': types})
+
         records.append(submit_data)
         counter += 1
         if len(records) == 100:
@@ -76,12 +80,12 @@ def update_latest(data, timestamp):
 
     s3 = boto3.resource('s3')
     s3_client = boto3.client('s3')
-    
+
     with open(f"/tmp/{filename}", 'rb') as f:
-        s3_client.upload_fileobj(f, BUCKET_NAME, LATEST_PATH)
+        s3_client.upload_fileobj(f, BUCKET_NAME, LATEST_PATH, ExtraArgs={'ContentType': 'application/json'})
     object_acl = s3.ObjectAcl(BUCKET_NAME, LATEST_PATH)
     response = object_acl.put(ACL='public-read')
-    
+
     data.drop(['id'], axis=1, inplace=True)
 
 
@@ -90,11 +94,12 @@ def update_query_selector(changed_df):
     s3_path = f'query-selector/{filename}'
     s3 = boto3.resource('s3')
     query_selector_aws = pd.DataFrame(json.loads(s3.Object(BUCKET_NAME, s3_path).get()['Body'].read()))
-    query_selector_aws = pd.concat([query_selector_aws[['InstanceType', 'Region', 'AZ']], changed_df[['InstanceType', 'Region', 'AZ']]], axis=0, ignore_index=True).dropna().drop_duplicates(['InstanceType', 'Region', 'AZ']).reset_index(drop=True)
+    query_selector_aws = pd.concat([query_selector_aws[['InstanceType', 'Region', 'AZ']], changed_df[['InstanceType', 'Region', 'AZ']]],
+                                   axis=0, ignore_index=True).dropna().drop_duplicates(['InstanceType', 'Region', 'AZ']).reset_index(drop=True)
     result = query_selector_aws.to_json(f"/tmp/{filename}", orient="records")
     s3 = boto3.client('s3')
     with open(f"/tmp/{filename}", 'rb') as f:
-        s3.upload_fileobj(f, BUCKET_NAME, s3_path)
+        s3.upload_fileobj(f, BUCKET_NAME, s3_path, ExtraArgs={'ContentType': 'application/json'})
     s3 = boto3.resource('s3')
     object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
     response = object_acl.put(ACL='public-read')
@@ -107,7 +112,7 @@ def save_raw(data, timestamp):
     rawdata = data[['Time', 'InstanceType', 'Region', 'AZ', 'SPS', 'T3', 'T2', 'IF', 'OndemandPrice', 'SpotPrice', 'Savings']]
     SAVE_FILENAME = f"/tmp/{s3_obj_name}.csv.gz"
     rawdata.to_csv(SAVE_FILENAME, index=False, compression="gzip")
-    
+
     s3 = boto3.client('s3')
 
     with open(SAVE_FILENAME, 'rb') as f:

@@ -39,7 +39,7 @@ function Home() {
   useEffect(() => {
     getLatestData(
       "AWS",
-      "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json",
+      "https://d26bk4799jlxhe.cloudfront.net/latest_data/latest_aws.json",
       setGetdata
     );
   }, []);
@@ -49,19 +49,19 @@ function Home() {
       if (vendor === "AWS" && Object.keys(getData).length === 0) {
         getLatestData(
           vendor,
-          "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_aws.json",
+          "https://d26bk4799jlxhe.cloudfront.net/latest_data/latest_aws.json",
           setGetdata
         );
       } else if (vendor === "GCP" && GCPData.length === 0) {
         getLatestData(
           vendor,
-          "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_gcp.json",
+          "https://d26bk4799jlxhe.cloudfront.net/latest_data/latest_gcp.json",
           setGCPData
         );
       } else if (vendor === "AZURE" && AZUREData.length === 0) {
         getLatestData(
           vendor,
-          "https://spotlake.s3.us-west-2.amazonaws.com/latest_data/latest_azure.json",
+          "https://d26bk4799jlxhe.cloudfront.net/latest_data/latest_azure.json",
           setAZUREData
         );
       }

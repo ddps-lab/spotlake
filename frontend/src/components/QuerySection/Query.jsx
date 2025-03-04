@@ -23,8 +23,7 @@ const Query = ({
   setAZUREData,
   setSnackbar,
 }) => {
-  const url =
-    "https://ohu7b2tglrqpl7qlogbu7pduq40flbgg.lambda-url.us-west-2.on.aws/";
+  const url = "https://d26bk4799jlxhe.cloudfront.net/query-api/";
   const [load, setLoad] = useState(false);
   const [region, setRegion] = useState();
   const [az, setAZ] = useState();
@@ -97,7 +96,6 @@ const Query = ({
             console.log(e);
           }
         } else if (vendor === "AZURE") {
-
           setAssoInstance([...AZURE_REGION[value]]);
           try {
             let newAssoTier = new Set();
@@ -149,7 +147,7 @@ const Query = ({
       })
       .includes(false);
     const invalidQueryForVendor =
-      (vendor === "AWS" && !Boolean(searchFilter?.az))
+      vendor === "AWS" && !Boolean(searchFilter?.az);
     if (invalidQuery || invalidQueryForVendor) {
       setSnackbar({
         open: true,
@@ -172,14 +170,16 @@ const Query = ({
         InstanceType:
           searchFilter["instance"] === "ALL" ? "*" : searchFilter["instance"],
         ...(vendor === "AZURE" && {
-          InstanceTier:searchFilter["tier"] === "ALL" ? "*" : searchFilter["tier"],
-          AvailabilityZone: searchFilter["az"] === "ALL" ? "*" : searchFilter["az"]
+          InstanceTier:
+            searchFilter["tier"] === "ALL" ? "*" : searchFilter["tier"],
+          AvailabilityZone:
+            searchFilter["az"] === "ALL" ? "*" : searchFilter["az"],
         }),
         Start:
           searchFilter["start_date"] === "" ? "*" : searchFilter["start_date"],
         End: searchFilter["end_date"] === "" ? "*" : searchFilter["end_date"],
       };
-      //현재 url = "https://puhs0z1q3l.execute-api.us-west-2.amazonaws.com/default/sungjae-timestream-query";
+
       await axios
         .get(url, { params })
         .then((res) => {
@@ -197,8 +197,7 @@ const Query = ({
             });
           } else {
             // Status 성공 시,
-            let parseData = JSON.parse(JSON.parse(res.data.Data));
-            // let parseData = JSON.parse(res.data);
+            let parseData = res.data.Data;
             const setQueryData =
               vendor === "AWS"
                 ? setGetdata

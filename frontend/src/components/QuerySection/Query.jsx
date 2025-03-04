@@ -255,13 +255,13 @@ const Query = ({
   const setFilterData = async () => {
     // fecth Query Association JSON
     let assoAWS = await axios.get(
-      "https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_aws.json"
+      "https://d26bk4799jlxhe.cloudfront.net/query-selector/associated/association_aws.json"
     );
     let assoAzure = await axios.get(
-      "https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_azure.json"
+      "https://d26bk4799jlxhe.cloudfront.net/query-selector/associated/association_azure.json"
     );
     let assoGCP = await axios.get(
-      "https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_gcp.json"
+      "https://d26bk4799jlxhe.cloudfront.net/query-selector/associated/association_gcp.json"
     );
     if (assoAWS && assoAWS.data) {
       assoAWS = assoAWS.data[0];
@@ -444,50 +444,50 @@ const Query = ({
         </FormControl>
       ) : null}
       {vendor === "AZURE" && (
-          <>
-            <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
-              <style.filterLabel id="az-input-label" vendor={vendor}>
-                AZ
-              </style.filterLabel>
-              <style.filterSelect
-                  labelId="az-input-label"
-                  id="az-input"
-                  value={searchFilter["az"] ?? "ALL"}
-                  onChange={setFilter}
-                  label="AZ"
-                  name="az"
-                  vendor={vendor}
-              >
-                {["ALL", 1, 2, 3, "Single"].map((e) => (
+        <>
+          <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+            <style.filterLabel id="az-input-label" vendor={vendor}>
+              AZ
+            </style.filterLabel>
+            <style.filterSelect
+              labelId="az-input-label"
+              id="az-input"
+              value={searchFilter["az"] ?? "ALL"}
+              onChange={setFilter}
+              label="AZ"
+              name="az"
+              vendor={vendor}
+            >
+              {["ALL", 1, 2, 3, "Single"].map((e) => (
+                <style.selectItem key={e} value={e} vendor={vendor}>
+                  {e}
+                </style.selectItem>
+              ))}
+            </style.filterSelect>
+          </FormControl>
+          <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+            <style.filterLabel id="instance-tier-input-label" vendor={vendor}>
+              Tier
+            </style.filterLabel>
+            <style.filterSelect
+              labelId="instance-tier-input-label"
+              id="instance-tier-input"
+              value={searchFilter["tier"] ?? "ALL"}
+              onChange={setFilter}
+              label="Tier"
+              name="tier"
+              vendor={vendor}
+            >
+              {assoTier
+                ? assoTier.map((e) => (
                     <style.selectItem key={e} value={e} vendor={vendor}>
                       {e}
                     </style.selectItem>
-                ))}
-              </style.filterSelect>
-            </FormControl>
-            <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
-              <style.filterLabel id="instance-tier-input-label" vendor={vendor}>
-                Tier
-              </style.filterLabel>
-              <style.filterSelect
-                  labelId="instance-tier-input-label"
-                  id="instance-tier-input"
-                  value={searchFilter["tier"] ?? "ALL"}
-                  onChange={setFilter}
-                  label="Tier"
-                  name="tier"
-                  vendor={vendor}
-              >
-                {assoTier
-                    ? assoTier.map((e) => (
-                        <style.selectItem key={e} value={e} vendor={vendor}>
-                          {e}
-                        </style.selectItem>
-                    ))
-                    : null}
-              </style.filterSelect>
-            </FormControl>
-          </>
+                  ))
+                : null}
+            </style.filterSelect>
+          </FormControl>
+        </>
       )}
       <FormControl
         variant="standard"

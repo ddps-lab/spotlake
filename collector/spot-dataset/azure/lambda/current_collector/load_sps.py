@@ -166,6 +166,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     results = []
 
     locations = list(SS_Resources.locations_call_history_tmp[list(SS_Resources.locations_call_history_tmp.keys())[0]].keys())
+    no_available_locations_flag = False
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(locations) * 1)) as executor:
         futures = []
@@ -203,9 +204,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
 
                     elif result == "NO_AVAILABLE_LOCATIONS":
                         # NO_AVAILABLE_LOCATIONS인 경우 나머지 작업 취소
-                        current_utc_time = datetime.now(timezone.utc).strftime("%Y_%m_%dT%H_%M_%S")
-                        S3.upload_file(SS_Resources.locations_call_history_tmp, f"{AZURE_CONST.ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH}/{current_utc_time}.json", "json")
-                        print("No available locations found. Cancelling remaining tasks. ")
+                        no_available_locations_flag = True
                         for f in futures:
                             if not f.done():
                                 f.cancel()
@@ -221,6 +220,11 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                     raise
         finally:
             save_tmp_files_to_s3()
+            if no_available_locations_flag:
+                current_utc_time = datetime.now(timezone.utc).strftime("%Y_%m_%dT%H_%M_%S")
+                S3.upload_file(SS_Resources.locations_call_history_tmp,
+                               f"{AZURE_CONST.ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH}/{current_utc_time}.json", "json")
+                print("No available locations found. Cancelling remaining tasks. ")
 
 
     sps_res_df = pd.DataFrame(results)

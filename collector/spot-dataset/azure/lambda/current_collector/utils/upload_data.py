@@ -225,23 +225,32 @@ def update_latest(all_data_dataframe, availability_zones=True):
         return False
 
 
-def save_raw(all_data_dataframe, time_utc, availability_zones=True):
+def save_raw(all_data_dataframe, time_utc, data_type=None):
     try:
-        dataframe_desired_count_1_df = all_data_dataframe[all_data_dataframe["DesiredCount"].isin([1, -1])].copy()
 
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-        if availability_zones:
-            all_data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
-            # 기존 경로 유지
-            desired_count_1_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/{s3_dir_name}/{s3_obj_name}.csv.gz"
-            S3.upload_file(dataframe_desired_count_1_df, desired_count_1_path, "df_to_csv.gz", set_public_read=True)
+        if data_type == "az_true_desired_count_1":
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        elif data_type == "az_false_desired_count_1":
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        elif data_type == "az_true_desired_count_loop":
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        elif data_type == "az_false_desired_count_loop":
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        elif data_type == "specific_az_true":
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/specific/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        elif data_type == "specific_az_false":
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/specific/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
+
         else:
-            all_data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
+            print(f"save_raw failed. error: no data_type.")
+            return False
+
 
         # data 분석용
-        S3.upload_file(all_data_dataframe, all_data_path, "df_to_csv.gz", set_public_read=True)
+        S3.upload_file(all_data_dataframe, data_path, "df_to_csv.gz", set_public_read=True)
 
         return True
 

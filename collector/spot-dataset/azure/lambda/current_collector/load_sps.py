@@ -43,7 +43,7 @@ def log_execution_time(func):
     return wrapper
 
 @log_execution_time
-def collect_spot_placement_score_first_time(desired_count):
+def collect_spot_placement_score_first_time(desired_counts):
     # 시간 수집 로직들은 추후 제거 예정입니다.
     '''
     이 메서드는 0:00분에 호출합니다.
@@ -55,7 +55,7 @@ def collect_spot_placement_score_first_time(desired_count):
     6. regions_and_instance_types 원본을 invalid_region, invalid_instanceType 으로 필터링
     7. 다시 greedy_clustering 방법으로 하루애 이용 예정한 호출 파라미터 pool만들고 S3에 업로드
     '''
-    print(f"Executing: collect_spot_placement_score_first_time (desired_count={desired_count})")
+    print(f"Executing: collect_spot_placement_score_first_time (desired_counts={desired_counts})")
     if initialize_files_in_s3():
         assert prepare_the_variables()
 
@@ -79,7 +79,7 @@ def collect_spot_placement_score_first_time(desired_count):
         print(f"greedy_clustering_to_create_optimized_request_list. time: {minutes}min {seconds}sec")
 
         start_time = time.time()
-        sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_count)
+        sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_counts)
         print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
         print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
         print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
@@ -98,13 +98,6 @@ def collect_spot_placement_score_first_time(desired_count):
         df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
-        sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
-        print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
-        print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
-        print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
-        print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
-        print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
-
         S3.upload_file(df_greedy_clustering_filtered, f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
 
         end_time = time.time()
@@ -112,22 +105,39 @@ def collect_spot_placement_score_first_time(desired_count):
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Prepare the request pool. time: {minutes}min {seconds}sec")
 
+        sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_counts)
+        print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
+        print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
+        print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
+        print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
+        print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
         return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
 
 
 @log_execution_time
-def collect_spot_placement_score(desired_count):
+def collect_spot_placement_score(desired_counts, instance_types=None):
     '''
     이 메서드는 0:00분외에 매 10분 마다 호출합니다.
     1. 하루애 이용 예정한 호출 파라미터 pool을 S3에서 read.
     2. SPS 호출 및 invalid_region, invalid_instanceType 수집 및 필터링.
     '''
-    print(f"Executing: collect_spot_placement_score (desired_count={desired_count})")
+    if instance_types:
+        print(f"Executing: collect_spot_placement_score. Type: SPECIFIC. desired_counts={desired_counts}, instance_types={instance_types}")
+    else:
+        print(f"Executing: collect_spot_placement_score. Type: NORMAL. desired_counts={desired_counts}")
+
     assert prepare_the_variables()
+    if instance_types:
+        specific_regions_and_instance_types_df = pd.DataFrame(
+            [(region, instance) for region in SS_Resources.region_map_and_instance_map_tmp['region_map'].keys() for instance in instance_types],
+            columns=['RegionCode', 'InstanceType']
+        )
+        requests_df = specific_regions_and_instance_types_df
+    else:
+        df_greedy_clustering_filtered = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
+        requests_df = df_greedy_clustering_filtered
 
-    df_greedy_clustering_filtered = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
-
-    sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, True, desired_count)
+    sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(requests_df, True, desired_counts)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
     print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
     print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
@@ -136,8 +146,9 @@ def collect_spot_placement_score(desired_count):
 
     get_sps_count_true = SS_Resources.succeed_to_get_sps_count
     get_next_available_location_count_true = SS_Resources.succeed_to_get_next_available_location_count
+
     SS_Resources.succeed_to_get_sps_count = SS_Resources.succeed_to_get_next_available_location_count = 0
-    sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_count)
+    sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(requests_df, False, desired_counts)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
     print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
     print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
@@ -145,20 +156,26 @@ def collect_spot_placement_score(desired_count):
     print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
     print(f'\n========================================')
-    print(f'df_greedy_clustering_filtered lens: {len(df_greedy_clustering_filtered)}')
+    print(f'df_greedy_clustering_filtered lens: {len(requests_df)}')
     print(f'Successfully_to_get_sps_count_true: {get_sps_count_true}')
     print(f'Successfully_to_get_sps_count_false: {SS_Resources.succeed_to_get_sps_count}')
     print(f'Successfully_to_get_sps_count_all: {SS_Resources.succeed_to_get_sps_count + get_sps_count_true}')
 
     print(f'Successfully_get_next_available_location_count_true: {get_next_available_location_count_true}')
-    print(f'Successfully_get_next_available_location_count_false: {SS_Resources.succeed_to_get_next_available_location_count}')
-    print(f'Successfully_get_next_available_location_count_all: {SS_Resources.succeed_to_get_next_available_location_count + get_next_available_location_count_true}')
+    print(
+        f'Successfully_get_next_available_location_count_false: {SS_Resources.succeed_to_get_next_available_location_count}')
+    print(
+        f'Successfully_get_next_available_location_count_all: {SS_Resources.succeed_to_get_next_available_location_count + get_next_available_location_count_true}')
     print(f'========================================')
-
     return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
 
 
-def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_count):
+
+
+
+
+
+def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_counts):
     '''
     SPS 수집 공용 메서드, 멀티 호출 실행, 결과를 S3에 업로드
     '''
@@ -172,14 +189,15 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
         futures = []
 
         for row in api_calls_df.itertuples(index=False):
-            future = executor.submit(
-                execute_spot_placement_score_api,
-                row.Regions, row.InstanceTypes, availability_zones, desired_count, max_retries=50
-            )
-            futures.append(future)
+            for desired_count in desired_counts:
+                future = executor.submit(
+                    execute_spot_placement_score_api,
+                    row.Regions, row.InstanceTypes, availability_zones, desired_count, max_retries=50
+                )
+                futures.append((future, desired_count))
 
         try:
-            for future in futures:
+            for future, desired_count in futures:
                 try:
                     result = future.result()
                     if result and result != "NO_AVAILABLE_LOCATIONS":

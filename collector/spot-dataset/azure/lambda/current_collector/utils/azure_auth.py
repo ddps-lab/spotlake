@@ -33,10 +33,10 @@ def get_token():
 
 def get_sps_token_and_subscriptions():
     auth_data = DB_AzureAuth.get_item('login_auth')
-    tenant_id = auth_data['M']['tenant_id']['S']
-    client_id = auth_data['M']['client_id']['S']
-    client_secret = auth_data['M']['client_secret']['S']
-    subscriptions = auth_data['M']['subscriptions']['S'].split(",")
+    tenant_id = auth_data['tenant_id']
+    client_id = auth_data['client_id']
+    client_secret = auth_data['client_secret']
+    subscriptions = auth_data['subscriptions'].split(",")
 
 
     if not all([tenant_id, client_id, client_secret, subscriptions]):

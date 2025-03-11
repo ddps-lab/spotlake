@@ -25,7 +25,10 @@ def get_data(token, skip_token, retry=3):
         if not "data" in data:
             raise ValueError
 
-        return data
+        if len(data['data']) > 0:
+            return data
+        else:
+            return None
     except:
         if retry == 1:
             raise
@@ -41,12 +44,18 @@ def load_if():
 
         while True:
             data = get_data(token, skip_token)
+            if data:
+                datas += data["data"]
 
-            datas += data["data"]
+                if not "$skipToken" in data:
+                    break
+                skip_token = data["$skipToken"]
 
-            if not "$skipToken" in data:
+            else:
                 break
-            skip_token = data["$skipToken"]
+
+        if not datas:
+            return None
 
         eviction_df = pd.DataFrame(datas)
 

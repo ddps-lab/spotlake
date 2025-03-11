@@ -15,7 +15,7 @@ UTC_1500_TIME = "15:00"  # UTC 15:00 (KST 00:00)
 
 def lambda_handler(event, context):
     action = event.get("action")
-    log_stream_id = context.log_stream_name
+    log_stream_name = context.log_stream_name
     event_time_utc = event.get("time")
     event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
 
@@ -24,7 +24,7 @@ def lambda_handler(event, context):
             raise ValueError("Invalid event info: action or time is missing")
 
         desired_count = sps_shared_resources.time_desired_count_map.get(event_time_utc_datetime.strftime("%H:%M"), 1)
-        Logger.info(f"Lambda triggered: action: {action}, event_time: {datetime.strftime(event_time_utc_datetime, '%Y-%m-%d %H:%M:%S')}, desired_count: {desired_count}")
+        Logger.info(f"Lambda triggered: action: {action}, event_time: {datetime.strftime(event_time_utc_datetime, '%Y-%m-%d %H:%M:%S')}")
 
         specific_desired_counts = [specific_desired_count.strip() for specific_desired_count in os.environ.get('specific_desired_counts').split(",") if specific_desired_count.strip()]
         specific_instance_types = [specific_instance_type.strip() for specific_instance_type in os.environ.get('specific_instance_types').split(",") if specific_instance_type.strip()]
@@ -79,7 +79,8 @@ def lambda_handler(event, context):
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         Logger.error(error_msg)
-        send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg}\Log_stream_id: {log_stream_id}")
+        Logger.error(traceback.format_exc())
+        send_slack_message(f"LOCAL TEST AZURE SPS MODULE EXCEPTION!\n{error_msg}\log_stream_id: {log_stream_name}")
         return handle_response(500, "Execute Failed!", action, event_time_utc_datetime, str(e))
 
 
@@ -99,8 +100,7 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count
 
         if prev_availability_zone_true_all_data_df is not None and not prev_availability_zone_true_all_data_df.empty:
             prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
-            changed_df = compare_sps(prev_availability_zone_true_all_data_df, sps_res_az_true_desired_count_1_merged_df, workload_cols,
-                                     feature_cols)
+            changed_df = compare_sps(prev_availability_zone_true_all_data_df, sps_res_az_true_desired_count_1_merged_df, workload_cols, feature_cols)
             query_success = query_selector(changed_df)
             timestream_success = upload_timestream(changed_df, time_datetime)
             cloudwatch_success = upload_cloudwatch(sps_res_az_true_desired_count_1_merged_df, time_datetime)
@@ -111,15 +111,15 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count
 
         success_flag = all([query_success, timestream_success, cloudwatch_success, update_latest_success, save_raw_az_true_desired_count_1_success])
         log_details = (
-            f"update_latest_success: {update_latest_success}, save: {save_raw_az_true_desired_count_1_success}, cloudwatch: {cloudwatch_success}, "
+            f"update_latest_success: {update_latest_success}, save: {save_raw_az_true_desired_count_1_success}, cloudwatch: {cloudwatch_success}"
             f"query: {query_success}, timestream: {timestream_success}"
         )
 
         if success_flag:
-            Logger.info("Successfully merged the price/if/sps df, process_zone_data for spotlake!")
+            Logger.info("Successfully merged the price/if/sps df, process data for spotlake!")
             return True
         else:
-            Logger.info("Failed to merge the price/if/sps df, process_zone_data for spotlake!")
+            Logger.info("Failed to merge the price/if/sps df, process data for spotlake!")
             Logger.error(log_details)
             return False
 
@@ -147,39 +147,16 @@ def handle_res_df_for_research(sps_res_az_false_desired_count_1_df, sps_res_az_t
 
         success_flag = all([save_raw_az_false_desired_count_1_success, save_raw_az_true_desired_count_loop_success, save_raw_az_false_desired_count_loop_success, save_raw_specific_az_true_success, save_raw_specific_az_false_success])
         if success_flag:
-            Logger.info("Successfully merged the price/if/sps df, process_zone_data for spotlake!")
+            Logger.info("Successfully merged the price/if/sps df, process data for research!")
             return True
         else:
-            Logger.info("Failed to merge the price/if/sps df, process_zone_data for spotlake!")
+            Logger.info("Failed to merge the price/if/sps df, process data for research!")
             return False
 
     except Exception as e:
         Logger.error(f"Error in handle_res_df function: {e}")
         return False
 
-
-def process_zone_data(sps_res_df, time_datetime):
-    try:
-        update_success = update_latest(sps_res_df)
-        save_success = save_raw(sps_res_df, time_datetime)
-
-        success = all([update_success, save_success])
-        log_details = f"update: {update_success}, save: {save_success}"
-
-
-        if not success:
-            Logger.error(f"Failed: Availability process_zone_data.")
-            Logger.error(log_details)
-
-        else:
-            return True
-
-    except Exception as e:
-        Logger.error(f"Error in process_zone_data function: {e}")
-        Logger.error(traceback.format_exc())
-        return False
-
-    return False
 
 def handle_response(status_code, body, action, time_datetime, error_message=None):
     response = {

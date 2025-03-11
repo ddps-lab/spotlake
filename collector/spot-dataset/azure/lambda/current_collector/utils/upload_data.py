@@ -1,7 +1,5 @@
 # Upload collected data to Timestream or S3
 import os
-import json
-import time
 import boto3
 import pickle
 import pandas as pd
@@ -124,6 +122,7 @@ def submit_batch(records, counter, recursive):
 
     except TimestreamWrite.client.exceptions.RejectedRecordsException as err:
         print(err)
+        print(err.response["RejectedRecords"])
         re_records = []
         for rr in err.response["RejectedRecords"]:
             re_records.append(records[rr["RecordIndex"]])
@@ -234,11 +233,11 @@ def save_raw(all_data_dataframe, time_utc, data_type=None):
         if data_type == "az_true_desired_count_1":
             data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/{s3_dir_name}/{s3_obj_name}.csv.gz"
         elif data_type == "az_false_desired_count_1":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/desired_count_1/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
         elif data_type == "az_true_desired_count_loop":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/multi/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
         elif data_type == "az_false_desired_count_loop":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/all_data/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
+            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/multi/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
         elif data_type == "specific_az_true":
             data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/specific/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
         elif data_type == "specific_az_false":

@@ -13,7 +13,7 @@ from json import JSONDecodeError
 from functools import wraps
 from datetime import datetime, timezone
 from utils.azure_auth import get_sps_token_and_subscriptions
-from utils.pub_service import S3, AZURE_CONST
+from utils.pub_service import S3, AZURE_CONST, Logger
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager
@@ -55,7 +55,7 @@ def collect_spot_placement_score_first_time(desired_counts):
     6. regions_and_instance_types 원본을 invalid_region, invalid_instanceType 으로 필터링
     7. 다시 greedy_clustering 방법으로 하루애 이용 예정한 호출 파라미터 pool만들고 S3에 업로드
     '''
-    print(f"Executing: collect_spot_placement_score_first_time (desired_counts={desired_counts})")
+    Logger.info(f"Executing: collect_spot_placement_score_first_time (desired_counts={desired_counts})")
     if initialize_files_in_s3():
         assert prepare_the_variables()
 
@@ -95,17 +95,17 @@ def collect_spot_placement_score_first_time(desired_counts):
         start_time = time.time()
         regions_and_instance_types_filtered_df = sps_prepare_parameters.filter_invalid_parameter(
             regions_and_instance_types_df)
-        df_greedy_clustering_filtered = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
+        df_greedy_clustering_filtered_df = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
             regions_and_instance_types_filtered_df)
 
-        S3.upload_file(df_greedy_clustering_filtered, f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
+        S3.upload_file(df_greedy_clustering_filtered_df, f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
 
         end_time = time.time()
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Prepare the request pool. time: {minutes}min {seconds}sec")
 
-        sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered, False, desired_counts)
+        sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered_df, False, desired_counts)
         print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
         print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
         print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
@@ -122,20 +122,36 @@ def collect_spot_placement_score(desired_counts, instance_types=None):
     2. SPS 호출 및 invalid_region, invalid_instanceType 수집 및 필터링.
     '''
     if instance_types:
-        print(f"Executing: collect_spot_placement_score. Type: SPECIFIC. desired_counts={desired_counts}, instance_types={instance_types}")
+        Logger.info(f"Executing: collect_spot_placement_score. Type: SPECIFIC. desired_counts={desired_counts}, instance_types={instance_types}")
     else:
-        print(f"Executing: collect_spot_placement_score. Type: NORMAL. desired_counts={desired_counts}")
+        if desired_counts[0] == 1:
+            Logger.info(f"Executing: collect_spot_placement_score. Type: DESIRED_COUNT_1. desired_counts={desired_counts}")
+        else:
+            Logger.info(f"Executing: collect_spot_placement_score. Type: MULTI. desired_counts={desired_counts}")
 
     assert prepare_the_variables()
+
     if instance_types:
-        specific_regions_and_instance_types_df = pd.DataFrame(
-            [(region, instance) for region in SS_Resources.region_map_and_instance_map_tmp['region_map'].keys() for instance in instance_types],
-            columns=['RegionCode', 'InstanceType']
-        )
-        requests_df = specific_regions_and_instance_types_df
+        regions = list(SS_Resources.region_map_and_instance_map_tmp['region_map'].keys())
+        invalid_regions = SS_Resources.invalid_regions_tmp
+
+        valid_regions = [region for region in regions if region not in invalid_regions]
+
+        def chunk_list(lst, chunk_size):
+            return [lst[i:i + chunk_size] for i in range(0, len(lst), chunk_size)]
+
+        regions_chunks = chunk_list(valid_regions, 8)
+        instance_types_chunks = chunk_list(instance_types, 3)
+
+        data_tmp = []
+        for region_chunk in regions_chunks:
+            for instance_type_chunk in instance_types_chunks:
+                data_tmp.append({'Regions': region_chunk, 'InstanceTypes': instance_type_chunk})
+
+        requests_df = pd.DataFrame(data_tmp)
+
     else:
-        df_greedy_clustering_filtered = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
-        requests_df = df_greedy_clustering_filtered
+        requests_df = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
 
     sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(requests_df, True, desired_counts)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
@@ -170,22 +186,17 @@ def collect_spot_placement_score(desired_counts, instance_types=None):
     return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
 
 
-
-
-
-
-
 def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_counts):
     '''
     SPS 수집 공용 메서드, 멀티 호출 실행, 결과를 S3에 업로드
     '''
     # 결과를 저장할 리스트
+    Logger.info(f"Executing: execute_spot_placement_score_task_by_parameter_pool_df. desired_counts={desired_counts}, availability_zones={availability_zones}")
     results = []
-
     locations = list(SS_Resources.locations_call_history_tmp[list(SS_Resources.locations_call_history_tmp.keys())[0]].keys())
     no_available_locations_flag = False
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(locations) * 1)) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(locations) * 2)) as executor:
         futures = []
 
         for row in api_calls_df.itertuples(index=False):
@@ -223,7 +234,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                     elif result == "NO_AVAILABLE_LOCATIONS":
                         # NO_AVAILABLE_LOCATIONS인 경우 나머지 작업 취소
                         no_available_locations_flag = True
-                        for f in futures:
+                        for f, _ in futures:
                             if not f.done():
                                 f.cancel()
                         executor.shutdown(wait=False)
@@ -244,13 +255,12 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                                f"{AZURE_CONST.ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH}/{current_utc_time}.json", "json")
                 print("No available locations found. Cancelling remaining tasks. ")
 
-
     sps_res_df = pd.DataFrame(results)
 
     if availability_zones is True:
-        subset_cols = ["RegionCodeSPS", "InstanceTypeSPS", "AvailabilityZone"]
+        subset_cols = ["DesiredCount", "RegionCodeSPS", "InstanceTypeSPS", "AvailabilityZone"]
     else:
-        subset_cols = ["RegionCodeSPS", "InstanceTypeSPS"]
+        subset_cols = ["DesiredCount", "RegionCodeSPS", "InstanceTypeSPS"]
 
     sps_res_df.drop_duplicates(subset=subset_cols, keep="last", inplace=True)
 
@@ -294,7 +304,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availabi
             "Content-Type": "application/json",
         }
         try:
-            response = requests.post(url, headers=headers, json=request_body, timeout=40)
+            response = requests.post(url, headers=headers, json=request_body, timeout=50)
             response.raise_for_status()
             return response.json()
 

@@ -1,4 +1,3 @@
-import os
 import requests
 import time
 from azure.identity import ClientSecretCredential

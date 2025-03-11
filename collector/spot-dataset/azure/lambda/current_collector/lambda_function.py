@@ -17,13 +17,11 @@ def lambda_handler(event, _):
     # collect azure price data with multithreading
     try:
         price_saving_df = collect_price_with_multithreading()
-        if not price_saving_df:
-            is_price_fetch_success = False
-            error_msg = """AZURE PRICE MODULE EXCEPTION!\n price_saving_df is None"""
 
     except Exception as e:
         is_price_fetch_success = False
         error_msg = """AZURE PRICE MODULE EXCEPTION!\n %s""" % (e)
+        send_slack_message(error_msg)
         data = {'text': error_msg}
 
     try:
@@ -40,7 +38,6 @@ def lambda_handler(event, _):
         join_df = merge_price_saving_if_df(price_saving_df, if_df)
     elif not is_price_fetch_success and is_if_fetch_success:
         join_df = if_df
-        send_slack_message(error_msg)
 
     elif is_price_fetch_success and not is_if_fetch_success:
         price_saving_df['IF'] = -1.0

@@ -119,47 +119,43 @@ class AzureCollector(object):
         return 200
 
     @constant
-    def SPOT_DATA_COLLECTION_LOG_GROUP_NAME():
-        return "Collection-Data-Count"
+    def S3_SAVED_VARIABLE_PATH():
+        return "sps-collector/azure/saved_variable"
 
     @constant
-    def LOG_STREAM_NAME():
-        return "Azure-Count"
+    def S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME():
+        return "locations_call_history.json"
 
     @constant
-    def LOCATIONS_CALL_HISTORY_JSON_FILENAME():
-        return "sps-collector/azure/saved_variable/locations_call_history.json"
+    def S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME():
+        return "locations_over_limit.json"
+
+    @constant
+    def S3_INVALID_REGIONS_JSON_FILENAME():
+        return "invalid_regions.json"
+
+    @constant
+    def S3_INVALID_INSTANCE_TYPES_JSON_FILENAME():
+        return "invalid_instance_types.json"
+
+    @constant
+    def S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME():
+        return "last_subscription_id_and_location.json"
+
+    @constant
+    def S3_REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME():
+        return "region_map_and_instance_map.json"
+
+    @constant
+    def S3_AVAILABLE_LOCATIONS_JSON_FILENAME():
+        return "available_locations.json"
 
     @constant
     def ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH():
         return "sps-collector/azure/saved_variable/error_locations_call_history"
 
     @constant
-    def LOCATIONS_OVER_LIMIT_JSON_FILENAME():
-        return "sps-collector/azure/saved_variable/locations_over_limit.json"
-
-    @constant
-    def INVALID_REGIONS_JSON_FILENAME():
-        return "sps-collector/azure/saved_variable/invalid_regions.json"
-
-    @constant
-    def INVALID_INSTANCE_TYPES_JSON_FILENAME():
-        return "sps-collector/azure/saved_variable/invalid_instance_types.json"
-
-    @constant
-    def LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME():
-        return "sps-collector/azure/saved_variable/last_subscription_id_and_location.json"
-
-    @constant
-    def REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME():
-        return "sps-collector/azure/saved_variable/region_map_and_instance_map.json"
-
-    @constant
-    def AVAILABLE_LOCATIONS_JSON_FILENAME():
-        return "sps-collector/azure/saved_variable/available_locations.json"
-
-    @constant
-    def DF_TO_USE_TODAY_PKL_FILENAME():
+    def S3_DF_TO_USE_TODAY_PKL_FILENAME():
         return "sps-collector/azure/df_to_use_today.pkl"
 
     @constant

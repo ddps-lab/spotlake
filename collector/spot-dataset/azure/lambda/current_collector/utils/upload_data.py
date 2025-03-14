@@ -4,7 +4,7 @@ import boto3
 import pickle
 import pandas as pd
 from datetime import datetime
-from utils.pub_service import AZURE_CONST, STORAGE_CONST, CW, S3, TimestreamWrite
+from utils.pub_service import AZURE_CONST, STORAGE_CONST, CW, S3, TimestreamWrite, Logger
 
 session = boto3.session.Session(region_name='us-west-2')
 
@@ -61,6 +61,7 @@ def save_raw_price_saving_if(data, time_datetime):
     os.remove(f"{AZURE_CONST.SERVER_SAVE_DIR}/{time_str}.csv.gz")
 
 def upload_cloudwatch(data, time_datetime):
+    Logger.info("Executing upload_cloudwatch!")
     try:
         ondemand_count = len(data.drop(columns=['IF', 'SpotPrice', 'Savings', 'Score']).dropna())
         spot_count = len(data.drop(columns=['IF', 'OndemandPrice', 'Savings', 'Score']).dropna())
@@ -72,10 +73,8 @@ def upload_cloudwatch(data, time_datetime):
             'message': f'AZUREONDEMAND: {ondemand_count} AZURESPOT: {spot_count} AZUREIF: {if_count} AZURESPS: {sps_count}'
         }]
 
-        CW.client.put_log_events(
-            logGroupName=AZURE_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
-            logStreamName=AZURE_CONST.LOG_STREAM_NAME,
-            logEvents=log_event
+        CW.put_log_events(
+            log_events=log_event
         )
         return True
 
@@ -84,6 +83,7 @@ def upload_cloudwatch(data, time_datetime):
         return False
 
 def query_selector(data):
+    Logger.info("Executing query_selector!")
     try:
         prev_query_selector_data = S3.read_file(AZURE_CONST.S3_QUERY_SELECTOR_SAVE_PATH, 'json')
         if prev_query_selector_data:
@@ -109,30 +109,30 @@ def query_selector(data):
 
 # Submit Batch To Timestream
 def submit_batch(records, counter, recursive):
-    if recursive == 10:
-        return
+
     try:
         common_attrs = {'MeasureName': 'azure_values','MeasureValueType': 'MULTI'}
-        TimestreamWrite.client.write_records(
-            DatabaseName='spotlake',
-            TableName='azure',
-            Records=records,
-            CommonAttributes=common_attrs
+        TimestreamWrite.write_records(
+            records=records,
+            common_attrs=common_attrs
         )
 
     except TimestreamWrite.client.exceptions.RejectedRecordsException as err:
-        print(err)
-        print(err.response["RejectedRecords"])
+        print(f"RejectedRecords Details: {err.response['RejectedRecords']}")
         re_records = []
         for rr in err.response["RejectedRecords"]:
             re_records.append(records[rr["RecordIndex"]])
-        submit_batch(re_records, counter, recursive + 1)
+        if recursive == 10:
+            raise
+        else:
+            submit_batch(re_records, counter, recursive + 1)
     except Exception as err:
-        print(err)
+        raise
 
 
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, time_datetime):
+    Logger.info("Executing upload_timestream!")
     try:
         data = data.copy()
         data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
@@ -200,7 +200,7 @@ def upload_timestream(data, time_datetime):
         return False
 
 
-def update_latest(all_data_dataframe, availability_zones=True):
+def update_latest(all_data_dataframe):
     try:
         all_data_dataframe['id'] = all_data_dataframe.index + 1
 
@@ -208,15 +208,13 @@ def update_latest(all_data_dataframe, availability_zones=True):
         dataframe_desired_count_1_df['id'] = dataframe_desired_count_1_df.index + 1
         desired_count_1_json_data = dataframe_desired_count_1_df.to_dict(orient="records")
 
-        if availability_zones:
-            desired_count_1_json_path = f"{AZURE_CONST.S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH}"
-            pkl_gzip_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}"
+        desired_count_1_json_path = f"{AZURE_CONST.S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH}"
+        pkl_gzip_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}"
 
-            # FE 노출용 json, ["DesiredCount"].isin([1, -1])
-            S3.upload_file(desired_count_1_json_data, desired_count_1_json_path, "json", set_public_read=True)
-            # Full data pkl.gz, data 비교용
-            S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
-
+        # FE 노출용 json, ["DesiredCount"].isin([1, -1])
+        S3.upload_file(desired_count_1_json_data, desired_count_1_json_path, "json", set_public_read=True)
+        # Full data pkl.gz, data 비교용
+        S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
         return True
 
     except Exception as e:
@@ -224,24 +222,22 @@ def update_latest(all_data_dataframe, availability_zones=True):
         return False
 
 
-def save_raw(all_data_dataframe, time_utc, data_type=None):
+def save_raw(all_data_dataframe, time_utc, az, data_type=None):
     try:
-
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-        if data_type == "az_true_desired_count_1":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/{s3_dir_name}/{s3_obj_name}.csv.gz"
-        elif data_type == "az_false_desired_count_1":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/desired_count_1/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
-        elif data_type == "az_true_desired_count_loop":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/multi/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
-        elif data_type == "az_false_desired_count_loop":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/multi/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
-        elif data_type == "specific_az_true":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/specific/availability-zones-true/{s3_dir_name}/{s3_obj_name}.csv.gz"
-        elif data_type == "specific_az_false":
-            data_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}/specific/availability-zones-false/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        az_str = f"availability-zones-{str(az).lower()}"
+        base_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}"
+
+        if data_type == "desired_count_1":
+            if az:
+                data_path = f"{base_path}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+            else:
+                data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+
+        elif data_type in {"desired_count_loop", "specific"}:
+            data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
         else:
             print(f"save_raw failed. error: no data_type.")

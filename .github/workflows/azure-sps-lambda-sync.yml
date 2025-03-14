@@ -47,4 +47,5 @@ jobs:
 
       - name: Deploy to AWS Lambda
         run: |
-          aws lambda update-function-code --function-name azure-sps-collector --zip-file fileb://azure_sps_lambda.zip
+          aws lambda update-function-code --function-name azure-sps-collector-az-true --zip-file fileb://azure_sps_lambda.zip
+          aws lambda update-function-code --function-name azure-sps-collector-az-false --zip-file fileb://azure_sps_lambda.zip

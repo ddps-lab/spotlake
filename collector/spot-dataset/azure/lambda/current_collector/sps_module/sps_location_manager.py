@@ -114,6 +114,7 @@ def get_next_available_location():
                 if validation_can_call(location, current_history, current_over_limit_locations):
                     SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
                     SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
+                    SS_Resources.succeed_to_get_next_available_location_count += 1
                     return subscription_id, location, current_history, current_over_limit_locations
 
         return None

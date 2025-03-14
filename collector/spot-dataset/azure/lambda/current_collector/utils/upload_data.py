@@ -236,7 +236,7 @@ def save_raw(all_data_dataframe, time_utc, az, data_type=None):
             else:
                 data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
-        elif data_type in {"desired_count_loop", "specific"}:
+        elif data_type in {"multi", "specific"}:
             data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
         else:

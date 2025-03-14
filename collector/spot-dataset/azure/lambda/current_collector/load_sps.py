@@ -14,7 +14,7 @@ from functools import wraps
 from datetime import datetime, timezone
 from utils.azure_auth import get_sps_token_and_subscriptions
 from utils.pub_service import S3, AZURE_CONST, Logger
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 availability_zones = os.environ.get("availability_zones", "False").lower() == "true"
 
@@ -196,7 +196,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
                 future_to_desired_count[future] = desired_count
 
         try:
-            for future in as_completed(futures):
+            for future in futures:
                 try:
                     result = future.result()
                     desired_count = future_to_desired_count[future]
@@ -283,7 +283,6 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
             if res is None:
                 return "NO_AVAILABLE_LOCATIONS"
             else:
-                SS_Resources.succeed_to_get_next_available_location_count += 1
                 subscription_id, location, history, over_limit_locations = res
                 SL_Manager.update_call_history(subscription_id, location, history)
 

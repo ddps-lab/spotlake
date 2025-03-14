@@ -21,7 +21,6 @@ availability_zones = os.environ.get("availability_zones", "False").lower() == "t
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager
 SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions(availability_zones)
-too_many_requests_print_flag = True
 
 # 본 시간 수집 function은 추후 제거 예정입니다.
 def log_execution_time(func):

@@ -13,11 +13,17 @@ FIRST_TIME_ACTION = "First_Time"  # 첫 실행 액션
 EVERY_10MIN_ACTION = "Every_10Min"  # 10분마다 실행 액션
 UTC_1500_TIME = "15:00"  # UTC 15:00 (KST 00:00)
 
+availability_zones = os.environ.get("availability_zones", "False").lower() == "true"
+
 def lambda_handler(event, context):
-    action = event.get("action")
     log_stream_name = context.log_stream_name
     event_time_utc = event.get("time")
     event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
+
+    if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
+        action = FIRST_TIME_ACTION
+    else:
+        action = EVERY_10MIN_ACTION
 
     try:
         if not action or not event_time_utc:
@@ -30,47 +36,42 @@ def lambda_handler(event, context):
         specific_instance_types = [specific_instance_type.strip() for specific_instance_type in os.environ.get('specific_instance_types').split(",") if specific_instance_type.strip()]
 
         if action == FIRST_TIME_ACTION:
-            sps_res_az_true_desired_count_1_df, sps_res_az_false_desired_count_1_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[1])
+            if availability_zones is True:
+                sps_res_desired_count_1_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[1])
+            else:
+                sps_res_desired_count_1_df = load_sps.collect_spot_placement_score(desired_counts=[1])
 
-            sps_res_az_true_desired_count_loop_df, sps_res_az_false_desired_count_loop_df = load_sps.collect_spot_placement_score(
-                desired_counts=[desired_count])
+            sps_res_desired_count_loop_df = load_sps.collect_spot_placement_score(desired_counts=[desired_count])
 
-            sps_res_specific_az_true_df, sps_res_specific_az_false_df = load_sps.collect_spot_placement_score(
+            sps_res_specific_df = load_sps.collect_spot_placement_score(
                 desired_counts=specific_desired_counts, instance_types=specific_instance_types)
 
 
         elif action == EVERY_10MIN_ACTION:
-            # UTC 15:00 (KST 00:00)인 경우 실행 건너뛰기
-            if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
-                Logger.info("Skipping scheduled time (UTC 15:00, KST 00:00)")
-                return handle_response(200, "Executed successfully. Scheduled time skipped.", action, event_time_utc_datetime)
-            sps_res_az_true_desired_count_1_df, sps_res_az_false_desired_count_1_df = load_sps.collect_spot_placement_score(desired_counts=[1])
+            sps_res_desired_count_1_df = load_sps.collect_spot_placement_score(desired_counts=[1])
 
-            sps_res_az_true_desired_count_loop_df, sps_res_az_false_desired_count_loop_df = load_sps.collect_spot_placement_score(
-                desired_counts=[desired_count])
+            sps_res_desired_count_loop_df = load_sps.collect_spot_placement_score(desired_counts=[desired_count])
 
-            sps_res_specific_az_true_df, sps_res_specific_az_false_df = load_sps.collect_spot_placement_score(
+            sps_res_specific_df = load_sps.collect_spot_placement_score(
                 desired_counts=specific_desired_counts, instance_types=specific_instance_types)
 
         else:
             raise ValueError(f"Invalid lambda action.")
 
 
-        if sps_res_az_true_desired_count_1_df is None: raise ValueError("sps_res_az_true_desired_count_1_df is None")
-        if sps_res_az_true_desired_count_loop_df is None: raise ValueError("sps_res_az_true_desired_count_loop_df is None")
-        if sps_res_az_false_desired_count_loop_df is None: raise ValueError("sps_res_az_false_desired_count_loop_df is None")
-        if sps_res_specific_az_true_df is None: raise ValueError("sps_res_specific_az_true_df is None")
-        if sps_res_specific_az_false_df is None: raise ValueError("sps_res_specific_az_false_df is None")
+        if sps_res_desired_count_1_df is None: raise ValueError("sps_res_desired_count_1_df is None")
+        if sps_res_desired_count_loop_df is None: raise ValueError("sps_res_desired_count_loop_df is None")
+        if sps_res_specific_df is None: raise ValueError("sps_res_specific_df is None")
 
-        price_saving_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH, 'pkl.gz')
-        if price_saving_if_df is None:
-            raise ValueError("price_if_df is None")
+        if availability_zones is True:
+            price_saving_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH, 'pkl.gz')
+            if price_saving_if_df is None:
+                raise ValueError("price_if_df is None")
 
-        if not handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count_1_df, event_time_utc_datetime):
-            raise RuntimeError("Failed to handle_res_df_for_spotlake")
+            if not handle_res_df_for_spotlake(price_saving_if_df, sps_res_desired_count_1_df, event_time_utc_datetime):
+                raise RuntimeError("Failed to handle_res_df_for_spotlake")
 
-        if not handle_res_df_for_research(sps_res_az_false_desired_count_1_df, sps_res_az_true_desired_count_loop_df, sps_res_az_false_desired_count_loop_df,
-                                          sps_res_specific_az_true_df, sps_res_specific_az_false_df,
+        if not handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count_loop_df, sps_res_specific_df,
                                           event_time_utc_datetime):
             raise RuntimeError("Failed to handle_res_for_research_df")
 
@@ -80,7 +81,7 @@ def lambda_handler(event, context):
         error_msg = f"Unexpected error: {e}"
         Logger.error(error_msg)
         Logger.error(traceback.format_exc())
-        send_slack_message(f"LOCAL TEST AZURE SPS MODULE EXCEPTION!\n{error_msg}\log_stream_id: {log_stream_name}")
+        send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg}\log_stream_id: {log_stream_name}")
         return handle_response(500, "Execute Failed!", action, event_time_utc_datetime, str(e))
 
 
@@ -98,6 +99,9 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count
         workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
         feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
 
+        query_success = timestream_success = cloudwatch_success = \
+            update_latest_success = save_raw_az_true_desired_count_1_success = False
+
         if prev_availability_zone_true_all_data_df is not None and not prev_availability_zone_true_all_data_df.empty:
             prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
             changed_df = compare_sps(prev_availability_zone_true_all_data_df, sps_res_az_true_desired_count_1_merged_df, workload_cols, feature_cols)
@@ -106,15 +110,14 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count
             cloudwatch_success = upload_cloudwatch(sps_res_az_true_desired_count_1_merged_df, time_datetime)
 
         update_latest_success = update_latest(sps_res_az_true_desired_count_1_merged_df)
-        save_raw_az_true_desired_count_1_success = save_raw(sps_res_az_true_desired_count_1_merged_df, time_datetime,
-                                data_type='az_true_desired_count_1')
+        save_raw_az_true_desired_count_1_success = save_raw(sps_res_az_true_desired_count_1_merged_df, time_datetime, availability_zones,
+                                data_type='desired_count_1')
 
         success_flag = all([query_success, timestream_success, cloudwatch_success, update_latest_success, save_raw_az_true_desired_count_1_success])
         log_details = (
             f"update_latest_success: {update_latest_success}, save: {save_raw_az_true_desired_count_1_success}, cloudwatch: {cloudwatch_success}"
             f"query: {query_success}, timestream: {timestream_success}"
         )
-
         if success_flag:
             Logger.info("Successfully merged the price/if/sps df, process data for spotlake!")
             return True
@@ -124,28 +127,30 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count
             return False
 
     except Exception as e:
-        Logger.error(f"Error in handle_res_df function: {e}")
+        Logger.error(f"Error in handle_res_df_for_spotlake function: {e}")
         return False
 
 
-def handle_res_df_for_research(sps_res_az_false_desired_count_1_df, sps_res_az_true_desired_count_loop_df, sps_res_az_false_desired_count_loop_df,
-                                          sps_res_specific_az_true_df, sps_res_specific_az_false_df, time_datetime):
+def handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count_loop_df, sps_res_specific_df, time_datetime):
     try:
+
         time_str = time_datetime.strftime("%Y-%m-%d %H:%M:%S")
-        sps_res_az_false_desired_count_1_df['time'] = time_str
-        sps_res_az_true_desired_count_loop_df['time'] = time_str
-        sps_res_az_false_desired_count_loop_df['time'] = time_str
-        sps_res_specific_az_true_df['time'] = time_str
-        sps_res_specific_az_false_df['time'] = time_str
+        sps_res_desired_count_1_df['time'] = time_str
+        sps_res_desired_count_loop_df['time'] = time_str
+        sps_res_specific_df['time'] = time_str
 
-        save_raw_az_false_desired_count_1_success = save_raw(sps_res_az_true_desired_count_loop_df, time_datetime, data_type='az_false_desired_count_1')
-        save_raw_az_true_desired_count_loop_success = save_raw(sps_res_az_true_desired_count_loop_df, time_datetime, data_type='az_true_desired_count_loop')
-        save_raw_az_false_desired_count_loop_success = save_raw(sps_res_az_false_desired_count_loop_df, time_datetime, data_type='az_false_desired_count_loop')
-        save_raw_specific_az_true_success = save_raw(sps_res_specific_az_true_df, time_datetime, data_type='specific_az_true')
-        save_raw_specific_az_false_success = save_raw(sps_res_specific_az_false_df, time_datetime, data_type='specific_az_false')
+        if availability_zones is True:
+            save_raw_az_desired_count_1_success = True
+        else:
+            save_raw_az_desired_count_1_success = save_raw(sps_res_desired_count_1_df, time_datetime, availability_zones,
+                                                           data_type='desired_count_1')
+
+        save_raw_az_true_desired_count_loop_success = save_raw(sps_res_desired_count_loop_df, time_datetime, availability_zones,
+                                                               data_type='desired_count_loop')
+        save_raw_specific_az_true_success = save_raw(sps_res_specific_df, time_datetime, availability_zones, data_type='specific')
 
 
-        success_flag = all([save_raw_az_false_desired_count_1_success, save_raw_az_true_desired_count_loop_success, save_raw_az_false_desired_count_loop_success, save_raw_specific_az_true_success, save_raw_specific_az_false_success])
+        success_flag = all([save_raw_az_desired_count_1_success, save_raw_az_true_desired_count_loop_success, save_raw_specific_az_true_success])
         if success_flag:
             Logger.info("Successfully merged the price/if/sps df, process data for research!")
             return True
@@ -154,7 +159,7 @@ def handle_res_df_for_research(sps_res_az_false_desired_count_1_df, sps_res_az_t
             return False
 
     except Exception as e:
-        Logger.error(f"Error in handle_res_df function: {e}")
+        Logger.error(f"Error in handle_res_df_for_research function: {e}")
         return False
 
 

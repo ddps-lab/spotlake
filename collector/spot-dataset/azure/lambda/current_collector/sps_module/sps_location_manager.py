@@ -7,17 +7,20 @@ from utils.pub_service import S3, AZURE_CONST
 
 SS_Resources = sps_shared_resources
 
-def check_and_add_available_locations():
+def check_and_add_available_locations(az):
     """
     이 메서드는 최신 사용 가능한 location을 수집하고, locations_call_history_tmp 변수에 저장된 기존 구독 기록과 비교하고 갱신합니다.
     """
     try:
         SS_Resources.available_locations = collect_available_locations()
+        az_str = f"availability-zones-{str(az).lower()}"
+        available_locations_path = f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/{az_str}/{AZURE_CONST.S3_AVAILABLE_LOCATIONS_JSON_FILENAME}"
+
         if not SS_Resources.available_locations:
             print("No available locations collected. Reading the S3 file")
-            SS_Resources.available_locations = S3.read_file(f"{AZURE_CONST.AVAILABLE_LOCATIONS_JSON_FILENAME}", 'json')
+            SS_Resources.available_locations = S3.read_file(available_locations_path, 'json')
         else:
-            S3.upload_file(SS_Resources.available_locations, f"{AZURE_CONST.AVAILABLE_LOCATIONS_JSON_FILENAME}", 'json')
+            S3.upload_file(SS_Resources.available_locations, available_locations_path, 'json')
 
 
         # 기존 location_call_history 데이터가 없으면 빈 딕셔너리로 초기화

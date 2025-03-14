@@ -2,9 +2,9 @@ import re
 import random
 import requests
 import traceback
-import concurrent.futures
 import time
 import load_price
+import os
 import pandas as pd
 from sps_module import sps_location_manager
 from sps_module import sps_shared_resources
@@ -14,10 +14,14 @@ from functools import wraps
 from datetime import datetime, timezone
 from utils.azure_auth import get_sps_token_and_subscriptions
 from utils.pub_service import S3, AZURE_CONST, Logger
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+availability_zones = os.environ.get("availability_zones", "False").lower() == "true"
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager
-SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions()
+
+SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions(availability_zones)
 
 # 본 시간 수집 function은 추후 제거 예정입니다.
 def log_execution_time(func):
@@ -63,8 +67,9 @@ def collect_spot_placement_score_first_time(desired_counts):
         regions_and_instance_types_df, SS_Resources.region_map_and_instance_map_tmp['region_map'], \
         SS_Resources.region_map_and_instance_map_tmp[
             'instance_map'] = collect_regions_and_instance_types_df_by_priceapi()
-
-        S3.upload_file(SS_Resources.region_map_and_instance_map_tmp, f"{AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", "json")
+        az_str = f"availability-zones-{str(availability_zones).lower()}"
+        region_map_and_instance_map_json_path = f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/{az_str}/{AZURE_CONST.S3_REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}"
+        S3.upload_file(SS_Resources.region_map_and_instance_map_tmp, region_map_and_instance_map_json_path, "json")
 
         end_time = time.time()
         elapsed = end_time - start_time
@@ -72,14 +77,14 @@ def collect_spot_placement_score_first_time(desired_counts):
         print(f"collect_regions_and_instance_types_df_by_priceapi. time: {minutes}min {seconds}sec")
 
         start_time = time.time()
-        df_greedy_clustering_initial = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(regions_and_instance_types_df)
+        optimized_initial_df = sps_prepare_parameters.grouping_to_create_optimized_request_list(regions_and_instance_types_df)
         end_time = time.time()
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
-        print(f"greedy_clustering_to_create_optimized_request_list. time: {minutes}min {seconds}sec")
+        print(f"grouping_to_create_optimized_request_list. time: {minutes}min {seconds}sec")
 
         start_time = time.time()
-        sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_initial, True, desired_counts)
+        sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(optimized_initial_df, desired_counts)
         print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
         print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
         print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
@@ -87,31 +92,29 @@ def collect_spot_placement_score_first_time(desired_counts):
         print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
         print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
+        print(f'\n========================================')
+        print(f'df_greedy_clustering_filtered lens: {len(optimized_initial_df)}')
+        print(f'Successfully_to_get_sps_count: {SS_Resources.succeed_to_get_sps_count}')
+        print(f'Successfully_get_next_available_location_count: {SS_Resources.succeed_to_get_next_available_location_count}')
+        print(f'========================================')
+
         end_time = time.time()
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"execute_spot_placement_score_task_by_parameter_pool_df time: {minutes}min {seconds}sec")
 
         start_time = time.time()
-        regions_and_instance_types_filtered_df = sps_prepare_parameters.filter_invalid_parameter(
-            regions_and_instance_types_df)
-        df_greedy_clustering_filtered_df = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(
-            regions_and_instance_types_filtered_df)
+        regions_and_instance_types_filtered_df = sps_prepare_parameters.filter_invalid_parameter(regions_and_instance_types_df)
+        df_greedy_clustering_filtered_df = sps_prepare_parameters.greedy_clustering_to_create_optimized_request_list(regions_and_instance_types_filtered_df)
 
-        S3.upload_file(df_greedy_clustering_filtered_df, f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
+        S3.upload_file(df_greedy_clustering_filtered_df, f"{AZURE_CONST.S3_DF_TO_USE_TODAY_PKL_FILENAME}", "pkl")
 
         end_time = time.time()
         elapsed = end_time - start_time
         minutes, seconds = divmod(int(elapsed), 60)
         print(f"Prepare the request pool. time: {minutes}min {seconds}sec")
 
-        sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(df_greedy_clustering_filtered_df, False, desired_counts)
-        print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
-        print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
-        print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
-        print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
-        print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
-        return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
+        return sps_res_availability_zones_true_df
 
 
 @log_execution_time
@@ -122,12 +125,12 @@ def collect_spot_placement_score(desired_counts, instance_types=None):
     2. SPS 호출 및 invalid_region, invalid_instanceType 수집 및 필터링.
     '''
     if instance_types:
-        Logger.info(f"Executing: collect_spot_placement_score. Type: SPECIFIC. desired_counts={desired_counts}, instance_types={instance_types}")
+        Logger.info(f"Executing: collect_spot_placement_score. Type: SPECIFIC. desired_counts={desired_counts}, instance_types={instance_types}, availability_zones={availability_zones}")
     else:
         if desired_counts[0] == 1:
-            Logger.info(f"Executing: collect_spot_placement_score. Type: DESIRED_COUNT_1. desired_counts={desired_counts}")
+            Logger.info(f"Executing: collect_spot_placement_score. Type: DESIRED_COUNT_1. desired_counts={desired_counts}, availability_zones={availability_zones}")
         else:
-            Logger.info(f"Executing: collect_spot_placement_score. Type: MULTI. desired_counts={desired_counts}")
+            Logger.info(f"Executing: collect_spot_placement_score. Type: MULTI. desired_counts={desired_counts}, availability_zones={availability_zones}")
 
     assert prepare_the_variables()
 
@@ -151,42 +154,26 @@ def collect_spot_placement_score(desired_counts, instance_types=None):
         requests_df = pd.DataFrame(data_tmp)
 
     else:
-        requests_df = S3.read_file(f"{AZURE_CONST.DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
+        requests_df = S3.read_file(f"{AZURE_CONST.S3_DF_TO_USE_TODAY_PKL_FILENAME}", 'pkl')
 
-    sps_res_availability_zones_true_df = execute_spot_placement_score_task_by_parameter_pool_df(requests_df, True, desired_counts)
+    sps_res_availability_zones_df = execute_spot_placement_score_task_by_parameter_pool_df(requests_df, desired_counts)
     print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
     print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
     print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
+    print(f'Too_many_requests_count_2: {SS_Resources.too_many_requests_count_2}')
     print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
     print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
-    get_sps_count_true = SS_Resources.succeed_to_get_sps_count
-    get_next_available_location_count_true = SS_Resources.succeed_to_get_next_available_location_count
-
-    SS_Resources.succeed_to_get_sps_count = SS_Resources.succeed_to_get_next_available_location_count = 0
-    sps_res_availability_zones_false_df = execute_spot_placement_score_task_by_parameter_pool_df(requests_df, False, desired_counts)
-    print(f'Time_out_retry_count: {SS_Resources.time_out_retry_count}')
-    print(f'Bad_request_retry_count: {SS_Resources.bad_request_retry_count}')
-    print(f'Too_many_requests_count: {SS_Resources.too_many_requests_count}')
-    print(f'Found_invalid_region_retry_count: {SS_Resources.found_invalid_region_retry_count}')
-    print(f'Found_invalid_instance_type_retry_count: {SS_Resources.found_invalid_instance_type_retry_count}')
 
     print(f'\n========================================')
     print(f'df_greedy_clustering_filtered lens: {len(requests_df)}')
-    print(f'Successfully_to_get_sps_count_true: {get_sps_count_true}')
-    print(f'Successfully_to_get_sps_count_false: {SS_Resources.succeed_to_get_sps_count}')
-    print(f'Successfully_to_get_sps_count_all: {SS_Resources.succeed_to_get_sps_count + get_sps_count_true}')
-
-    print(f'Successfully_get_next_available_location_count_true: {get_next_available_location_count_true}')
-    print(
-        f'Successfully_get_next_available_location_count_false: {SS_Resources.succeed_to_get_next_available_location_count}')
-    print(
-        f'Successfully_get_next_available_location_count_all: {SS_Resources.succeed_to_get_next_available_location_count + get_next_available_location_count_true}')
+    print(f'Successfully_to_get_sps_count: {SS_Resources.succeed_to_get_sps_count}')
+    print(f'Successfully_get_next_available_location_count: {SS_Resources.succeed_to_get_next_available_location_count}')
     print(f'========================================')
-    return sps_res_availability_zones_true_df, sps_res_availability_zones_false_df
+    return sps_res_availability_zones_df
 
 
-def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availability_zones, desired_counts):
+def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired_counts):
     '''
     SPS 수집 공용 메서드, 멀티 호출 실행, 결과를 S3에 업로드
     '''
@@ -196,21 +183,24 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     locations = list(SS_Resources.locations_call_history_tmp[list(SS_Resources.locations_call_history_tmp.keys())[0]].keys())
     no_available_locations_flag = False
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=int(len(locations) * 2)) as executor:
+    with ThreadPoolExecutor(max_workers=int(len(locations) * 2)) as executor:
         futures = []
+        future_to_desired_count = {}
 
         for row in api_calls_df.itertuples(index=False):
             for desired_count in desired_counts:
                 future = executor.submit(
                     execute_spot_placement_score_api,
-                    row.Regions, row.InstanceTypes, availability_zones, desired_count, max_retries=50
+                    row.Regions, row.InstanceTypes, desired_count, max_retries=50
                 )
-                futures.append((future, desired_count))
+                futures.append(future)
+                future_to_desired_count[future] = desired_count
 
         try:
-            for future, desired_count in futures:
+            for future in as_completed(futures):
                 try:
                     result = future.result()
+                    desired_count = future_to_desired_count[future]
                     if result and result != "NO_AVAILABLE_LOCATIONS":
                         SS_Resources.succeed_to_get_sps_count += 1
                         for score in result["placementScores"]:
@@ -226,7 +216,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
                                     score.get("sku", ""), {}).get("InstanceTypeOld"),
                                 "Score": score.get("score")
                             }
-                            if availability_zones:
+                            if availability_zones is True:
                                 score_data["AvailabilityZone"] = score.get("availabilityZone", "Single")
 
                             results.append(score_data)
@@ -268,7 +258,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, availab
     return sps_res_df
 
 
-def execute_spot_placement_score_api(region_chunk, instance_type_chunk, availability_zones, desired_count, max_retries=12):
+def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_count, max_retries=12):
     '''
     실제 SPS API호출 메서드.
     '''
@@ -385,9 +375,10 @@ def extract_invalid_values(error_message):
 
 def initialize_files_in_s3():
     try:
+        az_str = f"availability-zones-{str(availability_zones).lower()}"
         files_to_initialize = {
-            f"{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}": [],
-            f"{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}": []
+            f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/{az_str}/{AZURE_CONST.S3_INVALID_REGIONS_JSON_FILENAME}": [],
+            f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/{az_str}/{AZURE_CONST.S3_INVALID_INSTANCE_TYPES_JSON_FILENAME}": []
         }
 
         for file_path, data in files_to_initialize.items():
@@ -465,12 +456,14 @@ def initialize_sps_count_resources():
     SS_Resources.succeed_to_get_next_available_location_count = 0
 
 def save_tmp_files_to_s3():
+    az_str = f"availability-zones-{str(availability_zones).lower()}"
+    base_path = AZURE_CONST.S3_SAVED_VARIABLE_PATH
     files_to_upload = {
-        f"{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}": SS_Resources.invalid_regions_tmp,
-        f"{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}": SS_Resources.invalid_instance_types_tmp,
-        f"{AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME}": SS_Resources.locations_call_history_tmp,
-        f"{AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME}": SS_Resources.locations_over_limit_tmp,
-        f"{AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}": {
+        f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_REGIONS_JSON_FILENAME}": SS_Resources.invalid_regions_tmp,
+        f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_INSTANCE_TYPES_JSON_FILENAME}": SS_Resources.invalid_instance_types_tmp,
+        f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME}": SS_Resources.locations_call_history_tmp,
+        f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME}": SS_Resources.locations_over_limit_tmp,
+        f"{base_path}/{az_str}/{AZURE_CONST.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}": {
             "last_subscription_id": SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'],
             "last_location": SS_Resources.last_subscription_id_and_location_tmp['last_location']
         },
@@ -482,12 +475,15 @@ def save_tmp_files_to_s3():
 
 def get_variable_from_s3():
     try:
-        invalid_regions_data = S3.read_file(f"{AZURE_CONST.INVALID_REGIONS_JSON_FILENAME}", 'json')
-        instance_types_data = S3.read_file(f"{AZURE_CONST.INVALID_INSTANCE_TYPES_JSON_FILENAME}", 'json')
-        call_history_data = S3.read_file(f"{AZURE_CONST.LOCATIONS_CALL_HISTORY_JSON_FILENAME}", 'json')
-        over_limit_data = S3.read_file(f"{AZURE_CONST.LOCATIONS_OVER_LIMIT_JSON_FILENAME}", 'json')
-        last_location_index_data = S3.read_file(f"{AZURE_CONST.LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}", 'json')
-        region_map_and_instance_map = S3.read_file(f"{AZURE_CONST.REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", 'json')
+        az_str = f"availability-zones-{str(availability_zones).lower()}"
+        base_path = AZURE_CONST.S3_SAVED_VARIABLE_PATH
+
+        invalid_regions_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_REGIONS_JSON_FILENAME}", 'json')
+        instance_types_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_INSTANCE_TYPES_JSON_FILENAME}", 'json')
+        call_history_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME}", 'json')
+        over_limit_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME}", 'json')
+        last_location_index_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}", 'json')
+        region_map_and_instance_map = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", 'json')
 
         SS_Resources.invalid_regions_tmp = invalid_regions_data
         SS_Resources.invalid_instance_types_tmp = instance_types_data
@@ -559,6 +555,6 @@ def collect_regions_and_instance_types_df_by_priceapi():
 
 def prepare_the_variables():
     res = get_variable_from_s3()
-    SL_Manager.check_and_add_available_locations()
+    SL_Manager.check_and_add_available_locations(availability_zones)
     initialize_sps_count_resources()
     return res

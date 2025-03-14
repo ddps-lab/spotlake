@@ -22,6 +22,11 @@ cw_client = session.client('logs', region_name='us-west-2')
 timestream_write_client = session.client('timestream-write',
                                          region_name='us-west-2',
                                          config=Config(read_timeout=20,max_pool_connections=5000,retries={'max_attempts': 10}))
+DynamoDB_NAME = "AzureAuth"
+DATABASE_NAME = 'spotlake'
+TABLE_NAME = 'azure-sps'
+SPOT_DATA_COLLECTION_LOG_GROUP_NAME = "Collection-Data-Count"
+LOG_STREAM_NAME = "Azure-Count"
 
 class DynamoDB:
     def __init__(self, table):
@@ -135,19 +140,32 @@ class LoggerConfig(logging.Logger):
 class CWHandler:
     def __init__(self):
         self.client = cw_client
+    def put_log_events(self, log_events):
+        try:
+            self.client.put_log_events(
+                logGroupName=SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
+                logStreamName=LOG_STREAM_NAME,
+                logEvents=log_events)
+        except Exception as e:
+            print(f"Error CWHandler put_log_events: {e}")
+            raise
 
 class TimestreamHandler:
     def __init__(self):
         self.client = timestream_write_client
-
+    def write_records(self, records, common_attrs):
+        try:
+            self.client.write_records(Records=records,CommonAttributes=common_attrs,DatabaseName=DATABASE_NAME,TableName=TABLE_NAME)
+        except Exception as e:
+            print(f"Error TimestreamHandler write_record: {e}")
+            raise
 
 Logger = LoggerConfig()
-DB_AzureAuth = DynamoDB("AzureAuth")
+DB_AzureAuth = DynamoDB(DynamoDB_NAME)
 SSM = SsmHandler()
 S3 = S3Handler()
 CW = CWHandler()
 TimestreamWrite = TimestreamHandler()
-
 
 def send_slack_message(msg):
     url_key = 'error_notification_slack_webhook_url'

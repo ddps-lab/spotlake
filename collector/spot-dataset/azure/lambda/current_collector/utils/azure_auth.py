@@ -30,8 +30,12 @@ def get_token():
     return access_token
 
 
-def get_sps_token_and_subscriptions():
-    auth_data = DB_AzureAuth.get_item('login_auth')
+def get_sps_token_and_subscriptions(availability_zones):
+    if availability_zones is True:
+        auth_data = DB_AzureAuth.get_item('login_auth_az_true')
+    else:
+        auth_data = DB_AzureAuth.get_item('login_auth_az_false')
+
     tenant_id = auth_data['tenant_id']
     client_id = auth_data['client_id']
     client_secret = auth_data['client_secret']

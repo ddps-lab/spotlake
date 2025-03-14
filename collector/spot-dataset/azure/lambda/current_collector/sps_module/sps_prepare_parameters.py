@@ -53,8 +53,7 @@ def load_support_data_from_df(df):
     return support_set, sorted(regions), sorted(instancetypes)
 
 
-def clustering_cover_remaining_greedily(support_set, regions, instancetypes, n_region_clusters=2, n_inst_clusters=2,
-                                        max_regions=8, max_instancetypes=5):
+def clustering_cover_remaining_greedily(support_set, regions, instancetypes, n_region_clusters=2, n_inst_clusters=2):
     """
     클러스터링 기반 커버 알고리즘:
     1. Region과 InstanceType을 클러스터링.
@@ -102,8 +101,8 @@ def clustering_cover_remaining_greedily(support_set, regions, instancetypes, n_r
                 inst_freq[i] += 1
 
             # 빈도 높은 순으로 정렬
-            sel_regions = sorted(rgroup, key=lambda x: region_freq[x], reverse=True)[:max_regions]
-            sel_insts = sorted(igroup, key=lambda x: inst_freq[x], reverse=True)[:max_instancetypes]
+            sel_regions = sorted(rgroup, key=lambda x: region_freq[x], reverse=True)[:8]
+            sel_insts = sorted(igroup, key=lambda x: inst_freq[x], reverse=True)[:5]
 
             # 실제 커버되는 에지
             covered = {(r, i) for (r, i) in subset if r in sel_regions and i in sel_insts}
@@ -115,12 +114,12 @@ def clustering_cover_remaining_greedily(support_set, regions, instancetypes, n_r
     # 여기서 이전에는 남은 에지 각각 쿼리를 생성했으나,
     # 이제 간단한 그리디 로직으로 최대한 묶어서 커버
     if remaining:
-        queries += _cover_remaining_greedily(remaining, max_regions, max_instancetypes)
+        queries += _cover_remaining_greedily(remaining)
 
     return queries
 
 
-def _cover_remaining_greedily(remaining, max_regions=8, max_instancetypes=5):
+def _cover_remaining_greedily(remaining):
     """
     남은 에지를 간단한 그리디 방식으로 커버하는 보조 함수.
     최대 8개 region, 5개 instanceType을 골라 한번에 많이 커버하는 쿼리를 반복적으로 생성.
@@ -137,13 +136,13 @@ def _cover_remaining_greedily(remaining, max_regions=8, max_instancetypes=5):
 
         # 확장
         # 단순히 region과 instance 중 추가 시 이득이 가장 큰 후보를 추가
-        while (len(current_r) < max_regions or len(current_i) < max_instancetypes):
+        while (len(current_r) < 8 or len(current_i) < 5):
             best_gain = 0
             best_choice = None
             best_type = None  # 'region' or 'instance'
 
             # 추가 가능한 region 후보
-            if len(current_r) < max_regions:
+            if len(current_r) < 8:
                 # 현재 instances와 결합 가능한 region 후보 탐색
                 candidate_regions = {rr for (rr, ii) in remaining if ii in current_i and rr not in current_r}
                 for rr in candidate_regions:
@@ -155,7 +154,7 @@ def _cover_remaining_greedily(remaining, max_regions=8, max_instancetypes=5):
                         best_type = 'region'
 
             # 추가 가능한 instance 후보
-            if len(current_i) < max_instancetypes:
+            if len(current_i) < 5:
                 candidate_insts = {ii for (rr, ii) in remaining if rr in current_r and ii not in current_i}
                 for ii in candidate_insts:
                     gain = sum((rr, ii) in remaining for rr in current_r)
@@ -181,3 +180,52 @@ def _cover_remaining_greedily(remaining, max_regions=8, max_instancetypes=5):
     return queries
 
 
+def grouping_to_create_optimized_request_list(dataframe):
+    # 입력 dataframe이 비어있는 경우 빈 DataFrame 반환
+    if dataframe.empty:
+        return pd.DataFrame()
+
+    def get_instance_type_batches(region_groups, region_instance_map):
+        """
+        그룹별로 InstanceType의 합집합을 구하고, 이를 일정 크기로 나누어 처리합니다.
+        :param region_groups: RegionCode 그룹
+        :param region_instance_map: 각 RegionCode에 해당하는 InstanceType 집합
+        :return: 생성된 API 호출 구성
+        """
+        api_calls = []
+        for group in region_groups:
+            # 현재 그룹 내 모든 RegionCode의 InstanceType을 합집합으로 생성
+            instance_union = set.union(*(region_instance_map.get(region, set()) for region in group))
+
+            # 합집합을 5개씩 나누어 배치 생성
+            instance_list = list(instance_union)
+            instance_batches = [instance_list[i:i + 5] for i in range(0, len(instance_list), 5)]
+
+            # RegionCode 그룹 및 InstanceType 배치를 API 호출 설정에 저장
+            for batch in instance_batches:
+                api_calls.append({"Regions": group, "InstanceTypes": batch})
+        return api_calls
+
+    # 1단계: 각 RegionCode의 등장 횟수 계산
+    region_counts = dataframe['RegionCode'].value_counts().reset_index()
+    region_counts.columns = ['RegionCode', 'Count']
+
+    # 2단계: 등장 횟수 기준으로 두 그룹으로 분류 (100 미만, 100 이상)
+    regions_less_than_100 = region_counts.loc[region_counts['Count'] < 100, 'RegionCode'].tolist()
+    regions_100_or_more = region_counts.loc[region_counts['Count'] >= 100, 'RegionCode'].tolist()
+
+    # 3단계: 각 그룹을 최대 8개씩 그룹핑
+    grouped_regions_less_than_100 = [regions_less_than_100[i:i + 8] for i in range(0, len(regions_less_than_100), 8)]
+    grouped_regions_100_or_more = [regions_100_or_more[i:i + 8] for i in range(0, len(regions_100_or_more), 8)]
+
+    # 4단계: RegionCode별 InstanceType 집합 생성
+    region_instance_dict = dataframe.groupby("RegionCode")["InstanceType"].apply(lambda x: set(x.dropna())).to_dict()
+
+    # 5단계: 두 그룹에 대해 API 호출 리스트 생성
+    api_calls_less_than_100 = get_instance_type_batches(grouped_regions_less_than_100, region_instance_dict)
+    api_calls_100_or_more = get_instance_type_batches(grouped_regions_100_or_more, region_instance_dict)
+
+    # 6단계: DataFrame 변환하여 반환
+    res_final_api_calls_df = pd.DataFrame(api_calls_less_than_100 + api_calls_100_or_more)
+
+    return res_final_api_calls_df

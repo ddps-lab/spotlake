@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 
 def merge_price_saving_if_df(price_df, if_df):
     join_df = pd.merge(price_df, if_df,
@@ -14,7 +13,7 @@ def merge_price_saving_if_df(price_df, if_df):
     return join_df
 
 
-def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, availability_zones=True):
+def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
     join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True)
@@ -24,7 +23,7 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, availability_zones=
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
         "DesiredCount", "Score", "SPS_Update_Time"]
 
-    if availability_zones:
+    if az:
         columns.insert(-2, "AvailabilityZone")  # "Score" 앞에 삽입
 
     join_df = join_df[columns]

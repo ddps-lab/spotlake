@@ -24,7 +24,7 @@ timestream_write_client = session.client('timestream-write',
                                          config=Config(read_timeout=20,max_pool_connections=5000,retries={'max_attempts': 10}))
 DynamoDB_NAME = "AzureAuth"
 DATABASE_NAME = 'spotlake'
-TABLE_NAME = 'azure-sps'
+TABLE_NAME = 'azure'
 SPOT_DATA_COLLECTION_LOG_GROUP_NAME = "Collection-Data-Count"
 LOG_STREAM_NAME = "Azure-Count"
 

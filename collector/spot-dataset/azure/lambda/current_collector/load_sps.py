@@ -20,8 +20,8 @@ availability_zones = os.environ.get("availability_zones", "False").lower() == "t
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager
-
 SS_Resources.sps_token, SS_Resources.subscriptions = get_sps_token_and_subscriptions(availability_zones)
+too_many_requests_print_flag = True
 
 # 본 시간 수집 function은 추후 제거 예정입니다.
 def log_execution_time(func):
@@ -329,7 +329,8 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
                 retries = handle_retry("InvalidParameter", retries, max_retries)
 
             elif "You have reached the maximum number of requests allowed." in error_message:
-                print(f"HTTP error occurred: {error_message}")
+                if SS_Resources.too_many_requests_count == 0:
+                    print(f"HTTP error occurred: {error_message}")
                 with SS_Resources.location_lock:
                     SL_Manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry("Too Many Requests", retries, max_retries)

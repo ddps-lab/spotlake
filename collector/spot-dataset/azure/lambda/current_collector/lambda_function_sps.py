@@ -146,7 +146,7 @@ def handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count
                                                            data_type='desired_count_1')
 
         save_raw_az_true_desired_count_loop_success = save_raw(sps_res_desired_count_loop_df, time_datetime, availability_zones,
-                                                               data_type='desired_count_loop')
+                                                               data_type='multi')
         save_raw_specific_az_true_success = save_raw(sps_res_specific_df, time_datetime, availability_zones, data_type='specific')
 
 
@@ -173,4 +173,5 @@ def handle_response(status_code, body, action, time_datetime, error_message=None
     if error_message:
         response["error_message"] = error_message
 
+    Logger.info(f"Response: {response}")
     return response

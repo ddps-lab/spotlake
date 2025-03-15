@@ -201,7 +201,6 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
                     result = future.result()
                     desired_count = future_to_desired_count[future]
                     if result and result != "NO_AVAILABLE_LOCATIONS":
-                        SS_Resources.succeed_to_get_sps_count += 1
                         for score in result["placementScores"]:
                             score_data = {
                                 "DesiredCount": desired_count,
@@ -292,8 +291,8 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
         }
         try:
             response = requests.post(url, headers=headers, json=request_body, timeout=50)
-            SL_Manager.update_call_history(subscription_id, location)
             response.raise_for_status()
+            SS_Resources.succeed_to_get_sps_count += 1
             return response.json()
 
         except requests.exceptions.Timeout:

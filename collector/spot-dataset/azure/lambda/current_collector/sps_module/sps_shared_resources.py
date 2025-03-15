@@ -9,6 +9,8 @@ succeed_to_get_sps_count = 0
 succeed_to_get_next_available_location_count = 0
 too_many_requests_count = 0
 too_many_requests_count_2 = 0
+succeed_to_get_next_available_location_count_all = 0
+subscription_location_counts_dict = {}
 lock = RLock()
 location_lock = RLock()
 
@@ -17,7 +19,6 @@ invalid_regions_tmp = None
 invalid_instance_types_tmp = None
 locations_call_history_tmp = None
 locations_over_limit_tmp = None
-last_subscription_id_and_location_tmp = None
 region_map_and_instance_map_tmp = None
 subscriptions = None
 available_locations = None

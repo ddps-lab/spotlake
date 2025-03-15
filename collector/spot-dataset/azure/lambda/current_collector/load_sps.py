@@ -256,6 +256,13 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
     return sps_res_df
 
 
+def update_count(subscription_id1, location1):
+    key_dict = (subscription_id1, location1)
+    if key_dict in SS_Resources.subscription_location_counts_dict:
+        SS_Resources.subscription_location_counts_dict[key_dict] += 1
+    else:
+        SS_Resources.subscription_location_counts_dict[key_dict] = 1
+
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_count, max_retries=12):
     '''
     실제 SPS API호출 메서드.
@@ -283,6 +290,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
                 return "NO_AVAILABLE_LOCATIONS"
             else:
                 subscription_id, location = res
+                update_count(subscription_id.split('-')[0], location)
 
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {
@@ -328,14 +336,12 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
             elif "You have reached the maximum number of requests allowed." in error_message:
                 if SS_Resources.too_many_requests_count == 0:
                     print(f"HTTP error occurred: {error_message}")
-                with SS_Resources.location_lock:
-                    SL_Manager.update_over_limit_locations(subscription_id, location)
+                SL_Manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry("Too Many Requests", retries, max_retries)
 
             elif "Max retries exceeded with url" in error_message:
                 print(f"HTTP error occurred: {error_message}")
-                with SS_Resources.location_lock:
-                    SL_Manager.update_over_limit_locations(subscription_id, location)
+                SL_Manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry("Too Many Requests(2)", retries, max_retries)
 
         except Exception as e:
@@ -448,6 +454,7 @@ def initialize_sps_count_resources():
     SS_Resources.bad_request_retry_count = 0
     SS_Resources.time_out_retry_count = 0
     SS_Resources.too_many_requests_count = 0
+    SS_Resources.too_many_requests_count_2 = 0
     SS_Resources.found_invalid_region_retry_count = 0
     SS_Resources.found_invalid_instance_type_retry_count = 0
     SS_Resources.succeed_to_get_sps_count = 0
@@ -460,11 +467,7 @@ def save_tmp_files_to_s3():
         f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_REGIONS_JSON_FILENAME}": SS_Resources.invalid_regions_tmp,
         f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_INSTANCE_TYPES_JSON_FILENAME}": SS_Resources.invalid_instance_types_tmp,
         f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME}": SS_Resources.locations_call_history_tmp,
-        f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME}": SS_Resources.locations_over_limit_tmp,
-        f"{base_path}/{az_str}/{AZURE_CONST.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}": {
-            "last_subscription_id": SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'],
-            "last_location": SS_Resources.last_subscription_id_and_location_tmp['last_location']
-        },
+        f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME}": SS_Resources.locations_over_limit_tmp
     }
 
     for file_path, file_data in files_to_upload.items():
@@ -487,10 +490,6 @@ def get_variable_from_s3():
         SS_Resources.invalid_instance_types_tmp = instance_types_data
         SS_Resources.locations_call_history_tmp = call_history_data
         SS_Resources.locations_over_limit_tmp = over_limit_data
-        SS_Resources.last_subscription_id_and_location_tmp = {
-            "last_subscription_id": last_location_index_data.get('last_subscription_id'),
-            "last_location": last_location_index_data.get('last_location')
-        }
         SS_Resources.region_map_and_instance_map_tmp = {
             "region_map": region_map_and_instance_map.get('region_map'),
             "instance_map": region_map_and_instance_map.get('instance_map')
@@ -501,7 +500,6 @@ def get_variable_from_s3():
             SS_Resources.invalid_instance_types_tmp,
             SS_Resources.locations_call_history_tmp,
             SS_Resources.locations_over_limit_tmp,
-            SS_Resources.last_subscription_id_and_location_tmp,
             SS_Resources.region_map_and_instance_map_tmp
         ]):
             print("[S3]: Successfully prepared variable from s3.")

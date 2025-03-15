@@ -1,6 +1,7 @@
 import re
 import requests
 import traceback
+import random
 from sps_module import sps_shared_resources
 from datetime import datetime, timedelta, timezone
 from utils.pub_service import S3, AZURE_CONST
@@ -84,30 +85,21 @@ def get_next_available_location():
         clean_expired_over_limit_locations()
         clean_expired_over_call_history_locations()
 
-        last_subscription_id = SS_Resources.last_subscription_id_and_location_tmp.get('last_subscription_id')
-        last_location = SS_Resources.last_subscription_id_and_location_tmp.get('last_location')
-
-        start_subscription_index = 0
-        if last_subscription_id is not None and last_subscription_id in SS_Resources.subscriptions:
-            start_subscription_index = SS_Resources.subscriptions.index(last_subscription_id)
+        start_subscription_index = random.randint(0, len(SS_Resources.subscriptions) - 1)
 
         for i in range(len(SS_Resources.subscriptions)):
             subscription_index = (start_subscription_index + i) % len(SS_Resources.subscriptions)
             subscription_id = SS_Resources.subscriptions[subscription_index]
 
-            start_location_index = 0
-            if last_location is not None and last_location in SS_Resources.available_locations:
-                start_location_index = (SS_Resources.available_locations.index(last_location) + 1) % len(SS_Resources.available_locations)
-
+            start_location_index = random.randint(0, len(SS_Resources.available_locations) - 1)
             for j in range(len(SS_Resources.available_locations)):
                 location_index = (start_location_index + j) % len(SS_Resources.available_locations)
                 location = SS_Resources.available_locations[location_index]
-                SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
-                SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
 
                 if validation_can_call(subscription_id, location):
                     SS_Resources.succeed_to_get_next_available_location_count += 1
-                    update_call_history(subscription_id, location)
+                    SS_Resources.succeed_to_get_next_available_location_count_all += 1
+                    SS_Resources.locations_call_history_tmp[subscription_id][location].append(datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
                     return subscription_id, location
 
         return None
@@ -159,7 +151,7 @@ def clean_expired_over_limit_locations():
     '''
     if SS_Resources.locations_over_limit_tmp:
         for subscription_id in SS_Resources.subscriptions:
-            one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+            one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=63)
             for location_key, location_value in list(
                     SS_Resources.locations_over_limit_tmp[subscription_id].items()):
                 dt = datetime.fromisoformat(location_value)
@@ -172,7 +164,7 @@ def clean_expired_over_call_history_locations():
     이 메서드는 호출 이력을 유효하지 않은 위치를 정리하고 호출 이력을 업데이트합니다.
     '''
     if SS_Resources.locations_call_history_tmp:
-        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=63)
         for subscription_id in SS_Resources.subscriptions:
             subscription_data = SS_Resources.locations_call_history_tmp.get(subscription_id, {})
 

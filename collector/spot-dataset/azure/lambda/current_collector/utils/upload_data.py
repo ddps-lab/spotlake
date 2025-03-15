@@ -243,7 +243,6 @@ def save_raw(all_data_dataframe, time_utc, az, data_type=None):
             print(f"save_raw failed. error: no data_type.")
             return False
 
-
         # data 분석용
         S3.upload_file(all_data_dataframe, data_path, "df_to_csv.gz", set_public_read=True)
 

@@ -8,6 +8,7 @@ from utils.merge_df import merge_if_saving_price_sps_df
 from utils.upload_data import update_latest, save_raw, upload_timestream, query_selector, upload_cloudwatch
 from utils.compare_data import compare_sps
 from utils.pub_service import send_slack_message, Logger, S3, AZURE_CONST
+import time
 
 FIRST_TIME_ACTION = "First_Time"  # 첫 실행 액션
 EVERY_10MIN_ACTION = "Every_10Min"  # 10분마다 실행 액션
@@ -19,6 +20,8 @@ def lambda_handler(event, context):
     log_stream_name = context.log_stream_name
     event_time_utc = event.get("time")
     event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
+    sps_shared_resources.subscription_location_counts_dict = {}
+    sps_shared_resources.succeed_to_get_next_available_location_count_all = 0
 
     if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
         action = FIRST_TIME_ACTION
@@ -75,6 +78,8 @@ def lambda_handler(event, context):
                                           event_time_utc_datetime):
             raise RuntimeError("Failed to handle_res_for_research_df")
 
+        save_subscription_location_counts_dict_to_csv(event_time_utc_datetime)
+        print(f"succeed_to_get_next_available_location_count_all: {sps_shared_resources.succeed_to_get_next_available_location_count_all}")
         return handle_response(200, "Executed Successfully!", action, event_time_utc_datetime)
 
     except Exception as e:
@@ -161,6 +166,19 @@ def handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count
     except Exception as e:
         Logger.error(f"Error in handle_res_df_for_research function: {e}")
         return False
+
+
+def save_subscription_location_counts_dict_to_csv(time_utc):
+    df = pd.DataFrame([(k[0], k[1], v) for k, v in sps_shared_resources.subscription_location_counts_dict.items()],
+                      columns=["Subscription ID", "Location", "Count"])
+    az_str = f"availability-zones-{str(availability_zones).lower()}"
+
+    s3_dir_name = time_utc.strftime("%Y/%m/%d")
+    s3_obj_name = time_utc.strftime("%H-%M-%S")
+
+    data_path = f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+
+    S3.upload_file(df, data_path, "df_to_csv.gz")
 
 
 def handle_response(status_code, body, action, time_datetime, error_message=None):

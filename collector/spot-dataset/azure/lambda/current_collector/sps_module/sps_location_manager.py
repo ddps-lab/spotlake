@@ -84,38 +84,30 @@ def get_next_available_location():
         clean_expired_over_limit_locations()
         clean_expired_over_call_history_locations()
 
-        subscription_ids = list(SS_Resources.locations_call_history_tmp.keys())
-
         last_subscription_id = SS_Resources.last_subscription_id_and_location_tmp.get('last_subscription_id')
         last_location = SS_Resources.last_subscription_id_and_location_tmp.get('last_location')
 
         start_subscription_index = 0
-        if last_subscription_id is not None and last_subscription_id in subscription_ids:
-            start_subscription_index = subscription_ids.index(last_subscription_id)
+        if last_subscription_id is not None and last_subscription_id in SS_Resources.subscriptions:
+            start_subscription_index = SS_Resources.subscriptions.index(last_subscription_id)
 
-
-        for i in range(len(subscription_ids)):
-            subscription_index = (start_subscription_index + i) % len(subscription_ids)
-            subscription_id = subscription_ids[subscription_index]
-
-            current_history = SS_Resources.locations_call_history_tmp[subscription_id]
-            current_over_limit_locations = SS_Resources.locations_over_limit_tmp.get(subscription_id)
-
-            locations = list(current_history.keys())
+        for i in range(len(SS_Resources.subscriptions)):
+            subscription_index = (start_subscription_index + i) % len(SS_Resources.subscriptions)
+            subscription_id = SS_Resources.subscriptions[subscription_index]
 
             start_location_index = 0
-            if last_location is not None and last_location in locations:
-                start_location_index = (locations.index(last_location) + 1) % len(locations)
+            if last_location is not None and last_location in SS_Resources.available_locations:
+                start_location_index = (SS_Resources.available_locations.index(last_location) + 1) % len(SS_Resources.available_locations)
 
-            for j in range(len(locations)):
-                location_index = (start_location_index + j) % len(locations)
-                location = locations[location_index]
+            for j in range(len(SS_Resources.available_locations)):
+                location_index = (start_location_index + j) % len(SS_Resources.available_locations)
+                location = SS_Resources.available_locations[location_index]
+                SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
+                SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
 
-                if validation_can_call(location, current_history, current_over_limit_locations):
-                    SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
-                    SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
+                if validation_can_call(location, SS_Resources.locations_call_history_tmp[subscription_id], SS_Resources.locations_over_limit_tmp.get(subscription_id)):
                     SS_Resources.succeed_to_get_next_available_location_count += 1
-                    return subscription_id, location, current_history, current_over_limit_locations
+                    return subscription_id, location
 
         return None
 
@@ -192,7 +184,7 @@ def clean_expired_over_call_history_locations():
             SS_Resources.locations_call_history_tmp[subscription_id] = new_subscription_data
 
 
-def update_call_history(subscription_id, location, current_history):
+def update_call_history(subscription_id, location):
     """
     이 메서드는 특정 계정, 구독, 위치의 호출 이력을 업데이트합니다.
     업데이트된 데이터를 JSON 파일에 저장합니다.
@@ -200,8 +192,7 @@ def update_call_history(subscription_id, location, current_history):
     try:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_timestamp = now.isoformat()
-        current_history[location].append(current_timestamp)
-        SS_Resources.locations_call_history_tmp[subscription_id] = current_history
+        SS_Resources.locations_call_history_tmp[subscription_id][location].append(current_timestamp)
         return True
 
     except Exception as e:

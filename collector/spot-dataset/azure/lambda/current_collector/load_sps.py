@@ -165,7 +165,7 @@ def collect_spot_placement_score(desired_counts, instance_types=None):
 
 
     print(f'\n========================================')
-    print(f'df_greedy_clustering_filtered lens: {len(requests_df)}')
+    print(f'lens(df_greedy_clustering_filtered) * lens(desired_counts): {len(requests_df)*len(desired_counts)}')
     print(f'Successfully_to_get_sps_count: {SS_Resources.succeed_to_get_sps_count}')
     print(f'Successfully_get_next_available_location_count: {SS_Resources.succeed_to_get_next_available_location_count}')
     print(f'========================================')
@@ -223,7 +223,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
                     elif result == "NO_AVAILABLE_LOCATIONS":
                         # NO_AVAILABLE_LOCATIONS인 경우 나머지 작업 취소
                         no_available_locations_flag = True
-                        for f, _ in futures:
+                        for f in futures:
                             if not f.done():
                                 f.cancel()
                         executor.shutdown(wait=False)
@@ -283,8 +283,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
             if res is None:
                 return "NO_AVAILABLE_LOCATIONS"
             else:
-                subscription_id, location, history, over_limit_locations = res
-                SL_Manager.update_call_history(subscription_id, location, history)
+                subscription_id, location = res
 
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {
@@ -293,6 +292,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
         }
         try:
             response = requests.post(url, headers=headers, json=request_body, timeout=50)
+            SL_Manager.update_call_history(subscription_id, location)
             response.raise_for_status()
             return response.json()
 

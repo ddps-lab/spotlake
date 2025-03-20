@@ -8,7 +8,6 @@ from utils.merge_df import merge_if_saving_price_sps_df
 from utils.upload_data import update_latest, save_raw, upload_timestream, query_selector, upload_cloudwatch
 from utils.compare_data import compare_sps
 from utils.pub_service import send_slack_message, Logger, S3, AZURE_CONST
-import time
 
 FIRST_TIME_ACTION = "First_Time"  # 첫 실행 액션
 EVERY_10MIN_ACTION = "Every_10Min"  # 10분마다 실행 액션
@@ -20,7 +19,6 @@ def lambda_handler(event, context):
     log_stream_name = context.log_stream_name
     event_time_utc = event.get("time")
     event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
-    sps_shared_resources.subscription_location_counts_dict = {}
     sps_shared_resources.succeed_to_get_next_available_location_count_all = 0
 
     if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
@@ -78,8 +76,9 @@ def lambda_handler(event, context):
                                           event_time_utc_datetime):
             raise RuntimeError("Failed to handle_res_for_research_df")
 
-        save_subscription_location_counts_dict_to_csv(event_time_utc_datetime)
         print(f"succeed_to_get_next_available_location_count_all: {sps_shared_resources.succeed_to_get_next_available_location_count_all}")
+
+        analyze_id_location_data()
         return handle_response(200, "Executed Successfully!", action, event_time_utc_datetime)
 
     except Exception as e:
@@ -168,17 +167,29 @@ def handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count
         return False
 
 
-def save_subscription_location_counts_dict_to_csv(time_utc):
-    df = pd.DataFrame([(k[0], k[1], v) for k, v in sps_shared_resources.subscription_location_counts_dict.items()],
-                      columns=["Subscription ID", "Location", "Count"])
-    az_str = f"availability-zones-{str(availability_zones).lower()}"
+def analyze_id_location_data():
+    # 1. 구독의 개수 계산
+    id_count = len(sps_shared_resources.locations_call_history_tmp)
 
-    s3_dir_name = time_utc.strftime("%Y/%m/%d")
-    s3_obj_name = time_utc.strftime("%H-%M-%S")
+    # 2. 단일 구독의 Location 개수 계산
+    first_id = list(sps_shared_resources.locations_call_history_tmp.keys())[0]
+    location_count = len(sps_shared_resources.locations_call_history_tmp[first_id])
 
-    data_path = f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+    # 3. 최대 시간 발생 횟수 계산 (구독 개수 * 단일 구독의 Location 개수 * 10)
+    max_time_occurrence = id_count * location_count * 10
 
-    S3.upload_file(df, data_path, "df_to_csv.gz")
+    # 4. 이미 호출한 횟수의 총합
+    total_time_occurrences = 0
+    for id_data in sps_shared_resources.locations_call_history_tmp.values():
+        for location_data in id_data.values():
+            total_time_occurrences += len(location_data)
+
+    # 결과 출력
+    print(f"\n-----------------------")
+    print(f"1. 구독 ID의 개수: {id_count}, 단일 구독 Location 개수: {location_count}")
+    print(f"2. 한 시간에 최대 호출 가능 횟수: {max_time_occurrence}")
+    print(f"3. 한 시간에 이미 호출: {total_time_occurrences}, 남은 가능 호출 수: {max_time_occurrence - total_time_occurrences}")
+    print(f"-----------------------")
 
 
 def handle_response(status_code, body, action, time_datetime, error_message=None):

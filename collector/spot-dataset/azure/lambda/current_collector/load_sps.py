@@ -256,13 +256,6 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
     return sps_res_df
 
 
-def update_count(subscription_id1, location1):
-    key_dict = (subscription_id1, location1)
-    if key_dict in SS_Resources.subscription_location_counts_dict:
-        SS_Resources.subscription_location_counts_dict[key_dict] += 1
-    else:
-        SS_Resources.subscription_location_counts_dict[key_dict] = 1
-
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_count, max_retries=12):
     '''
     실제 SPS API호출 메서드.
@@ -290,7 +283,6 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
                 return "NO_AVAILABLE_LOCATIONS"
             else:
                 subscription_id, location = res
-                update_count(subscription_id.split('-')[0], location)
 
         url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
         headers = {

@@ -10,7 +10,6 @@ succeed_to_get_next_available_location_count = 0
 too_many_requests_count = 0
 too_many_requests_count_2 = 0
 succeed_to_get_next_available_location_count_all = 0
-subscription_location_counts_dict = {}
 lock = RLock()
 location_lock = RLock()
 

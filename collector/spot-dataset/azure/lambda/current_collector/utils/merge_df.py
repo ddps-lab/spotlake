@@ -42,4 +42,11 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
         "SPS_Update_Time": "N/A"
     }, inplace=True)
 
+    join_df = join_df[
+        ~((join_df["OndemandPrice"] == -1) &
+          (join_df["SpotPrice"] == -1) &
+          (join_df["Savings"] == -1) &
+          (join_df["IF"] == -1))
+    ]
+
     return join_df

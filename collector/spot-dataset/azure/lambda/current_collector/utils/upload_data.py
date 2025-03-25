@@ -2,6 +2,7 @@
 import os
 import boto3
 import pickle
+import time
 import pandas as pd
 from datetime import datetime
 from utils.pub_service import AZURE_CONST, STORAGE_CONST, CW, S3, TimestreamWrite, Logger
@@ -166,7 +167,8 @@ def upload_timestream(data, time_datetime):
             submit_data = {
                 'Dimensions': dimensions,
                 'MeasureValues': [],
-                'Time': time_value
+                'Time': time_value,
+                'Version': int(time.time() * 1000)
             }
 
             measure_columns = [

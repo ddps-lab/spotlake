@@ -1,15 +1,19 @@
 import requests
 import pandas as pd
-from utils.azure_auth import get_token
 from utils.pub_service import send_slack_message
+from utils.azure_auth import get_sps_token_and_subscriptions
 
+pd.set_option('future.no_silent_downcasting', True)
 
-def get_data(token, skip_token, retry=3):
+def get_data(sps_token, skip_token, retry=3):
     try:
+        headers = {
+            "Authorization": f"Bearer {sps_token}",
+        }
         data = requests.post(
-            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2021-03-01", headers={
-                "Authorization": "Bearer " + token
-            }, json={
+            "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2024-04-01",
+            headers=headers,
+            json={
                 "query": """spotresources\n
             | where type =~ \"microsoft.compute/skuspotevictionrate/location\"\n
             | project location = location, props = parse_json(properties)\n
@@ -29,29 +33,28 @@ def get_data(token, skip_token, retry=3):
             return data
         else:
             return None
+
     except:
         if retry == 1:
             raise
-        return get_data(token, skip_token, retry - 1)
+        return get_data(sps_token, skip_token, retry - 1)
 
 
 def load_if():
     try:
-        token = get_token()
-
+        sps_token, _ = get_sps_token_and_subscriptions()
         datas = []
         skip_token = ""
 
         while True:
-            data = get_data(token, skip_token)
-            if data:
-                datas += data["data"]
+            data = get_data(sps_token, skip_token)
+            if not data:
+                break
 
-                if not "$skipToken" in data:
-                    break
-                skip_token = data["$skipToken"]
+            datas += data["data"]
+            skip_token = data.get("$skipToken", None)
 
-            else:
+            if skip_token is None:
                 break
 
         if not datas:

@@ -26,8 +26,9 @@ def lambda_handler(event, _):
 
     try:
         if_df = load_if()
-        if not if_df:
+        if if_df.empty:
             is_if_fetch_success = False
+
     except Exception as e:
         error_msg = """AZURE IF MODULE EXCEPTION!\n %s""" % (e)
         data = {'text': error_msg}

@@ -26,7 +26,7 @@ def lambda_handler(event, _):
 
     try:
         if_df = load_if()
-        if if_df.empty:
+        if if_df is None or if_df.empty:
             is_if_fetch_success = False
 
     except Exception as e:

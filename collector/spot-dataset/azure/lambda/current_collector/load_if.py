@@ -3,8 +3,6 @@ import pandas as pd
 from utils.pub_service import send_slack_message
 from utils.azure_auth import get_sps_token_and_subscriptions
 
-pd.set_option('future.no_silent_downcasting', True)
-
 def get_data(sps_token, skip_token, retry=3):
     try:
         headers = {

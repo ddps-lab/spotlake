@@ -39,13 +39,14 @@ def lambda_handler(event, _):
         join_df = merge_price_saving_if_df(price_saving_df, if_df)
     elif not is_price_fetch_success and is_if_fetch_success:
         join_df = if_df
+        send_slack_message(f"AZURE PRICE MODULE EXCEPTION!\n No data")
 
     elif is_price_fetch_success and not is_if_fetch_success:
         price_saving_df['IF'] = -1.0
         current_df = price_saving_df[
             ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
         join_df = current_df
-        Logger.error("Failed: if_fetch!")
+        send_slack_message(f"AZURE IF MODULE EXCEPTION!\n No data")
 
     else:
         result_msg = """AZURE PRICE MODULE AND IF MODULE EXCEPTION!"""

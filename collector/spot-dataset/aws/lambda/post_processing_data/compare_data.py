@@ -84,35 +84,35 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
     return changed_df, removed_df
 
 # ------ Compare the values of T3 and T2 ------
-def compare_max_instance(merge_df, previous_df, target_capacity):
-    condition = (previous_df['InstanceType'] == merge_df['InstanceType']) & (previous_df['AZ'] == merge_df['AZ'])
-    current_df = merge_df
+def compare_max_instance(previous_df, new_df, target_capacity):
+    fallback_dict = {50:45, 45:40, 40:35, 35:30, 30:25, 25:20, 20:15, 15:10, 10:5, 5:1, 1:0}
 
-    current_df.loc[condition, 'T3'] = np.maximum(
-        previous_df.loc[condition, 'T3'], merge_df.loc[condition, 'T3']
-    )
-    current_df.loc[condition, 'T2'] = np.maximum(
-        previous_df.loc[condition, 'T2'], merge_df.loc[condition, 'T2']
+    spotlake_df = new_df.copy()
+
+    merged_df = pd.merge(
+        spotlake_df,
+        previous_df[['InstanceType', 'AZ', 'SPS', 'T3', 'T2']],
+        on=['InstanceType', 'AZ'],
+        how='left',
+        suffixes=('', '_prev')
     )
 
-    current_df.loc[condition & (merge_df['T3'] == target_capacity), 'T2'] = target_capacity
-    
+    # Fix SPS when single node SPS
     if target_capacity == 1:
-        current_df.loc[condition & (merge_df['T3'] == 0), 'T3'] = 0
-        current_df.loc[condition & (merge_df['T2'] == 0), 'T2'] = 0
-    else:
-        # Merging collection and previous data
-        current_df = pd.merge(
-            current_df,
-            previous_df[['InstanceType', 'AZ', 'SPS']],
-            on=['InstanceType', 'AZ'],
-            how='left',
-            suffixes=('', '_new')
-        )
-        # Overwrite SPS value of target capacity 1
-        current_df['SPS_new'] = current_df['SPS_new'].dropna()
-        current_df['SPS'] = current_df['SPS_new'].combine_first(current_df['SPS'])
-        # Delete unnecessary column
-        current_df = current_df.drop(columns=['SPS_new'])
+        merged_df['SPS'] = merged_df['SPS'].combine_first(merged_df['SPS_prev'])
+   
+    # Compare T3 and T2
+    merged_df['T3'] = merged_df[['T3', 'T3_prev']].max(axis=1).astype(int)
+    merged_df['T2'] = merged_df[['T2', 'T2_prev']].max(axis=1).astype(int)
 
-    return current_df
+    # Convert SPS to int
+    merged_df['SPS'] = merged_df['SPS'].astype(int)
+
+    # Handle fallback
+    merged_df.loc[merged_df['SPS'] <= 2, 'T3'] = fallback_dict.get(target_capacity, 0)
+    merged_df.loc[merged_df['SPS'] == 1, 'T2'] = fallback_dict.get(target_capacity, 0)
+
+    # Drop unnecessary columns
+    merged_df.drop(columns=['T3_prev', 'T2_prev', 'SPS_prev'], inplace=True)
+    
+    return merged_df

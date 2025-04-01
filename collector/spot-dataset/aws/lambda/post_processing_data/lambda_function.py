@@ -118,7 +118,7 @@ def main():
         start_time = datetime.now(timezone.utc)
     
         # ------ Compare T3 and T2 Data ------
-        current_df = compare_max_instance(merge_df, previous_df, target_capacity)
+        current_df = compare_max_instance(previous_df, merge_df, target_capacity)
 
         # ------ Upload Merge DF to s3 Bucket ------
         update_latest(current_df, TIMESTAMP)
@@ -155,3 +155,7 @@ def lambda_handler(event, context):
     end_time = datetime.now(timezone.utc)
     print(f"Running time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
     return "Process completed successfully"
+
+if __name__ == "__main__":
+    lambda_handler({}, {})
+    

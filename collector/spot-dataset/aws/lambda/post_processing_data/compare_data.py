@@ -8,15 +8,15 @@ from slack_msg_sender import send_slack_message
 # compare previous collected workload with current collected workload
 # return changed workload
 def compare(previous_df, current_df, workload_cols, feature_cols):  
-    previous_df.loc[:,'Workload'] = previous_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
-    previous_df.loc[:,'Feature'] = previous_df[feature_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
-    current_df.loc[:,'Workload'] = current_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
-    current_df.loc[:,'Feature'] = current_df[feature_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
+    previous_df.loc[:,"Workload"] = previous_df[workload_cols].apply(lambda row: ":".join(row.values.astype(str)), axis=1)
+    previous_df.loc[:,"Feature"] = previous_df[feature_cols].apply(lambda row: ":".join(row.values.astype(str)), axis=1)
+    current_df.loc[:,"Workload"] = current_df[workload_cols].apply(lambda row: ":".join(row.values.astype(str)), axis=1)
+    current_df.loc[:,"Feature"] = current_df[feature_cols].apply(lambda row: ":".join(row.values.astype(str)), axis=1)
 
-    current_indices = current_df[['Workload', 'Feature']].sort_values(by='Workload').index
-    current_values = current_df[['Workload', 'Feature']].sort_values(by='Workload').values
-    previous_indices = previous_df[['Workload', 'Feature']].sort_values(by='Workload').index
-    previous_values = previous_df[['Workload', 'Feature']].sort_values(by='Workload').values
+    current_indices = current_df[["Workload", "Feature"]].sort_values(by="Workload").index
+    current_values = current_df[["Workload", "Feature"]].sort_values(by="Workload").values
+    previous_indices = previous_df[["Workload", "Feature"]].sort_values(by="Workload").index
+    previous_values = previous_df[["Workload", "Feature"]].sort_values(by="Workload").values
     
     changed_indices = []
     removed_indices = []
@@ -35,7 +35,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
             else:
                 send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 print(f"{prev_workload}, {curr_workload} workload error")
-                raise Exception('workload error')
+                raise Exception("workload error")
             break
         elif prev_idx == len(previous_indices):
             curr_workload = current_values[curr_idx][0]
@@ -47,7 +47,7 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
             else:
                 send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 print(f"{prev_workload}, {curr_workload} workload error")
-                raise Exception('workload error')
+                raise Exception("workload error")
             break
             
         prev_workload = previous_values[prev_idx][0]
@@ -66,53 +66,75 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
             else:
                 send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 print(f"{prev_workload}, {curr_workload} workload error")
-                raise Exception('workload error')
+                raise Exception("workload error")
         else:
             if prev_feature != curr_feature:
                 changed_indices.append(current_indices[curr_idx])
             curr_idx += 1
             prev_idx += 1
-    changed_df = current_df.loc[changed_indices].drop(['Workload', 'Feature'], axis=1)
-    removed_df = previous_df.loc[removed_indices].drop(['Workload', 'Feature'], axis=1)
+    changed_df = current_df.loc[changed_indices].drop(["Workload", "Feature"], axis=1)
+    removed_df = previous_df.loc[removed_indices].drop(["Workload", "Feature"], axis=1)
     
     for col in feature_cols:
         removed_df[col] = 0
 
-    # removed_df have one more column, 'Ceased'
-    removed_df['Ceased'] = True
+    # removed_df have one more column, "Ceased"
+    removed_df["Ceased"] = True
 
     return changed_df, removed_df
 
 # ------ Compare the values of T3 and T2 ------
-def compare_max_instance(merge_df, previous_df, target_capacity):
-    condition = (previous_df['InstanceType'] == merge_df['InstanceType']) & (previous_df['AZ'] == merge_df['AZ'])
-    current_df = merge_df
+def compare_max_instance(previous_df, new_df, target_capacity):
+    fallback_dict = {50:45, 45:40, 40:35, 35:30, 30:25, 25:20, 20:15, 15:10, 10:5, 5:1, 1:0}
+    fallback_val = fallback_dict.get(target_capacity, 0)
 
-    current_df.loc[condition, 'T3'] = np.maximum(
-        previous_df.loc[condition, 'T3'], merge_df.loc[condition, 'T3']
-    )
-    current_df.loc[condition, 'T2'] = np.maximum(
-        previous_df.loc[condition, 'T2'], merge_df.loc[condition, 'T2']
+    spotlake_df = new_df.copy()
+
+    merged_df = pd.merge(
+        spotlake_df,
+        previous_df[["InstanceType", "AZ", "SPS", "T3", "T2"]],
+        on=["InstanceType", "AZ"],
+        how="left",
+        suffixes=("", "_prev")
     )
 
-    current_df.loc[condition & (merge_df['T3'] == target_capacity), 'T2'] = target_capacity
-    
+    # Fix SPS when single node SPS
     if target_capacity == 1:
-        current_df.loc[condition & (merge_df['T3'] == 0), 'T3'] = 0
-        current_df.loc[condition & (merge_df['T2'] == 0), 'T2'] = 0
-    else:
-        # Merging collection and previous data
-        current_df = pd.merge(
-            current_df,
-            previous_df[['InstanceType', 'AZ', 'SPS']],
-            on=['InstanceType', 'AZ'],
-            how='left',
-            suffixes=('', '_new')
-        )
-        # Overwrite SPS value of target capacity 1
-        current_df['SPS_new'] = current_df['SPS_new'].dropna()
-        current_df['SPS'] = current_df['SPS_new'].combine_first(current_df['SPS'])
-        # Delete unnecessary column
-        current_df = current_df.drop(columns=['SPS_new'])
+        merged_df["SPS"] = merged_df["SPS"].combine_first(merged_df["SPS_prev"])
 
-    return current_df
+    # Merge single node SPS with multi node SPS if (multi node SPS) > (single node SPS)
+    merged_df.loc[(merged_df["SPS"] > merged_df["SPS_prev"]), "SPS_prev"] = merged_df["SPS"]
+
+    # Calculate T3
+    merged_df["T3"] = np.where(
+        merged_df["SPS"] >= 3,
+        np.maximum(merged_df["T3"], merged_df["T3_prev"]),
+        np.minimum(fallback_val, merged_df["T3_prev"])
+    )
+
+    # Calculate T2
+    merged_df["T2"] = np.where(
+        merged_df["SPS"] >= 2,
+        np.maximum(merged_df["T2"], merged_df["T2_prev"]),
+        np.minimum(fallback_val, merged_df["T2_prev"])
+    )
+
+    if target_capacity == 1:
+        # When SPS lower than condition, set T3 or T2 to 0
+        merged_df.loc[merged_df["SPS"] <= 2, "T3"] = 0
+        merged_df.loc[merged_df["SPS"] < 2, "T2"] = 0
+    else:
+        # When SPS lower than condition, set T3 or T2 to 0
+        merged_df.loc[merged_df["SPS_prev"] <= 2, "T3"] = 0
+        merged_df.loc[merged_df["SPS_prev"] < 2, "T2"] = 0
+        # Fix SPS to Single node SPS
+        merged_df["SPS"] = merged_df["SPS_prev"]
+
+    # Convert to int
+    for col in ["SPS", "T2", "T3"]:
+        merged_df[col] = merged_df[col].astype("Int64")
+    
+    # Drop unnecessary columns
+    merged_df.drop(columns=["T3_prev", "T2_prev", "SPS_prev"], inplace=True)
+
+    return merged_df

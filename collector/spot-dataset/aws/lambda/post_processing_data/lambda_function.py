@@ -11,6 +11,9 @@ from slack_msg_sender import send_slack_message
 from upload_data import upload_timestream, update_latest, save_raw, update_query_selector, update_config
 from compare_data import compare, compare_max_instance
 
+class FirstRunError(Exception):
+    pass
+
 def main():
     print("Start Lambda Function")
     start_time = datetime.now(timezone.utc)
@@ -100,10 +103,10 @@ def main():
             existing_columns = [col for col in columns_to_check if col in previous_df.columns]
             
             if len(existing_columns) == 0:
-                raise
+                raise FirstRunError("Can't load the previous df from s3 bucket or First run since changing the collector")
             else:
                 previous_df = previous_df.drop(columns=['Id'])
-        except:
+        except FirstRunError as e:
             # If system is first time uploading data, make a new one and upload it to TSDB
             update_latest(merge_df, TIMESTAMP)
             save_raw(merge_df, TIMESTAMP)
@@ -118,7 +121,7 @@ def main():
         start_time = datetime.now(timezone.utc)
     
         # ------ Compare T3 and T2 Data ------
-        current_df = compare_max_instance(merge_df, previous_df, target_capacity)
+        current_df = compare_max_instance(previous_df, merge_df, target_capacity)
 
         # ------ Upload Merge DF to s3 Bucket ------
         update_latest(current_df, TIMESTAMP)
@@ -155,3 +158,7 @@ def lambda_handler(event, context):
     end_time = datetime.now(timezone.utc)
     print(f"Running time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
     return "Process completed successfully"
+
+if __name__ == "__main__":
+    lambda_handler({}, {})
+    

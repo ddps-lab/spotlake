@@ -70,14 +70,16 @@ def query_sps(args):
             sps_dict["AZ"].append(score['AvailabilityZoneId'])
             sps_dict["SPS"].append(int(score["Score"]))
             sps_dict["TargetCapacity"].append(target_capacity)
+            
             if score['Score'] == 3:
                 sps_dict["T3"].append(target_capacity)
             else:
                 sps_dict["T3"].append(0)
-            if score['Score'] == 1:
-                sps_dict["T2"].append(0)
-            else:
+
+            if score['Score'] == 2:
                 sps_dict["T2"].append(target_capacity)
+            else:
+                sps_dict["T2"].append(0)
     
     return pd.DataFrame(sps_dict)
 

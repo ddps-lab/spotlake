@@ -102,6 +102,9 @@ def compare_max_instance(previous_df, new_df, target_capacity):
     if target_capacity == 1:
         merged_df["SPS"] = merged_df["SPS"].combine_first(merged_df["SPS_prev"])
 
+    # Merge single node SPS with multi node SPS if (multi node SPS) > (single node SPS)
+    merged_df.loc[(merged_df["SPS"] > merged_df["SPS_prev"]), "SPS_prev"] = merged_df["SPS"]
+
     # Calculate T3
     merged_df["T3"] = np.where(
         merged_df["SPS"] >= 3,

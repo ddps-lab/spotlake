@@ -21,9 +21,9 @@ const Query = ({
   setGetdata,
   setGCPData,
   setAZUREData,
+  setSnackbar,
 }) => {
-  const url =
-    "https://ohu7b2tglrqpl7qlogbu7pduq40flbgg.lambda-url.us-west-2.on.aws/";
+  const url = "https://d26bk4799jlxhe.cloudfront.net/query-api/";
   const [load, setLoad] = useState(false);
   const [region, setRegion] = useState();
   const [az, setAZ] = useState();
@@ -35,6 +35,8 @@ const Query = ({
   const [searchFilter, setSearchFilter] = useState({
     instance: "",
     region: "",
+    tier: "",
+    az: "",
     start_date: "",
     end_date: "",
   });
@@ -71,6 +73,7 @@ const Query = ({
   const setFilter = ({ target }) => {
     //filter value 저장
     const { name, value } = target;
+
     // 날짜가 입력 될 경우
     if (name.includes("start_date")) setDate(name, value);
     setSearchFilter({ ...searchFilter, [name]: value });
@@ -103,6 +106,11 @@ const Query = ({
               ]);
             });
             setAssoTier(["ALL", ...newAssoTier]);
+            setSearchFilter((prev) => ({
+              ...prev,
+              tier: prev.tier || "ALL",
+              az: prev.az || "ALL",
+            }));
           } catch (e) {
             console.log(e);
           }
@@ -139,10 +147,13 @@ const Query = ({
       })
       .includes(false);
     const invalidQueryForVendor =
-      (vendor === "AWS" && !Boolean(searchFilter?.az)) ||
-      (vendor === "AZURE" && !Boolean(searchFilter?.tier));
+      vendor === "AWS" && !Boolean(searchFilter?.az);
     if (invalidQuery || invalidQueryForVendor) {
-      alert("The query is invalid. \nPlease check your search option.");
+      setSnackbar({
+        open: true,
+        message: "The query is invalid. \nPlease check your search option.",
+        severity: "error",
+      });
       return;
     }
     //start_date , end_date 비교 후 start_date가 end_date보다 이전일 경우에만 데이터 요청
@@ -161,23 +172,32 @@ const Query = ({
         ...(vendor === "AZURE" && {
           InstanceTier:
             searchFilter["tier"] === "ALL" ? "*" : searchFilter["tier"],
+          AvailabilityZone:
+            searchFilter["az"] === "ALL" ? "*" : searchFilter["az"],
         }),
         Start:
           searchFilter["start_date"] === "" ? "*" : searchFilter["start_date"],
         End: searchFilter["end_date"] === "" ? "*" : searchFilter["end_date"],
       };
-      //현재 url = "https://puhs0z1q3l.execute-api.us-west-2.amazonaws.com/default/sungjae-timestream-query";
+
       await axios
         .get(url, { params })
         .then((res) => {
           if (res.data.Status === 403) {
-            alert("Invalid Access");
+            setSnackbar({
+              open: true,
+              message: "Invalid Access",
+              severity: "error",
+            });
           } else if (res.data.Status === 500) {
-            alert("Internal Server Error");
+            setSnackbar({
+              open: true,
+              message: "Internal Server Error",
+              severity: "error",
+            });
           } else {
             // Status 성공 시,
-            let parseData = JSON.parse(JSON.parse(res.data.Data));
-            // let parseData = JSON.parse(res.data);
+            let parseData = res.data.Data;
             const setQueryData =
               vendor === "AWS"
                 ? setGetdata
@@ -187,11 +207,18 @@ const Query = ({
             setQueryData(parseData);
             let dataCnt = parseData.length;
             if (dataCnt < 20000) {
-              alert("Total " + dataCnt + " data points have been returned");
+              setSnackbar({
+                open: true,
+                message: `Total ${dataCnt} data points have been returned`,
+                severity: "success",
+              });
             } else if (dataCnt === 20000) {
-              alert(
-                "The maximum number of data points has been returned (20,000)"
-              );
+              setSnackbar({
+                open: true,
+                message:
+                  "The maximum number of data points has been returned (20,000)",
+                severity: "warning",
+              });
             }
           }
           // button load false로 설정
@@ -201,13 +228,20 @@ const Query = ({
           setLoad(false);
           console.log(e);
           if (e.message === "Network Error") {
-            alert("A network error occurred. Try it again. ");
+            setSnackbar({
+              open: true,
+              message: "A network error occurred. Try it again.",
+              severity: "error",
+            });
           }
         });
     } else {
-      alert(
-        "The date range for the query is invalid. Please set the date correctly."
-      );
+      setSnackbar({
+        open: true,
+        message:
+          "The date range for the query is invalid. Please set the date correctly.",
+        severity: "error",
+      });
     }
   };
   const ResetSelected = () => {
@@ -220,13 +254,13 @@ const Query = ({
   const setFilterData = async () => {
     // fecth Query Association JSON
     let assoAWS = await axios.get(
-      "https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_aws.json"
+      "https://d26bk4799jlxhe.cloudfront.net/query-selector/associated/association_aws.json"
     );
     let assoAzure = await axios.get(
-      "https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_azure.json"
+      "https://d26bk4799jlxhe.cloudfront.net/query-selector/associated/association_azure.json"
     );
     let assoGCP = await axios.get(
-      "https://spotlake.s3.us-west-2.amazonaws.com/query-selector/associated/association_gcp.json"
+      "https://d26bk4799jlxhe.cloudfront.net/query-selector/associated/association_gcp.json"
     );
     if (assoAWS && assoAWS.data) {
       assoAWS = assoAWS.data[0];
@@ -337,13 +371,13 @@ const Query = ({
         >
           {assoInstance
             ? assoInstance.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
             : instance
             ? instance.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
@@ -365,13 +399,13 @@ const Query = ({
         >
           {assoRegion
             ? assoRegion.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
             : region
             ? region.map((e) => (
-                <style.selectItem value={e} vendor={vendor}>
+                <style.selectItem key={e} value={e} vendor={vendor}>
                   {e}
                 </style.selectItem>
               ))
@@ -394,13 +428,13 @@ const Query = ({
           >
             {assoAZ
               ? assoAZ.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
+                  <style.selectItem key={e} value={e} vendor={vendor}>
                     {e}
                   </style.selectItem>
                 ))
               : az
               ? az.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
+                  <style.selectItem key={e} value={e} vendor={vendor}>
                     {e}
                   </style.selectItem>
                 ))
@@ -409,34 +443,50 @@ const Query = ({
         </FormControl>
       ) : null}
       {vendor === "AZURE" && (
-        <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
-          <style.filterLabel id="instance-tier-input-label" vendor={vendor}>
-            Tier
-          </style.filterLabel>
-          <style.filterSelect
-            labelId="instance-tier-input-label"
-            id="instance-tier-input"
-            value={searchFilter["tier"]}
-            onChange={setFilter}
-            label="tier"
-            name="tier"
-            vendor={vendor}
-          >
-            {assoTier
-              ? assoTier.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
-                    {e}
-                  </style.selectItem>
-                ))
-              : assoTier
-              ? assoTier.map((e) => (
-                  <style.selectItem value={e} vendor={vendor}>
-                    {e}
-                  </style.selectItem>
-                ))
-              : null}
-          </style.filterSelect>
-        </FormControl>
+        <>
+          <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+            <style.filterLabel id="az-input-label" vendor={vendor}>
+              AZ
+            </style.filterLabel>
+            <style.filterSelect
+              labelId="az-input-label"
+              id="az-input"
+              value={searchFilter["az"] ?? "ALL"}
+              onChange={setFilter}
+              label="AZ"
+              name="az"
+              vendor={vendor}
+            >
+              {["ALL", 1, 2, 3, "Single"].map((e) => (
+                <style.selectItem key={e} value={e} vendor={vendor}>
+                  {e}
+                </style.selectItem>
+              ))}
+            </style.filterSelect>
+          </FormControl>
+          <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+            <style.filterLabel id="instance-tier-input-label" vendor={vendor}>
+              Tier
+            </style.filterLabel>
+            <style.filterSelect
+              labelId="instance-tier-input-label"
+              id="instance-tier-input"
+              value={searchFilter["tier"] ?? "ALL"}
+              onChange={setFilter}
+              label="Tier"
+              name="tier"
+              vendor={vendor}
+            >
+              {assoTier
+                ? assoTier.map((e) => (
+                    <style.selectItem key={e} value={e} vendor={vendor}>
+                      {e}
+                    </style.selectItem>
+                  ))
+                : null}
+            </style.filterSelect>
+          </FormControl>
+        </>
       )}
       <FormControl
         variant="standard"

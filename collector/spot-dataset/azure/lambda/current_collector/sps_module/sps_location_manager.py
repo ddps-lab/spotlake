@@ -1,20 +1,28 @@
 import re
 import requests
 import traceback
+import random
 from sps_module import sps_shared_resources
 from datetime import datetime, timedelta, timezone
+from utils.pub_service import S3, AZURE_CONST
 
 SS_Resources = sps_shared_resources
 
-def check_and_add_available_locations():
+def check_and_add_available_locations(az):
     """
     이 메서드는 최신 사용 가능한 location을 수집하고, locations_call_history_tmp 변수에 저장된 기존 구독 기록과 비교하고 갱신합니다.
     """
     try:
-        available_locations = collect_available_locations()
-        if not available_locations:
-            print("No available locations collected. Skipping update.")
-            return False
+        SS_Resources.available_locations = collect_available_locations()
+        az_str = f"availability-zones-{str(az).lower()}"
+        available_locations_path = f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/{az_str}/{AZURE_CONST.S3_AVAILABLE_LOCATIONS_JSON_FILENAME}"
+
+        if not SS_Resources.available_locations:
+            print("No available locations collected. Reading the S3 file")
+            SS_Resources.available_locations = S3.read_file(available_locations_path, 'json')
+        else:
+            S3.upload_file(SS_Resources.available_locations, available_locations_path, 'json')
+
 
         # 기존 location_call_history 데이터가 없으면 빈 딕셔너리로 초기화
         if SS_Resources.locations_call_history_tmp is None:
@@ -29,7 +37,7 @@ def check_and_add_available_locations():
             if subscription_id not in SS_Resources.locations_over_limit_tmp:
                 SS_Resources.locations_over_limit_tmp[subscription_id] = {}
 
-            for location in available_locations:
+            for location in SS_Resources.available_locations:
                 if location not in SS_Resources.locations_call_history_tmp[subscription_id]:
                     SS_Resources.locations_call_history_tmp[subscription_id][location] = []
                     updated = True
@@ -39,24 +47,23 @@ def check_and_add_available_locations():
             return True
         else:
             print("No new available locations found. locations_call_history_tmp or locations_call_history_tmp unchanged.")
-            return False
 
     except Exception as e:
         print(f"Error in check_and_add_available_locations: {e}")
         return False
 
 
-def validation_can_call(location, history, over_limit_locations):
+def validation_can_call(subscription_id, location):
     """
     이 메서드는 지정된 location으로 호출 가능한지 확인합니다.
     초과 요청 여부와 호출 이력의 크기를 기준으로 판단합니다.
     """
-    if over_limit_locations is not None:
-        if ((location not in over_limit_locations)
-                and (len(history[location]) < 10)):
+    if SS_Resources.locations_over_limit_tmp.get(subscription_id):
+        if ((location not in SS_Resources.locations_over_limit_tmp.get(subscription_id))
+                and (len(SS_Resources.locations_call_history_tmp[subscription_id][location]) < 10)):
             return True
     else:
-        if len(history[location]) < 10:
+        if len(SS_Resources.locations_call_history_tmp[subscription_id][location]) < 10:
             return True
     return False
 
@@ -78,38 +85,22 @@ def get_next_available_location():
         clean_expired_over_limit_locations()
         clean_expired_over_call_history_locations()
 
-        subscription_ids = list(SS_Resources.locations_call_history_tmp.keys())
+        start_subscription_index = random.randint(0, len(SS_Resources.subscriptions) - 1)
 
-        last_subscription_id = SS_Resources.last_subscription_id_and_location_tmp.get('last_subscription_id')
-        last_location = SS_Resources.last_subscription_id_and_location_tmp.get('last_location')
+        for i in range(len(SS_Resources.subscriptions)):
+            subscription_index = (start_subscription_index + i) % len(SS_Resources.subscriptions)
+            subscription_id = SS_Resources.subscriptions[subscription_index]
 
-        start_subscription_index = 0
-        if last_subscription_id is not None and last_subscription_id in subscription_ids:
-            start_subscription_index = subscription_ids.index(last_subscription_id)
+            start_location_index = random.randint(0, len(SS_Resources.available_locations) - 1)
+            for j in range(len(SS_Resources.available_locations)):
+                location_index = (start_location_index + j) % len(SS_Resources.available_locations)
+                location = SS_Resources.available_locations[location_index]
 
-
-        for i in range(len(subscription_ids)):
-            subscription_index = (start_subscription_index + i) % len(subscription_ids)
-            subscription_id = subscription_ids[subscription_index]
-
-            current_history = SS_Resources.locations_call_history_tmp[subscription_id]
-            current_over_limit_locations = SS_Resources.locations_over_limit_tmp.get(subscription_id)
-
-            locations = list(current_history.keys())
-
-            start_location_index = 0
-            if last_location is not None and last_location in locations:
-                start_location_index = (locations.index(last_location) + 1) % len(locations)
-
-            for j in range(len(locations)):
-                location_index = (start_location_index + j) % len(locations)
-                location = locations[location_index]
-
-                if validation_can_call(location, current_history, current_over_limit_locations):
-
-                    SS_Resources.last_subscription_id_and_location_tmp['last_subscription_id'] = subscription_id
-                    SS_Resources.last_subscription_id_and_location_tmp['last_location'] = location
-                    return subscription_id, location, current_history, current_over_limit_locations
+                if validation_can_call(subscription_id, location):
+                    SS_Resources.succeed_to_get_next_available_location_count += 1
+                    SS_Resources.succeed_to_get_next_available_location_count_all += 1
+                    SS_Resources.locations_call_history_tmp[subscription_id][location].append(datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
+                    return subscription_id, location
 
         return None
 
@@ -160,7 +151,7 @@ def clean_expired_over_limit_locations():
     '''
     if SS_Resources.locations_over_limit_tmp:
         for subscription_id in SS_Resources.subscriptions:
-            one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+            one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=63)
             for location_key, location_value in list(
                     SS_Resources.locations_over_limit_tmp[subscription_id].items()):
                 dt = datetime.fromisoformat(location_value)
@@ -173,7 +164,7 @@ def clean_expired_over_call_history_locations():
     이 메서드는 호출 이력을 유효하지 않은 위치를 정리하고 호출 이력을 업데이트합니다.
     '''
     if SS_Resources.locations_call_history_tmp:
-        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=63)
         for subscription_id in SS_Resources.subscriptions:
             subscription_data = SS_Resources.locations_call_history_tmp.get(subscription_id, {})
 
@@ -186,7 +177,7 @@ def clean_expired_over_call_history_locations():
             SS_Resources.locations_call_history_tmp[subscription_id] = new_subscription_data
 
 
-def update_call_history(subscription_id, location, current_history):
+def update_call_history(subscription_id, location):
     """
     이 메서드는 특정 계정, 구독, 위치의 호출 이력을 업데이트합니다.
     업데이트된 데이터를 JSON 파일에 저장합니다.
@@ -194,8 +185,7 @@ def update_call_history(subscription_id, location, current_history):
     try:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         current_timestamp = now.isoformat()
-        current_history[location].append(current_timestamp)
-        SS_Resources.locations_call_history_tmp[subscription_id] = current_history
+        SS_Resources.locations_call_history_tmp[subscription_id][location].append(current_timestamp)
         return True
 
     except Exception as e:

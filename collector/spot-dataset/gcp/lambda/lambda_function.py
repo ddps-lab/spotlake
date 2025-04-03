@@ -32,6 +32,7 @@ urls = {
     },
 }
 
+
 def get_url(version, sku_id=None):
     if version == 'v2beta/skus':
         return urls[version]['BASE_URL'] + urls[version]['QUERY_STRING']
@@ -39,6 +40,7 @@ def get_url(version, sku_id=None):
         return urls[version]['BASE_URL'] + '/' + sku_id + urls[version]['QUERY_STRING']
     else:
         return None
+
 
 # Get authentication token
 def get_access_token():
@@ -52,6 +54,7 @@ def get_access_token():
     except Exception as e:
         send_slack_message(f"[GCP Collector]\nError in get_access_token: {str(e)}")
         raise
+
 
 # str1: GPU model name string (e.g. nvidia-h100-mega-80gb)
 # str2: List of GPU model names to compare similarity with (e.g. ['A100', 'H100', 'L4'])
@@ -77,6 +80,7 @@ def jaccard_similarity(str1, str2):
             max_str = str
     return max_str
 
+
 def call_api(version=None, sku_id=None, page_token=None):
     token = get_access_token()
     headers = {"Authorization": f"Bearer {token}"}
@@ -97,6 +101,7 @@ def call_api(version=None, sku_id=None, page_token=None):
         send_slack_message(error_msg)
         raise
 
+
 # Get SKU information
 def get_sku_infos(response):
     try:
@@ -106,26 +111,26 @@ def get_sku_infos(response):
         for sku in skus:
             info_type = None
             if (len(sku['productTaxonomy']['taxonomyCategories']) == 6 and
-                sku['productTaxonomy']['taxonomyCategories'][0]['category'] == 'GCP' and 
-                sku['productTaxonomy']['taxonomyCategories'][1]['category'] == 'Compute' and 
-                sku['productTaxonomy']['taxonomyCategories'][2]['category'] == 'GCE' and 
-                (sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'VMs Preemptible' or sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'VMs On Demand') and 
+                sku['productTaxonomy']['taxonomyCategories'][0]['category'] == 'GCP' and
+                sku['productTaxonomy']['taxonomyCategories'][1]['category'] == 'Compute' and
+                sku['productTaxonomy']['taxonomyCategories'][2]['category'] == 'GCE' and
+                (sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'VMs Preemptible' or sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'VMs On Demand') and
                 (sku['productTaxonomy']['taxonomyCategories'][4]['category'] == 'Memory: Per GB' or sku['productTaxonomy']['taxonomyCategories'][4]['category'] == 'Cores: Per Core' or sku['productTaxonomy']['taxonomyCategories'][4]['category'] == 'Cores: 1 to 64') and
                 'Custom' not in sku['displayName'] and
                 'Sole Tenancy' not in sku['displayName'] and
-                sku['productTaxonomy']['taxonomyCategories'][5]['category'] != 'Cross VM'):
+                    sku['productTaxonomy']['taxonomyCategories'][5]['category'] != 'Cross VM'):
                 info_type = "VMs"
             elif (len(sku['productTaxonomy']['taxonomyCategories']) == 5 and
-                sku['productTaxonomy']['taxonomyCategories'][0]['category'] == 'GCP' and 
-                sku['productTaxonomy']['taxonomyCategories'][1]['category'] == 'Compute' and 
-                sku['productTaxonomy']['taxonomyCategories'][2]['category'] == 'GPUs' and 
-                (sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs Preemptible' or sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs On Demand')):
+                  sku['productTaxonomy']['taxonomyCategories'][0]['category'] == 'GCP' and
+                  sku['productTaxonomy']['taxonomyCategories'][1]['category'] == 'Compute' and
+                  sku['productTaxonomy']['taxonomyCategories'][2]['category'] == 'GPUs' and
+                  (sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs Preemptible' or sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs On Demand')):
                 info_type = "GPUs"
             elif (len(sku['productTaxonomy']['taxonomyCategories']) == 6 and
-                sku['productTaxonomy']['taxonomyCategories'][0]['category'] == 'GCP' and 
-                sku['productTaxonomy']['taxonomyCategories'][1]['category'] == 'Compute' and 
-                sku['productTaxonomy']['taxonomyCategories'][2]['category'] == 'GPUs' and 
-                (sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs Preemptible' or sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs On Demand')):
+                  sku['productTaxonomy']['taxonomyCategories'][0]['category'] == 'GCP' and
+                  sku['productTaxonomy']['taxonomyCategories'][1]['category'] == 'Compute' and
+                  sku['productTaxonomy']['taxonomyCategories'][2]['category'] == 'GPUs' and
+                  (sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs Preemptible' or sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs On Demand')):
                 info_type = "GPUs_with_Core_and_Memory"
             else:
                 continue
@@ -192,6 +197,8 @@ def get_sku_infos(response):
                 gpu_type = sku['productTaxonomy']['taxonomyCategories'][4]['category']
                 price_model = "On-demand" if sku['productTaxonomy']['taxonomyCategories'][3]['category'] == 'GPUs On Demand' else "Preemptible"
                 price_resource = sku['productTaxonomy']['taxonomyCategories'][5]['category'].split(":")[0]
+                if price_resource == 'GPU slice':  # Skip GPU slice resource
+                    continue
                 if sku['geoTaxonomy']['type'] == 'TYPE_REGIONAL':
                     region = sku['geoTaxonomy']['regionalMetadata']['region']['region']
                     gpu_sku_infos.append({
@@ -221,6 +228,7 @@ def get_sku_infos(response):
         send_slack_message(error_msg)
         raise
 
+
 def get_price_infos(response, sku_ids, gpu_sku_ids):
     try:
         prices = response['prices']
@@ -231,7 +239,8 @@ def get_price_infos(response, sku_ids, gpu_sku_ids):
             if sku_id in sku_ids:
                 price_value = None
                 try:
-                    price_value = int(price['rate']['tiers'][0]['listPrice']['units']) + price['rate']['tiers'][0]['listPrice']['nanos'] * 0.000000001
+                    price_value = int(price['rate']['tiers'][0]['listPrice']['units']) + \
+                        price['rate']['tiers'][0]['listPrice']['nanos'] * 0.000000001
                 except:
                     price_value = price['rate']['tiers'][0]['listPrice']['nanos'] * 0.000000001
                 price_infos.append({
@@ -246,7 +255,8 @@ def get_price_infos(response, sku_ids, gpu_sku_ids):
                 price_value = None
                 try:
                     try:
-                        price_value = int(price['rate']['tiers'][0]['listPrice']['units']) + price['rate']['tiers'][0]['listPrice']['nanos'] * 0.000000001
+                        price_value = int(price['rate']['tiers'][0]['listPrice']['units']) + \
+                            price['rate']['tiers'][0]['listPrice']['nanos'] * 0.000000001
                     except:
                         price_value = price['rate']['tiers'][0]['listPrice']['nanos'] * 0.000000001
                 except:
@@ -264,20 +274,21 @@ def get_price_infos(response, sku_ids, gpu_sku_ids):
         send_slack_message(f"[GCP Collector]\nKeyError in get_price_infos: {str(e)}")
         raise
 
+
 def list_regions_and_machine_types(gpu_families):
     try:
         # Create Compute Engine API client (using JSON key file)
         client = compute_v1.RegionsClient.from_service_account_file(SERVICE_ACCOUNT_FILE)
         machine_types_client = compute_v1.MachineTypesClient.from_service_account_file(SERVICE_ACCOUNT_FILE)
-        
+
         # Get project ID (read from JSON file)
         with open(SERVICE_ACCOUNT_FILE, 'r') as f:
             import json
             project_id = json.load(f)['project_id']
-        
+
         # Get all regions
         regions = client.list(project=project_id)
-        
+
         # Save results
         region_machine_types = []
 
@@ -286,7 +297,7 @@ def list_regions_and_machine_types(gpu_families):
         # Get machine types for each region
         for region in regions:
             zone_list = list_zones_in_region(region.name, project_id)
-            
+
             for zone in zone_list:
                 machine_types = machine_types_client.list(project=project_id, zone=zone)
                 for machine_type in machine_types:
@@ -307,11 +318,12 @@ def list_regions_and_machine_types(gpu_families):
                         "gpuCount": gpu_count,
                         "gpuType": gpu_type,
                     })
-        
+
         return region_machine_types
     except Exception as e:
         send_slack_message(f"[GCP Collector]\nError in list_regions_and_machine_types: {str(e)}")
         raise
+
 
 def list_zones_in_region(region_name, project_id):
     try:
@@ -320,14 +332,15 @@ def list_zones_in_region(region_name, project_id):
         """
         zones_client = compute_v1.ZonesClient.from_service_account_file(SERVICE_ACCOUNT_FILE)
         zones = zones_client.list(project=project_id)
-        
+
         return [
-            zone.name for zone in zones 
+            zone.name for zone in zones
             if zone.name.startswith(region_name)
         ]
     except Exception as e:
         send_slack_message(f"[GCP Collector]\nError in list_zones_in_region: {str(e)}")
         raise
+
 
 # Define price calculation function
 def calculate_price(row, cores_key, memory_key, gpu_key):
@@ -344,10 +357,11 @@ def calculate_price(row, cores_key, memory_key, gpu_key):
         gpu_price = 0  # Treat as 0 if only GPU price is missing
     return max(row["vcpus"], 1) * cores_price + row["memory"] * memory_price + row["gpuCount"] * gpu_price
 
+
 def upload_cloudwatch(df_current, timestamp):
     ondemand_count = len(df_current.drop(columns=['Spot Price', 'Savings']).dropna())
     spot_count = len(df_current.drop(columns=['OnDemand Price', 'Savings']).dropna())
-    
+
     cw_client = boto3.client('logs')
 
     log_event = {
@@ -357,16 +371,17 @@ def upload_cloudwatch(df_current, timestamp):
 
     cw_client.put_log_events(
         logGroupName=GCP_CONST.SPOT_DATA_COLLECTION_LOG_GROUP_NAME,
-        logStreamName=GCP_CONST.LOG_STREAM_NAME, 
+        logStreamName=GCP_CONST.LOG_STREAM_NAME,
         logEvents=[log_event]
     )
+
 
 def lambda_handler(event, context):
     try:
         start_time = time.time()
         str_datetime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
         timestamp = datetime.strptime(str_datetime, "%Y-%m-%dT%H:%M")
-        
+
         response = call_api(version='v2beta/skus')
         sku_infos, gpu_sku_infos = get_sku_infos(response)
         while 'nextPageToken' in response:
@@ -376,9 +391,11 @@ def lambda_handler(event, context):
             gpu_sku_infos += new_gpu_sku_infos
         print("Complete to get sku_infos")
 
-        sku_df = pd.DataFrame(sku_infos).sort_values(by=["machineFamily", "region", "priceModel", "priceResource"], ascending=True).reset_index(drop=True)
+        sku_df = pd.DataFrame(sku_infos).sort_values(
+            by=["machineFamily", "region", "priceModel", "priceResource"], ascending=True).reset_index(drop=True)
 
-        gpu_sku_df = pd.DataFrame(gpu_sku_infos).sort_values(by=["gpuType", "region", "priceModel", "priceResource"], ascending=True).reset_index(drop=True)
+        gpu_sku_df = pd.DataFrame(gpu_sku_infos).sort_values(
+            by=["gpuType", "region", "priceModel", "priceResource"], ascending=True).reset_index(drop=True)
 
         sku_ids = set([sku_info['skuId'] for sku_info in sku_infos])
         gpu_sku_ids = set([gpu_sku_info['skuId'] for gpu_sku_info in gpu_sku_infos])
@@ -404,7 +421,8 @@ def lambda_handler(event, context):
 
         machine_types_infos = list_regions_and_machine_types(list(gpu_df['gpuType'].unique()))
 
-        machine_types_df = pd.DataFrame(machine_types_infos).sort_values(by=["machineFamily", "machineType", "region", "vcpus", "memory"], ascending=True).reset_index(drop=True)
+        machine_types_df = pd.DataFrame(machine_types_infos).sort_values(
+            by=["machineFamily", "machineType", "region", "vcpus", "memory"], ascending=True).reset_index(drop=True)
         machine_types_df['machineModel'] = 'Standard'
 
         # DataFrame transformation code
@@ -464,10 +482,13 @@ def lambda_handler(event, context):
             df_final[col] = df_final[col].fillna(df_final[f"{col}_new"])
 
         # Remove temporary columns with '_new' suffix
-        df_final = df_final.drop(columns=[f"{col}_new" for col in ["ondemandCorePrice", "ondemandMemoryPrice", "preemptibleCorePrice", "preemptibleMemoryPrice"]])
+        df_final = df_final.drop(columns=[f"{col}_new" for col in ["ondemandCorePrice",
+                                 "ondemandMemoryPrice", "preemptibleCorePrice", "preemptibleMemoryPrice"]])
 
-        df_final['ondemandPrice'] = df_final.apply(lambda row: calculate_price(row, "ondemandCorePrice", "ondemandMemoryPrice", "ondemandGPUPrice"), axis=1)
-        df_final['preemptiblePrice'] = df_final.apply(lambda row: calculate_price(row, "preemptibleCorePrice", "preemptibleMemoryPrice", "preemptibleGPUPrice"), axis=1)
+        df_final['ondemandPrice'] = df_final.apply(lambda row: calculate_price(
+            row, "ondemandCorePrice", "ondemandMemoryPrice", "ondemandGPUPrice"), axis=1)
+        df_final['preemptiblePrice'] = df_final.apply(lambda row: calculate_price(
+            row, "preemptibleCorePrice", "preemptibleMemoryPrice", "preemptibleGPUPrice"), axis=1)
 
         # Construct final DataFrame
         df_final['Time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -519,6 +540,7 @@ def lambda_handler(event, context):
     except Exception as e:
         send_slack_message(f"[GCP Collector]\nUnhandled exception in main: {str(e)}")
         raise
+
 
 if __name__ == "__main__":
     lambda_handler({}, {})

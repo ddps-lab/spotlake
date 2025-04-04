@@ -8,7 +8,7 @@ import os
 import sys
 
 # ------ import user module ------
-sys.path.append("./spotlake/utility")
+sys.path.append("/home/ubuntu/spotlake/utility")
 from slack_msg_sender import send_slack_message
 from upload_data import upload_timestream, update_latest, save_raw, update_query_selector, update_config
 from compare_data import compare, compare_max_instance
@@ -86,7 +86,7 @@ def process_timestamp(TIMESTAMP, BUCKET_NAME, BUCKET_FILE_PATH):
         # ------ Check The Previous DF File in S3 and Local ------
         previous_df = None
         start_time = datetime.now(timezone.utc)
-        filename = './utility/manual_merge_aws_rawdata/latest_aws.json'
+        filename = '/home/ubuntu/spotlake/utility/manual_merge_aws_rawdata/latest_aws.json'
 
         previous_df = pd.DataFrame(json.load(open(filename, 'r')))
         
@@ -99,7 +99,7 @@ def process_timestamp(TIMESTAMP, BUCKET_NAME, BUCKET_FILE_PATH):
         start_time = datetime.now(timezone.utc)
     
         # ------ Compare T3 and T2 Data ------
-        current_df = compare_max_instance(merge_df, previous_df, target_capacity)
+        current_df = compare_max_instance(previous_df, merge_df, target_capacity)
 
         # # ------ Upload Merge DF to s3 Bucket ------
         update_latest(current_df, TIMESTAMP)

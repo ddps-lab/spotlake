@@ -68,11 +68,11 @@ def upload_timestream(data, timestamp):
 
 def update_latest(data, timestamp):
     # Upload file to use as previous collection data
-    filename = './utility/manual_merge_aws_rawdata/latest_aws.json'
+    filename = '/home/ubuntu/spotlake/utility/manual_merge_aws_rawdata/latest_aws.json'
 
     data['id'] = data.index+1
     data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    result = data.to_json(f"filename", orient="records")
+    result = data.to_json(filename, orient="records")
     
     data.drop(['id'], axis=1, inplace=True)
 
@@ -96,7 +96,7 @@ def save_raw(data, timestamp):
     s3_dir_name = timestamp.strftime("%Y/%m/%d")
     s3_obj_name = timestamp.strftime("%H-%M-%S")
 
-    rawdata = data[['Time', 'InstanceType', 'Region', 'AZ', 'SPS', 'IF', 'OndemandPrice', 'SpotPrice', 'Savings']]
+    rawdata = data[['Time', 'InstanceType', 'Region', 'AZ', 'SPS', 'T3', 'T2', 'IF', 'OndemandPrice', 'SpotPrice', 'Savings']]
     SAVE_FILENAME = f"/tmp/{s3_obj_name}.csv.gz"
     rawdata.to_csv(SAVE_FILENAME, index=False, compression="gzip")
     

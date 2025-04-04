@@ -91,8 +91,6 @@ def process_timestamp(TIMESTAMP, BUCKET_NAME, BUCKET_FILE_PATH):
         previous_df = pd.DataFrame(json.load(open(filename, 'r')))
         
         previous_df = previous_df.drop(columns=['id'])
-        # previous_df = previous_df.drop(columns=['T2'])
-        # previous_df = previous_df.drop(columns=['T3'])
         print(previous_df)
 
         end_time = datetime.now(timezone.utc)
@@ -101,11 +99,7 @@ def process_timestamp(TIMESTAMP, BUCKET_NAME, BUCKET_FILE_PATH):
         start_time = datetime.now(timezone.utc)
     
         # ------ Compare T3 and T2 Data ------
-        # current_df = compare_max_instance(merge_df, previous_df, target_capacity)
-        current_df = merge_df
-        current_df = current_df.drop(columns=['T2'])
-        current_df = current_df.drop(columns=['T3'])
-        print(current_df)
+        current_df = compare_max_instance(merge_df, previous_df, target_capacity)
 
         # # ------ Upload Merge DF to s3 Bucket ------
         update_latest(current_df, TIMESTAMP)
@@ -113,7 +107,7 @@ def process_timestamp(TIMESTAMP, BUCKET_NAME, BUCKET_FILE_PATH):
             
         # ------ Compare All Data ------
         workload_cols = ['InstanceType', 'Region', 'AZ']
-        feature_cols = ['SPS', 'IF', 'SpotPrice', 'OndemandPrice']
+        feature_cols = ['SPS', 'T3', 'T2', 'IF', 'SpotPrice', 'OndemandPrice']
 
         changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature_cols) # compare previous_df and current_df to extract changed rows)
         end_time = datetime.now(timezone.utc)
@@ -127,20 +121,20 @@ def process_timestamp(TIMESTAMP, BUCKET_NAME, BUCKET_FILE_PATH):
         # print(f"Uploading time to TSDB is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
     except Exception as e:
-        # send_slack_message(e)
+        send_slack_message(e)
         print(e)
-        # raise
 
 def main():
     print("Start Lambda Function")
+    send_slack_message("수동 데이터 CSV 병합이 시작되었습니다!")
     start_time = datetime.now(timezone.utc)
 
     # ------ Set Constants ------
     BUCKET_NAME = "spotlake"
     BUCKET_FILE_PATH = "rawdata/aws"
 
-    START_DATE = datetime(2025, 2, 13, 0, 10, 0, tzinfo=timezone.utc)
-    END_DATE = datetime(2025, 2, 15, 0, 0, 0, tzinfo=timezone.utc)
+    START_DATE = datetime(2025, 2, 15, 0, 10, 0, tzinfo=timezone.utc)
+    END_DATE = datetime(2025, 4, 4, 0, 0, 0, tzinfo=timezone.utc)
 
     current_time = START_DATE
     while current_time <= END_DATE:
@@ -161,4 +155,4 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
     lambda_handler(None, None)
-    
+    send_slack_message("수동 데이터 CSV 병합이 완료되었습니다!")

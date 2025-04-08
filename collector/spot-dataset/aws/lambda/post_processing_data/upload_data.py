@@ -17,6 +17,8 @@ write_client = boto3.client('timestream-write', config=Config(read_timeout=20,
                             max_pool_connections=5000, retries={'max_attempts': 10}))
 
 # Submit Batch To Timestream
+
+
 def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
@@ -38,6 +40,7 @@ def submit_batch(records, counter, recursive):
 
 # Check Database And Table Are Exist and Upload Data to Timestream
 def upload_timestream(data, timestamp):
+    data = data.dropna(axis=0)
     time_value = str(int(timestamp.timestamp() * 1000))
 
     records = []

@@ -9,7 +9,9 @@ const ColumnData = () => {
       headerName: "InstanceType",
       flex: 1,
       valueGetter: (params) => {
-        return params.row.InstanceType == -1 ? "N/A" : params.row.InstanceType;
+        return params.row.InstanceType === "-1"
+          ? "N/A"
+          : params.row.InstanceType;
       },
     },
     {
@@ -18,7 +20,7 @@ const ColumnData = () => {
       flex: 1.2,
       headerAlign: "center",
       valueGetter: (params) => {
-        return params.row.Region == -1 ? "N/A" : params.row.Region;
+        return params.row.Region === "-1" ? "N/A" : params.row.Region;
       },
     },
     {
@@ -29,7 +31,7 @@ const ColumnData = () => {
         "Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html",
       headerAlign: "center",
       valueGetter: (params) => {
-        return params.row.AZ == -1 ? "N/A" : params.row.AZ;
+        return params.row.AZ === "-1" ? "N/A" : params.row.AZ;
       },
     },
     {
@@ -41,7 +43,7 @@ const ColumnData = () => {
       type: "number",
       headerAlign: "center",
       valueGetter: (params) => {
-        return params.row.SPS == -1 ? "N/A" : params.row.SPS;
+        return params.row.SPS === -1 ? "N/A" : params.row.SPS;
       },
     },
     {
@@ -53,7 +55,7 @@ const ColumnData = () => {
       type: "number",
       headerAlign: "center",
       valueGetter: (params) => {
-        return params.row.T2 == -1 ? "N/A" : params.row.T2;
+        return params.row.T2 === -1 ? "N/A" : params.row.T2;
       },
     },
     {
@@ -65,7 +67,7 @@ const ColumnData = () => {
       type: "number",
       headerAlign: "center",
       valueGetter: (params) => {
-        return params.row.T3 == -1 ? "N/A" : params.row.T3;
+        return params.row.T3 === -1 ? "N/A" : params.row.T3;
       },
     },
     {
@@ -77,7 +79,7 @@ const ColumnData = () => {
       type: "number",
       headerAlign: "center",
       valueGetter: (params) => {
-        return params.row.IF == -1 ? "N/A" : params.row.IF;
+        return params.row.IF === -1 ? "N/A" : params.row.IF;
       },
     },
     {
@@ -87,7 +89,7 @@ const ColumnData = () => {
       flex: 1.2,
       headerAlign: "center",
       valueGetter: (params) => {
-        return params.row.SpotPrice == -1 ? "N/A" : params.row.SpotPrice;
+        return params.row.SpotPrice === -1 ? "N/A" : params.row.SpotPrice;
       },
     },
     {
@@ -109,12 +111,6 @@ const ColumnData = () => {
         return isNaN(savings) ? "N/A" : savings;
       },
     },
-    // { field: 'SpotRank', headerName: 'SpotRank', flex: 1, type: 'number',
-    //   valueGetter: (params) =>{
-    //     let rank = (params.row.Savings / 100.0) * (alpha * params.row.SPS + (1-alpha) * params.row.IF)
-    //     return rank.toFixed(2);
-    //   }
-    // },
     {
       field: "Date",
       headerName: "Date",
@@ -223,69 +219,115 @@ const ColumnData = () => {
   ];
   //AZURE columns
   const AZUREcolumns = [
-    { field: 'id', headerName: 'ID', flex: 1, filterable: false, hide: true},
-    { field: 'InstanceTier', headerName: 'InstanceTier', flex: 0.8 ,
-      headerAlign: 'center',
+    { field: "id", headerName: "ID", flex: 1, filterable: false, hide: true },
+    {
+      field: "InstanceTier",
+      headerName: "InstanceTier",
+      flex: 0.8,
+      headerAlign: "center",
       valueGetter: (params) => {
         return params.row.InstanceTier == -1 ? "N/A" : params.row.InstanceTier;
-      }
-    },
-    { field: 'InstanceType', headerName: 'InstanceType', flex: 1,
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        return params.row.InstanceType == -1 ? "N/A" : params.row.InstanceType;
-      }
-    },
-    { field: 'Region', headerName: 'Region', flex: 1,
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        return params.row.Region == -1 ? "N/A" : params.row.Region;
-      }
-    },
-    { field: 'OndemandPrice', headerName: 'OndemandPrice', flex: 0.9, type: 'number',
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        return params.row.OndemandPrice == -1 ? "N/A" : params.row.OndemandPrice;
-      }
-    },
-    { field: 'SpotPrice', headerName: 'SpotPrice', flex: 0.9, type: 'number',
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        return params.row.SpotPrice == -1 ? "N/A" : params.row.SpotPrice;
-      }
-    },
-    { field: 'IF', headerName: 'IF', flex: 0.9, type: 'number', description: 'Interruption Free (IF) score refers to the interruption ratio offered by Azure. Please check the score calculation in the About page. For IF score being "N/A", the Azure portal might provide valid score value.',
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        return params.row.IF == -1 ? "N/A" : params.row.IF;
-      }
-    },
-    { field: 'savings', headerName: 'Savings (%)', flex: 0.9, type: 'number',
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        if (!params.row.OndemandPrice || !params.row.SpotPrice) return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
-        else if (params.row.OndemandPrice == -1 || params.row.SpotPrice == -1) return "N/A"; // 값이 -1일 경우 (string, num...)
-        let savings = Math.round((params.row.OndemandPrice - params.row.SpotPrice) / params.row.OndemandPrice * 100)
-        return isNaN(savings) ? "N/A" : savings;
-      }
-    },
-    { field: 'Score', headerName: 'Availability', flex: 1.5,
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        return (!params.row.Score || params.row.Score === "NaN") ? "N/A" : params.row.Score;
-      }
-    },
-    { field: 'AvailabilityZone', headerName: 'AZ', flex: 1,
-      headerAlign: 'center',
-      valueGetter: (params) => {
-        return (!params.row.AvailabilityZone || params.row.AvailabilityZone === "NaN") ? "N/A" : params.row.AvailabilityZone;
-      }
+      },
     },
     {
-      field: 'SPS_Update_Time',
-      headerName: 'Date',
+      field: "InstanceType",
+      headerName: "InstanceType",
+      flex: 1,
+      headerAlign: "center",
+      valueGetter: (params) => {
+        return params.row.InstanceType == -1 ? "N/A" : params.row.InstanceType;
+      },
+    },
+    {
+      field: "Region",
+      headerName: "Region",
+      flex: 1,
+      headerAlign: "center",
+      valueGetter: (params) => {
+        return params.row.Region == -1 ? "N/A" : params.row.Region;
+      },
+    },
+    {
+      field: "OndemandPrice",
+      headerName: "OndemandPrice",
+      flex: 0.9,
+      type: "number",
+      headerAlign: "center",
+      valueGetter: (params) => {
+        return params.row.OndemandPrice == -1
+          ? "N/A"
+          : params.row.OndemandPrice;
+      },
+    },
+    {
+      field: "SpotPrice",
+      headerName: "SpotPrice",
+      flex: 0.9,
+      type: "number",
+      headerAlign: "center",
+      valueGetter: (params) => {
+        return params.row.SpotPrice == -1 ? "N/A" : params.row.SpotPrice;
+      },
+    },
+    {
+      field: "IF",
+      headerName: "IF",
+      flex: 0.9,
+      type: "number",
+      description:
+        'Interruption Free (IF) score refers to the interruption ratio offered by Azure. Please check the score calculation in the About page. For IF score being "N/A", the Azure portal might provide valid score value.',
+      headerAlign: "center",
+      valueGetter: (params) => {
+        return params.row.IF == -1 ? "N/A" : params.row.IF;
+      },
+    },
+    {
+      field: "savings",
+      headerName: "Savings (%)",
+      flex: 0.9,
+      type: "number",
+      headerAlign: "center",
+      valueGetter: (params) => {
+        if (!params.row.OndemandPrice || !params.row.SpotPrice)
+          return "N/A"; // 값이 없을 경우 (공백문자, null, undefined) N/A
+        else if (params.row.OndemandPrice == -1 || params.row.SpotPrice == -1)
+          return "N/A"; // 값이 -1일 경우 (string, num...)
+        let savings = Math.round(
+          ((params.row.OndemandPrice - params.row.SpotPrice) /
+            params.row.OndemandPrice) *
+            100
+        );
+        return isNaN(savings) ? "N/A" : savings;
+      },
+    },
+    {
+      field: "Score",
+      headerName: "Availability",
+      flex: 1.5,
+      headerAlign: "center",
+      valueGetter: (params) => {
+        return !params.row.Score || params.row.Score === "NaN"
+          ? "N/A"
+          : params.row.Score;
+      },
+    },
+    {
+      field: "AvailabilityZone",
+      headerName: "AZ",
+      flex: 1,
+      headerAlign: "center",
+      valueGetter: (params) => {
+        return !params.row.AvailabilityZone ||
+          params.row.AvailabilityZone === "NaN"
+          ? "N/A"
+          : params.row.AvailabilityZone;
+      },
+    },
+    {
+      field: "SPS_Update_Time",
+      headerName: "Date",
       flex: 1.7,
-      headerAlign: 'center',
+      headerAlign: "center",
       valueGetter: (params) => {
         const value = params.row.SPS_Update_Time;
 
@@ -298,8 +340,8 @@ const ColumnData = () => {
         }
 
         return value;
-      }
-    }
+      },
+    },
   ];
   return {
     columns,

@@ -1,59 +1,60 @@
 {
-	"homepage": "https://spotlake.ddps.cloud",
-	"name": "spotlake",
-	"version": "1.0.0",
-	"private": true,
-	"dependencies": {
-		"@emotion/react": "^11.14.0",
-		"@emotion/styled": "^11.14.0",
-		"@material-ui/styles": "^4.11.5",
-		"@mui/lab": "^5.0.0-alpha.94",
-		"@mui/material": "^5.11.5",
-		"@mui/styled-engine-sc": "^5.1.0",
-		"@mui/x-data-grid": "5.17.20",
-		"@mui/x-data-grid-pro": "5.17.20",
-		"@testing-library/jest-dom": "^5.16.1",
-		"@testing-library/react": "^12.1.2",
-		"@testing-library/user-event": "^13.5.0",
-		"axios": "^1.8.4",
-		"http-proxy-middleware": "^3.0.3",
-		"match-sorter": "^8.0.0",
-		"prop-types": "^15.8.1",
-		"react": "^17.0.2",
-		"react-dom": "^17.0.2",
-		"react-loading": "^2.0.3",
-		"react-router-dom": "^6.28.2",
-		"react-scripts": "5.0.1",
-		"react-table": "^7.8.0",
-		"recharts": "^2.15.0",
-		"styled-components": "^5.3.1",
-		"web-vitals": "^4.2.4"
-	},
-	"scripts": {
-		"start": "react-scripts start",
-		"build": "react-scripts build",
-		"test": "react-scripts test",
-		"eject": "react-scripts eject",
-		"predeploy": "npm run build",
-		"deploy": "gh-pages -d build"
-	},
-	"eslintConfig": {
-		"extends": [
-			"react-app",
-			"react-app/jest"
-		]
-	},
-	"browserslist": {
-		"production": [
-			">0.2%",
-			"not dead",
-			"not op_mini all"
-		],
-		"development": [
-			"last 1 chrome version",
-			"last 1 firefox version",
-			"last 1 safari version"
-		]
-	},
-	"Transform": "AWS::Serverless-2016-10-31"
+  "homepage": "https://spotlake.ddps.cloud",
+  "name": "spotlake",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/lab": "^5.0.0-alpha.94",
+    "@mui/material": "^5.17.1",
+    "@mui/styled-engine-sc": "^5.14.12",
+    "@mui/x-data-grid": "5.17.20",
+    "@mui/x-data-grid-pro": "5.17.20",
+    "@testing-library/jest-dom": "^5.16.1",
+    "@testing-library/react": "^12.1.2",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.8.4",
+    "http-proxy-middleware": "^3.0.3",
+    "match-sorter": "^8.0.0",
+    "prop-types": "^15.8.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-loading": "^2.0.3",
+    "react-router-dom": "^6.28.2",
+    "react-table": "^7.8.0",
+    "recharts": "^2.15.0",
+    "styled-components": "^5.3.1",
+    "web-vitals": "^4.2.4"
+  },
+  "devDependencies": {
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "Transform": "AWS::Serverless-2016-10-31"
 }

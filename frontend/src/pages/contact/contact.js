@@ -1,5 +1,5 @@
 import React from "react";
-import {ContentBox, Box, SubTitle, Title, Wrapper, theme, CustomButton, ButtonICon} from "../../UI/styles";
+import {ContentBox, Box, Wrapper, theme, CustomButton, ButtonICon} from "../../UI/styles";
 import {ThemeProvider} from "@mui/material/styles";
 
 function Contact () {
@@ -7,8 +7,9 @@ function Contact () {
         <Wrapper>
             <Box column align={'flex-start'} gap={1} margin={`20px 0`}>
                 <ContentBox className="contact">
-                    SpotLake system is maintained by Distributed Data Processing System Lab (DDPS Lab, <a href="https://ddps.cloud" target={"_blank"}>https://ddps.cloud</a>) at Kookmin University.
-                    If you have any question, suggestion, or request, you can contact email (<a href="mailto:ddps@kookmin.ac.kr">ddps@kookmin.ac.kr</a>) or create issue on GitHub repository
+                    SpotLake system is maintained by Distributed Data Processing System Lab (DDPS Lab, <a href="https://ddps.cloud" target={"_blank"}>https://ddps.cloud</a>) at Hanyang University.
+                    <br />
+                    If you have any question, suggestion, or request, you can contact email (<a href="mailto:ddpslab@hanyang.ac.kr">ddpslab@hanyang.ac.kr</a>) or create issue on GitHub repository
                     <ThemeProvider theme={theme}>
                         <CustomButton
                             size={"small"}

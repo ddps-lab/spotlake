@@ -541,7 +541,11 @@ const Query = ({
             : null}
         </style.filterSelect>
       </FormControl>
-      <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+      <FormControl 
+        variant="standard" 
+        sx={{ m: 1, minWidth: 120 }}
+        disabled={vendor === "AWS" && (!searchFilter["instance"] || searchFilter["instance"] === "")}
+      >
         <style.filterLabel id="region-input-label" vendor={vendor}>
           Region
         </style.filterLabel>
@@ -553,7 +557,6 @@ const Query = ({
           label="Region"
           name="region"
           vendor={vendor}
-          disabled={vendor === "AWS" && (!searchFilter["instance"] || searchFilter["instance"] === "")}
         >
           {assoRegion
             ? assoRegion.map((e) => (
@@ -571,7 +574,11 @@ const Query = ({
         </style.filterSelect>
       </FormControl>
       {vendor === "AWS" ? (
-        <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
+        <FormControl 
+          variant="standard" 
+          sx={{ m: 1, minWidth: 120 }}
+          disabled={!searchFilter["region"] || searchFilter["region"] === ""}
+        >
           <style.filterLabel id="az-input-label" vendor={vendor}>
             AZ
           </style.filterLabel>
@@ -583,7 +590,6 @@ const Query = ({
             label="AZ"
             name="az"
             vendor={vendor}
-            disabled={!searchFilter["region"] || searchFilter["region"] === ""}
           >
             {assoAZ
               ? assoAZ.map((e) => (

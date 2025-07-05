@@ -131,11 +131,9 @@ const Query = ({
   const [assoRegion, setAssoRegion] = useState();
   const [assoInstance, setAssoInstance] = useState();
   const [assoAZ, setAssoAZ] = useState();
-  const [assoTier, setAssoTier] = useState();
   const [searchFilter, setSearchFilter] = useState({
     instance: "",
     region: "",
-    tier: "",
     az: "",
     start_date: "",
     end_date: "",
@@ -163,7 +161,6 @@ const Query = ({
     } else if (V === "AZURE") {
       setInstance(Object.keys(AZURE_INSTANCE));
       setRegion(["ALL", ...Object.keys(AZURE_REGION)]);
-      setAssoTier(["ALL", ...Object.keys(AZURE_TIER)]);
     } else {
       // GCP
       setInstance(Object.keys(GCP_INSTANCE));
@@ -276,23 +273,6 @@ const Query = ({
       if (name === "region" && region.includes(value)) {
         if (vendor === "AZURE") {
           setAssoInstance([...AZURE_REGION[value]]);
-          try {
-            let newAssoTier = new Set();
-            [...AZURE_REGION[value]].map((instance) => {
-              newAssoTier = new Set([
-                ...newAssoTier,
-                ...AZURE_INSTANCE[instance]["InstanceTier"],
-              ]);
-            });
-            setAssoTier(["ALL", ...newAssoTier]);
-            setSearchFilter((prev) => ({
-              ...prev,
-              tier: prev.tier || "ALL",
-              az: prev.az || "ALL",
-            }));
-          } catch (e) {
-            console.log(e);
-          }
         } else {
           //gcp
           setAssoInstance([...GCP_REGION[value].Instance]);
@@ -301,7 +281,6 @@ const Query = ({
         let includeRegion = [];
         if (vendor === "AZURE") {
           includeRegion = [...AZURE_INSTANCE[value]["Region"]];
-          setAssoTier(["ALL", ...AZURE_INSTANCE[value]["InstanceTier"]]);
         } else {
           // gcp
           includeRegion = [...GCP_INSTANCE[value]];
@@ -311,7 +290,6 @@ const Query = ({
     } else {
       if (name === "region") {
         setAssoAZ(["ALL"]);
-        setAssoTier(["ALL"]);
       }
     }
   };
@@ -346,8 +324,7 @@ const Query = ({
         InstanceType:
           searchFilter["instance"] === "ALL" ? "*" : searchFilter["instance"],
         ...(vendor === "AZURE" && {
-          InstanceTier:
-            searchFilter["tier"] === "ALL" ? "*" : searchFilter["tier"],
+          InstanceTier: "*", // 항상 ALL로 설정
           AvailabilityZone:
             searchFilter["az"] === "ALL" ? "*" : searchFilter["az"],
         }),
@@ -479,19 +456,11 @@ const Query = ({
           Region: assoAzure[instance]["Region"].filter(
             (region) => region !== "nan"
           ),
-          InstanceTier: assoAzure[instance]["InstanceTier"].filter(
-            (tier) => tier !== "nan"
-          ),
         };
         assoAzure[instance]["Region"].map((region) => {
           if (region === "nan") return;
           if (!AZURE_REGION[region]) AZURE_REGION[region] = new Set();
           AZURE_REGION[region].add(instance);
-        });
-        assoAzure[instance]["InstanceTier"].map((InstanceTier) => {
-          if (InstanceTier === "nan") return;
-          if (!AZURE_TIER[InstanceTier]) AZURE_TIER[InstanceTier] = new Set();
-          AZURE_TIER[InstanceTier].add(instance);
         });
       });
     }
@@ -521,7 +490,6 @@ const Query = ({
     setSearchFilter({
       instance: "",
       region: "",
-      ...(vendor === "AZURE" && { tier: "" }),
       az: "",
       start_date: yesterday.toISOString().split("T")[0],
       end_date: today.toISOString().split("T")[0],
@@ -653,28 +621,6 @@ const Query = ({
                   {e}
                 </style.selectItem>
               ))}
-            </style.filterSelect>
-          </FormControl>
-          <FormControl variant="standard" sx={{ m: 1, minWidth: 120 }}>
-            <style.filterLabel id="instance-tier-input-label" vendor={vendor}>
-              Tier
-            </style.filterLabel>
-            <style.filterSelect
-              labelId="instance-tier-input-label"
-              id="instance-tier-input"
-              value={searchFilter["tier"] ?? "ALL"}
-              onChange={setFilter}
-              label="Tier"
-              name="tier"
-              vendor={vendor}
-            >
-              {assoTier
-                ? assoTier.map((e) => (
-                    <style.selectItem key={e} value={e} vendor={vendor}>
-                      {e}
-                    </style.selectItem>
-                  ))
-                : null}
             </style.filterSelect>
           </FormControl>
         </>

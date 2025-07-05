@@ -284,7 +284,7 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
             else:
                 subscription_id, location = res
 
-        url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/diagnostics/spotPlacementRecommender/generate?api-version=2024-06-01-preview"
+        url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Compute/locations/{location}/placementScores/spot/generate?api-version=2025-06-05"
         headers = {
             "Authorization": f"Bearer {sps_shared_resources.sps_token}",
             "Content-Type": "application/json",

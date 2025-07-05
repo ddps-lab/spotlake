@@ -97,6 +97,9 @@ export const filterTitle = styled.p`
 `;
 export const filterLabel = styled(InputLabel)`
   color : ${(props) => (props.vendor==='AWS' ? '#f68d11 !important' : props.vendor ==='GCP' ? 'rgb(234, 67, 53) !important': '#0067b8 !important')};
+  &.Mui-disabled {
+    color: #999 !important;
+  }
 `;
 export const dataLabel = styled.label`
   position: absolute;
@@ -107,6 +110,25 @@ export const dataLabel = styled.label`
 export const filterSelect = styled(Select)`
   &::after {
     border-bottom: 2px solid ${(props) => (props.vendor==='AWS' ? '#f68d11 !important' : props.vendor ==='GCP' ? 'rgb(234, 67, 53) !important': '#0067b8 !important')};
+  }
+  &.Mui-disabled {
+    &::after {
+      border-bottom: 2px solid #ccc !important;
+    }
+    &::before {
+      border-bottom: 1px solid #ccc !important;
+    }
+    .MuiSelect-select {
+      color: #999 !important;
+      -webkit-text-fill-color: #999 !important;
+    }
+    .MuiSelect-icon {
+      color: #ccc !important;
+    }
+    .MuiInputBase-input {
+      color: #999 !important;
+      -webkit-text-fill-color: #999 !important;
+    }
   }
 `;
 export const selectItem = styled(MenuItem)`

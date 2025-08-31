@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import numpy as np
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from utils.pub_service import send_slack_message, AZURE_CONST
 
@@ -57,6 +58,7 @@ def get_price(skip_num):
         if response.status_code == 200:
             break
         else:
+            time.sleep(1)
             response = requests.get(get_link)
 
     if response.status_code != 200:

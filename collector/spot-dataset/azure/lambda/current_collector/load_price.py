@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import numpy as np
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from utils.pub_service import send_slack_message, AZURE_CONST
 
@@ -57,6 +58,7 @@ def get_price(skip_num):
         if response.status_code == 200:
             break
         else:
+            time.sleep(1)
             response = requests.get(get_link)
 
     if response.status_code != 200:
@@ -129,7 +131,7 @@ def collect_price_with_multithreading():
 
     if response_dict:
         for i in response_dict:
-            send_slack_message(f"{i} respones occurred {response_dict[i]} times")
+            send_slack_message(f"[Azure Collector]: {i} respones occurred {response_dict[i]} times.")
 
     price_df = pd.DataFrame(price_list)
     savings_df = preprocessing_price(price_df)

@@ -58,7 +58,7 @@ def get_price(skip_num):
         if response.status_code == 200:
             break
         else:
-            time.sleep(1)
+            time.sleep(2)
             response = requests.get(get_link)
 
     if response.status_code != 200:

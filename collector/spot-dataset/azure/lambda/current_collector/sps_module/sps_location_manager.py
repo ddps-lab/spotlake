@@ -70,7 +70,7 @@ def validation_can_call(subscription_id, location):
 
 def get_next_available_location():
     """
-     이 메서드는 사용 가능한 다음 위치를 리턴합니다.
+     이 메서드는 사용 가능한 다음 location를 리턴합니다.
      호출 이력과 초과 요청 데이터를 기반으로 적절한 위치를 선택합니다.
      호출 시 이용하는 location은 구독 내에 지난 호출의 location을 이용 안 해야 하는 로직이 들어갑니다.
 
@@ -81,34 +81,58 @@ def get_next_available_location():
         if SS_Resources.locations_call_history_tmp is None or SS_Resources.locations_over_limit_tmp is None:
             return None
 
-        # Clean expired data
         clean_expired_over_limit_locations()
         clean_expired_over_call_history_locations()
 
-        start_subscription_index = random.randint(0, len(SS_Resources.subscriptions) - 1)
+        subs = SS_Resources.subscriptions
+        locs = SS_Resources.available_locations
+        if not subs or not locs:
+            return None
 
-        for i in range(len(SS_Resources.subscriptions)):
-            subscription_index = (start_subscription_index + i) % len(SS_Resources.subscriptions)
-            subscription_id = SS_Resources.subscriptions[subscription_index]
+        n, m = len(subs), len(locs)
 
-            start_location_index = random.randint(0, len(SS_Resources.available_locations) - 1)
-            for j in range(len(SS_Resources.available_locations)):
-                location_index = (start_location_index + j) % len(SS_Resources.available_locations)
-                location = SS_Resources.available_locations[location_index]
+        last_pair = getattr(SS_Resources, "last_subscription_id_and_location", None) or {}
+        last_sub_id = last_pair.get("last_subscription_id")
+        last_loc = last_pair.get("last_location")
 
-                if validation_can_call(subscription_id, location):
-                    SS_Resources.succeed_to_get_next_available_location_count += 1
-                    SS_Resources.succeed_to_get_next_available_location_count_all += 1
-                    SS_Resources.locations_call_history_tmp[subscription_id][location].append(datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
-                    return subscription_id, location
+        if last_sub_id in subs and last_loc in locs:
+            s_idx = subs.index(last_sub_id)
+            l_idx = locs.index(last_loc)
+            l_idx = (l_idx + 1) % m
+            if l_idx == 0:
+                s_idx = (s_idx + 1) % n
+        else:
+            s_idx, l_idx = 0, 0
 
-        return None
+        attempts = 0
+        while attempts < n * m:
+            sub_id = subs[s_idx]
+            loc = locs[l_idx]
+
+            if validation_can_call(sub_id, loc):
+                SS_Resources.succeed_to_get_next_available_location_count += 1
+                SS_Resources.succeed_to_get_next_available_location_count_all += 1
+
+                SS_Resources.locations_call_history_tmp[sub_id][loc].append(
+                    datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
+
+                SS_Resources.last_subscription_id_and_location = {
+                    "last_subscription_id": sub_id,
+                    "last_location": loc,
+                }
+                return sub_id, loc
+
+            l_idx = (l_idx + 1) % m
+            if l_idx == 0:
+                s_idx = (s_idx + 1) % n
+
+            attempts += 1
 
     except Exception as e:
         print("\n[ERROR] Exception occurred in get_next_available_location:")
         print(traceback.format_exc())
         print(f"\n[ERROR] Failed to get_next_available_location: {e}")
-        return None
+    return None
 
 
 def collect_available_locations():

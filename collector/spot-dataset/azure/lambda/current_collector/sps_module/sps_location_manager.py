@@ -47,6 +47,7 @@ def check_and_add_available_locations(az):
             return True
         else:
             print("No new available locations found. locations_call_history_tmp or locations_call_history_tmp unchanged.")
+            return False
 
     except Exception as e:
         print(f"Error in check_and_add_available_locations: {e}")
@@ -132,6 +133,7 @@ def get_next_available_location():
         print("\n[ERROR] Exception occurred in get_next_available_location:")
         print(traceback.format_exc())
         print(f"\n[ERROR] Failed to get_next_available_location: {e}")
+        return None
     return None
 
 

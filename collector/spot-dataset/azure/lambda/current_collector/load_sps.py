@@ -114,6 +114,7 @@ def collect_spot_placement_score_first_time(desired_counts):
         print(f"Prepare the request pool. time: {minutes}min {seconds}sec")
 
         return sps_res_availability_zones_true_df
+    return None
 
 
 @log_execution_time
@@ -459,6 +460,7 @@ def save_tmp_files_to_s3():
         f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_REGIONS_JSON_FILENAME}": SS_Resources.invalid_regions_tmp,
         f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_INSTANCE_TYPES_JSON_FILENAME}": SS_Resources.invalid_instance_types_tmp,
         f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME}": SS_Resources.locations_call_history_tmp,
+        f"{base_path}/{az_str}/{AZURE_CONST.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}": SS_Resources.last_subscription_id_and_location_tmp,
         f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME}": SS_Resources.locations_over_limit_tmp
     }
 
@@ -475,13 +477,14 @@ def get_variable_from_s3():
         instance_types_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_INVALID_INSTANCE_TYPES_JSON_FILENAME}", 'json')
         call_history_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME}", 'json')
         over_limit_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME}", 'json')
-        last_location_index_data = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}", 'json')
+        last_subscription_id_and_location = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME}", 'json')
         region_map_and_instance_map = S3.read_file(f"{base_path}/{az_str}/{AZURE_CONST.S3_REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}", 'json')
 
         SS_Resources.invalid_regions_tmp = invalid_regions_data
         SS_Resources.invalid_instance_types_tmp = instance_types_data
         SS_Resources.locations_call_history_tmp = call_history_data
         SS_Resources.locations_over_limit_tmp = over_limit_data
+        SS_Resources.last_subscription_id_and_location_tmp = last_subscription_id_and_location
         SS_Resources.region_map_and_instance_map_tmp = {
             "region_map": region_map_and_instance_map.get('region_map'),
             "instance_map": region_map_and_instance_map.get('instance_map')
@@ -492,6 +495,7 @@ def get_variable_from_s3():
             SS_Resources.invalid_instance_types_tmp,
             SS_Resources.locations_call_history_tmp,
             SS_Resources.locations_over_limit_tmp,
+            SS_Resources.last_subscription_id_and_location_tmp,
             SS_Resources.region_map_and_instance_map_tmp
         ]):
             print("[S3]: Successfully prepared variable from s3.")

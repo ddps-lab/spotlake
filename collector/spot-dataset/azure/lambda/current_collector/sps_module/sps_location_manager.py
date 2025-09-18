@@ -108,7 +108,7 @@ def get_next_available_location():
                 SS_Resources.locations_call_history_tmp[sub_id][loc].append(
                     datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
 
-                SS_Resources.last_subscription_id_and_location = {
+                SS_Resources.last_subscription_id_and_location_tmp = {
                     "last_subscription_id": sub_id,
                     "last_location": loc,
                 }
@@ -169,7 +169,7 @@ def clean_expired_over_limit_locations():
     '''
     if SS_Resources.locations_over_limit_tmp:
         for subscription_id in SS_Resources.subscriptions:
-            one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=63)
+            one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=62)
             for location_key, location_value in list(
                     SS_Resources.locations_over_limit_tmp[subscription_id].items()):
                 dt = datetime.fromisoformat(location_value)
@@ -182,7 +182,7 @@ def clean_expired_over_call_history_locations():
     이 메서드는 호출 이력을 유효하지 않은 위치를 정리하고 호출 이력을 업데이트합니다.
     '''
     if SS_Resources.locations_call_history_tmp:
-        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=63)
+        one_hour_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=62)
         for subscription_id in SS_Resources.subscriptions:
             subscription_data = SS_Resources.locations_call_history_tmp.get(subscription_id, {})
 

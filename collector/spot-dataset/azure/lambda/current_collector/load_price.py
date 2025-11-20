@@ -2,12 +2,9 @@ import requests
 import pandas as pd
 import numpy as np
 import threading
-from const_config import AzureCollector
+import time
 from concurrent.futures import ThreadPoolExecutor
-import slack_msg_sender
-
-AZURE_CONST = AzureCollector()
-
+from utils.pub_service import send_slack_message, AZURE_CONST
 
 price_list = []
 response_dict = {}
@@ -61,6 +58,7 @@ def get_price(skip_num):
         if response.status_code == 200:
             break
         else:
+            time.sleep(2)
             response = requests.get(get_link)
 
     if response.status_code != 200:
@@ -125,7 +123,7 @@ def preprocessing_price(df):
 
 # collect azure price with multithreading
 def collect_price_with_multithreading():
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=12) as executor:
         for skip_num in SKIP_NUM_LIST:
             future = executor.submit(get_price, skip_num)
         event.wait()
@@ -133,7 +131,7 @@ def collect_price_with_multithreading():
 
     if response_dict:
         for i in response_dict:
-            slack_msg_sender.send_slack_message(f"{i} respones occurred {response_dict[i]} times")
+            send_slack_message(f"[Azure Collector]: {i} respones occurred {response_dict[i]} times.")
 
     price_df = pd.DataFrame(price_list)
     savings_df = preprocessing_price(price_df)

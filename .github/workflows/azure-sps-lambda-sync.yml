@@ -1,0 +1,51 @@
+name: deploy azure sps files to lambda
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'collector/spot-dataset/azure/lambda/current_collector/lambda_function_sps.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/load_price.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/load_sps.py'
+      - 'const_config.py'
+      - 'collector/spot-dataset/azure/lambda/current_collector/utils/**'
+      - 'collector/spot-dataset/azure/lambda/current_collector/sps_module/**'
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: 'us-west-2'
+
+jobs:
+  deploy_source:
+    name: deploy lambda from source
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout source code
+        uses: actions/checkout@v4
+      - name: Zip Lambda function code
+        run: |
+          rm -f azure_sps_lambda.zip
+          rm -f ./collector/spot-dataset/azure/lambda/current_collector/azure_sps_lambda.zip
+
+          mkdir -p /tmp/lambda_collector
+
+          cp ./collector/spot-dataset/azure/lambda/current_collector/lambda_function_sps.py /tmp/lambda_collector/lambda_function.py
+          cp ./collector/spot-dataset/azure/lambda/current_collector/load_price.py /tmp/lambda_collector/
+          cp ./collector/spot-dataset/azure/lambda/current_collector/load_sps.py /tmp/lambda_collector/
+          cp ./const_config.py /tmp/lambda_collector/
+  
+          zip -j ./collector/spot-dataset/azure/lambda/current_collector/azure_sps_lambda.zip /tmp/lambda_collector/*
+          
+          rm -rf /tmp/lambda_collector
+
+          cd ./collector/spot-dataset/azure/lambda/current_collector/
+          zip -r azure_sps_lambda.zip ./utils/*
+          zip -r azure_sps_lambda.zip ./sps_module/*
+          
+          cd ../../../../../
+          mv ./collector/spot-dataset/azure/lambda/current_collector/azure_sps_lambda.zip ./
+
+      - name: Deploy to AWS Lambda
+        run: |
+          aws lambda update-function-code --function-name azure-sps-collector-az-true --zip-file fileb://azure_sps_lambda.zip
+          aws lambda update-function-code --function-name azure-sps-collector-az-false --zip-file fileb://azure_sps_lambda.zip

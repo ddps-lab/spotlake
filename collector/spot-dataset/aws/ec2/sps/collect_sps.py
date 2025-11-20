@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import boto3.session, botocore
 import sys, os, argparse
-import pickle, gzip, json
+import pickle, gzip, json, yaml
 import pandas as pd
 from io import StringIO
 
@@ -13,25 +13,15 @@ from slack_msg_sender import send_slack_message
 from sps_query_api import query_sps
 
 # ------ S3 File Helper Functions ------
-def read_from_s3(s3_client, bucket_name, s3_key, local_fallback_path=None, default_value=None):
+def read_metadata(s3_client, bucket_name, s3_key, local_fallback_path=None, default_value=None):
     """
-    S3에서 텍스트 파일을 읽어 내용을 반환합니다.
-
-    Args:
-        s3_client: boto3 S3 client
-        bucket_name: S3 bucket 이름
-        s3_key: S3 object key
-        local_fallback_path: S3에 파일이 없을 때 사용할 로컬 파일 경로 (optional)
-        default_value: 로컬 파일도 없을 때 반환할 기본값 (optional)
-
-    Returns:
-        파일 내용 (문자열)
+    S3에서 YAML 메타데이터를 읽어 내용을 반환합니다.
     """
     try:
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
         content = response['Body'].read().decode('utf-8')
-        print(f"S3에서 파일 읽기 성공: {s3_key}")
-        return content
+        print(f"S3에서 메타데이터 읽기 성공: {s3_key}")
+        return yaml.safe_load(content)
     except s3_client.exceptions.NoSuchKey:
         # S3에 파일이 없으면 로컬 파일 시도 (fallback이 제공된 경우)
         if local_fallback_path:
@@ -39,7 +29,7 @@ def read_from_s3(s3_client, bucket_name, s3_key, local_fallback_path=None, defau
             if os.path.exists(local_fallback_path):
                 try:
                     with open(local_fallback_path, 'r') as f:
-                        content = f.read()
+                        content = yaml.safe_load(f)
                         print(f"로컬 파일에서 읽기 성공: {local_fallback_path}")
                         return content
                 except Exception as e:
@@ -53,28 +43,23 @@ def read_from_s3(s3_client, bucket_name, s3_key, local_fallback_path=None, defau
             return default_value
         else:
             print(f"S3에 파일이 없고 기본값도 없습니다 ({s3_key})")
-            return ""
+            return {}
     except Exception as e:
         print(f"S3에서 파일 읽기 실패 ({s3_key}): {e}")
         raise e
 
-def write_to_s3(s3_client, bucket_name, s3_key, content):
+def write_metadata(s3_client, bucket_name, s3_key, metadata):
     """
-    S3에 텍스트 파일을 저장합니다.
-
-    Args:
-        s3_client: boto3 S3 client
-        bucket_name: S3 bucket 이름
-        s3_key: S3 object key
-        content: 저장할 내용 (문자열)
+    S3에 YAML 메타데이터를 저장합니다.
     """
     try:
+        content = yaml.dump(metadata)
         s3_client.put_object(
             Bucket=bucket_name,
             Key=s3_key,
             Body=content.encode('utf-8')
         )
-        print(f"S3에 파일 저장 성공: {s3_key}")
+        print(f"S3에 메타데이터 저장 성공: {s3_key}")
     except Exception as e:
         print(f"S3에 파일 쓰기 실패 ({s3_key}): {e}")
         raise e
@@ -90,12 +75,7 @@ def main():
     LOG_STREAM_NAME = "aws"
     # S3 파일 경로
     LOCAL_FILE_BASE_PATH = "rawdata/aws/localfile"
-    CREDENTIAL_INDEX_S3_KEY = f"{LOCAL_FILE_BASE_PATH}/credential_index.txt"
-    TARGET_CAPACITY_INDEX_S3_KEY = f"{LOCAL_FILE_BASE_PATH}/target_capacity_index.txt"
-    WORKLOAD_DATE_S3_KEY = f"{LOCAL_FILE_BASE_PATH}/current_workload_date.txt"
-    # 로컬 fallback 파일 경로
-    CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_LOCAL_BASE_PATH}/credential_index.txt"
-    TARGET_CAPACITY_INDEX_FILE_NAME = f"{CURRENT_LOCAL_BASE_PATH}/target_capacity_index.txt"
+
 
     # ------ Setting Client ------
     session = boto3.session.Session()
@@ -118,23 +98,28 @@ def main():
     execution_time_start = datetime.now(timezone.utc)
 
     # ------ Save Value of Credential Start Index ------
-    credential_content = read_from_s3(
-        s3_client, BUCKET_NAME, CREDENTIAL_INDEX_S3_KEY,
-        local_fallback_path=CREDENTIAL_START_INDEX_FILE_NAME,
-        default_value="0\n0"
+    SPS_METADATA_S3_KEY = f"{LOCAL_FILE_BASE_PATH}/sps_metadata.yaml"
+    LOCAL_METADATA_FILE_PATH = f"{CURRENT_LOCAL_BASE_PATH}/sps_metadata.yaml"
+
+    metadata = read_metadata(
+        s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY,
+        local_fallback_path=LOCAL_METADATA_FILE_PATH,
+        default_value={
+            "credential_index": {"init": 0, "current": 0},
+            "target_capacity_index": {"init": 0, "current": 0},
+            "workload_date": ""
+        }
     )
-    lines = credential_content.strip().split('\n')
-    init_credential_index, current_credential_index = int(lines[0]), int(lines[1])
+
+    init_credential_index = metadata["credential_index"]["init"]
+    current_credential_index = metadata["credential_index"]["current"]
 
     # ------ Set Target Capacities ------
     target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-    target_capacity_content = read_from_s3(
-        s3_client, BUCKET_NAME, TARGET_CAPACITY_INDEX_S3_KEY,
-        local_fallback_path=TARGET_CAPACITY_INDEX_FILE_NAME,
-        default_value="0\n0"
-    )
-    lines = target_capacity_content.strip().split('\n')
-    init_target_capacity_index, target_capacity_index = int(lines[0]), int(lines[1])
+    
+    init_target_capacity_index = metadata["target_capacity_index"]["init"]
+    target_capacity_index = metadata["target_capacity_index"]["current"]
+    
     target_capacity_index = target_capacity_index % len(target_capacities)
     target_capacity = target_capacities[target_capacity_index]
 
@@ -147,10 +132,7 @@ def main():
 
         # ------ Check Workload Date Change (S3 방식, Spot Batch 호환) ------
         # S3에서 저장된 workload 날짜 읽기
-        saved_workload_date = read_from_s3(
-            s3_client, BUCKET_NAME, WORKLOAD_DATE_S3_KEY,
-            default_value=""
-        ).strip()
+        saved_workload_date = metadata["workload_date"]
 
         print(f"저장된 workload 날짜: '{saved_workload_date}', 현재 날짜: '{date}'")
 
@@ -160,23 +142,18 @@ def main():
 
             # workload 파일이 바뀌었으므로 계정 묶음 change
             init_credential_index = 1800 if init_credential_index == 0 else 0
-            write_to_s3(
-                s3_client, BUCKET_NAME, CREDENTIAL_INDEX_S3_KEY,
-                f"{init_credential_index}\n{init_credential_index}"
-            )
+            metadata["credential_index"]["init"] = init_credential_index
+            metadata["credential_index"]["current"] = init_credential_index
 
             # workload 파일이 바뀌었으므로 target capacity index 초기화
             init_target_capacity_index = target_capacity_index
-            write_to_s3(
-                s3_client, BUCKET_NAME, TARGET_CAPACITY_INDEX_S3_KEY,
-                f"{init_target_capacity_index}\n{init_target_capacity_index}"
-            )
+            metadata["target_capacity_index"]["init"] = init_target_capacity_index
+            metadata["target_capacity_index"]["current"] = init_target_capacity_index
 
             # 새로운 workload 날짜 저장
-            write_to_s3(
-                s3_client, BUCKET_NAME, WORKLOAD_DATE_S3_KEY,
-                date
-            )
+            metadata["workload_date"] = date
+            
+            write_metadata(s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
         else:
             print("workload 날짜가 동일합니다. index를 유지합니다.")
     except Exception as e:
@@ -247,20 +224,18 @@ def main():
     # ------ Update config files ------
     next_target_capacity_index = (target_capacity_index + 1) % len(target_capacities)
     print(next_target_capacity_index)
+    
     if next_target_capacity_index == init_target_capacity_index:
-        write_to_s3(
-            s3_client, BUCKET_NAME, CREDENTIAL_INDEX_S3_KEY,
-            f"{init_credential_index}\n{init_credential_index}"
-        )
+        metadata["credential_index"]["init"] = init_credential_index
+        metadata["credential_index"]["current"] = init_credential_index
     else:
-        write_to_s3(
-            s3_client, BUCKET_NAME, CREDENTIAL_INDEX_S3_KEY,
-            f"{init_credential_index}\n{current_credential_index}"
-        )
-    write_to_s3(
-        s3_client, BUCKET_NAME, TARGET_CAPACITY_INDEX_S3_KEY,
-        f"{init_target_capacity_index}\n{next_target_capacity_index}"
-    )
+        metadata["credential_index"]["init"] = init_credential_index
+        metadata["credential_index"]["current"] = current_credential_index
+        
+    metadata["target_capacity_index"]["init"] = init_target_capacity_index
+    metadata["target_capacity_index"]["current"] = next_target_capacity_index
+    
+    write_metadata(s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
     
     end_time = datetime.now(timezone.utc)
     print(f"Target Capacity {target_capacity} query time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")

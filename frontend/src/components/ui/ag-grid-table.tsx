@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { AgGridReact } from "ag-grid-react"
-import { ColDef, ModuleRegistry, themeQuartz } from "ag-grid-community"
+import { ColDef, ModuleRegistry, themeQuartz, colorSchemeDark } from "ag-grid-community"
 import { 
   ClientSideRowModelModule, 
   ValidationModule,
@@ -32,7 +32,7 @@ interface AgGridTableProps<TData> {
 }
 
 export function AgGridTable<TData>({ rowData, columnDefs }: AgGridTableProps<TData>) {
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const gridRef = useRef<AgGridReact>(null)
 
@@ -55,8 +55,8 @@ export function AgGridTable<TData>({ rowData, columnDefs }: AgGridTableProps<TDa
   }, [])
 
   const gridTheme = useMemo(() => {
-    return themeQuartz
-  }, [])
+    return resolvedTheme === 'dark' ? themeQuartz.withPart(colorSchemeDark) : themeQuartz
+  }, [resolvedTheme])
 
   const onExportClick = useCallback(() => {
     const params = {

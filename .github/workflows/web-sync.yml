@@ -5,7 +5,7 @@ on:
     branches:
       - "main"
     paths:
-      - "frontend/build/**"
+      - "frontend/**"
   workflow_dispatch:
 
 env:
@@ -18,7 +18,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+      
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Build Next.js app
+        run: |
+          cd frontend
+          npm run build
+      
       - name: "Sync with AWS S3"
-        run: aws s3 sync ./frontend/build/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} --acl public-read --delete
+        run: aws s3 sync ./frontend/out/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} --acl public-read --delete
+      
       - name: "Create Invalidation"
         run: aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_SPOTLAKE_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"

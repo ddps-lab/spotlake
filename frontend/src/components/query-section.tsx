@@ -15,11 +15,6 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { DatePicker } from "@/components/ui/date-picker"
 
-interface QuerySectionProps {
-  vendor: string
-  onDataFetch: (data: any[]) => void
-  setLoading: (loading: boolean) => void
-}
 
 const AWS_INSTANCE: any = {}
 const AWS_REGION: any = {}
@@ -94,6 +89,12 @@ const buildZoneRegionMapping = () => {
 const mapZoneIdToRegion = (zoneId: string) => {
   if (!zoneId || zoneId === "nan") return null
   return ZONE_REGION_MAP[zoneId] || null
+}
+
+interface QuerySectionProps {
+  vendor: string
+  onDataFetch: (data: any[], filters: { start: string, end: string, region: string }) => void
+  setLoading: (loading: boolean) => void
 }
 
 export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionProps) {
@@ -359,7 +360,11 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
         if (res.data.Data || res.data.Status === 200) {
             const dataToPass = res.data.Data || []
             console.log("Query API response:", dataToPass)
-            onDataFetch(dataToPass)
+            onDataFetch(dataToPass, { 
+              start: searchFilter.start_date, 
+              end: searchFilter.end_date,
+              region: searchFilter.region
+            })
         } else {
             alert("Error fetching data: " + res.data.Status)
         }

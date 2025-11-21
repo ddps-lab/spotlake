@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -10,14 +12,27 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
 
 export function Header() {
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const logoSrc = mounted && resolvedTheme === 'dark' 
+    ? "/images/logo_ddps_dark.svg" 
+    : "/images/logo_ddps_light.svg"
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex justify-center">
       <div className="w-full max-w-7xl px-4 flex h-14 items-center">
         <div className="mr-4 flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <Image src="/images/logo_ddps.svg" alt="DDPS" width={0} height={0} className="h-8 w-auto" style={{width: 'auto', height: '1.5rem'}} />
+            <Image src={logoSrc} alt="DDPS" width={0} height={0} className="h-8 w-auto" style={{width: 'auto', height: '1.5rem'}} />
             <span className="text-gray-400 dark:text-gray-600 font-light">|</span>
             <span className="font-bold md:text-2xl sm:inline-block bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500">
               SpotLake

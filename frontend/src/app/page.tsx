@@ -13,16 +13,28 @@ import { AgGridTable } from "@/components/ui/ag-grid-table"
 import { awsColDefs, gcpColDefs, azureColDefs, AWSData, GCPData, AzureData } from "@/components/ui/ag-columns"
 import { QuerySection } from "@/components/query-section"
 import Image from "next/image"
+import { useTheme } from "next-themes"
+import { QueryChart } from "@/components/query-chart"
 
 
 export default function Home() {
+  const { resolvedTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [selectedVendor, setSelectedVendor] = useState("AWS")
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [isQueried, setIsQueried] = useState(false)
+  const [queryFilters, setQueryFilters] = useState<{ start: string, end: string, region: string } | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
+      setIsQueried(false)
+      setQueryFilters(null)
       try {
         let url = ""
         if (selectedVendor === "AWS") {
@@ -59,7 +71,7 @@ export default function Home() {
     }
   }
 
-  const handleDataFetch = (newData: any[]) => {
+  const handleDataFetch = (newData: any[], filters: { start: string, end: string, region: string }) => {
     console.log("Data fetched from query:", newData)
     // Normalize data: convert strings to numbers and ensure consistent keys
     const normalizedData = newData.map(item => ({
@@ -78,6 +90,22 @@ export default function Home() {
     }))
     console.log("Normalized data:", normalizedData)
     setData(normalizedData)
+    setIsQueried(true)
+    setQueryFilters(filters)
+  }
+
+  const getLogo = (vendor: string) => {
+    const isDark = mounted && resolvedTheme === 'dark'
+    switch (vendor) {
+      case "AWS":
+        return isDark ? "/images/ic_aws_dark.png" : "/images/ic_aws_light.png"
+      case "GCP":
+        return isDark ? "/images/ic_gcp_dark.png" : "/images/ic_gcp_light.png"
+      case "AZURE":
+        return isDark ? "/images/ic_azure_dark.png" : "/images/ic_azure_light.png"
+      default:
+        return ""
+    }
   }
 
   return (
@@ -97,7 +125,7 @@ export default function Home() {
           onClick={() => setSelectedVendor("AWS")}
         >
           <CardContent className="flex flex-col items-center justify-center py-1 gap-1">
-            <Image src="/images/ic_aws.png" alt="AWS" width={36} height={36} className="object-contain" />
+            <Image src={getLogo("AWS")} alt="AWS" width={36} height={36} className="object-contain" />
             <p className="text-md font-medium">Amazon Web Services</p>
           </CardContent>
         </Card>
@@ -106,7 +134,7 @@ export default function Home() {
           onClick={() => setSelectedVendor("GCP")}
         >
           <CardContent className="flex flex-col items-center justify-center py-1 gap-1">
-            <Image src="/images/ic_gcp.png" alt="GCP" width={36} height={36} className="object-contain" />
+            <Image src={getLogo("GCP")} alt="GCP" width={36} height={36} className="object-contain" />
             <p className="text-md font-medium">Google Cloud Platform</p>
           </CardContent>
         </Card>
@@ -115,7 +143,7 @@ export default function Home() {
           onClick={() => setSelectedVendor("AZURE")}
         >
           <CardContent className="flex flex-col items-center justify-center py-1 gap-1">
-            <Image src="/images/ic_azure.png" alt="Azure" width={36} height={36} className="object-contain" />
+            <Image src={getLogo("AZURE")} alt="Azure" width={36} height={36} className="object-contain" />
             <p className="text-md font-medium">Microsoft Azure</p>
           </CardContent>
         </Card>
@@ -127,6 +155,8 @@ export default function Home() {
         setLoading={setLoading}
       />
 
+
+
       <div className="space-y-4">
       
         {loading ? (
@@ -134,7 +164,12 @@ export default function Home() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : (
-          <AgGridTable rowData={data} columnDefs={getColumns()} />
+          <>
+            <AgGridTable rowData={data} columnDefs={getColumns()} />
+            {isQueried && queryFilters && queryFilters.region !== "ALL" && queryFilters.region !== "" && (
+              <QueryChart data={data} dateRange={queryFilters} />
+            )}
+          </>
         )}
       </div>
     </div>

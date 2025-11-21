@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SpotLake",
   description: "SpotLake Dashboard",
+  icons: {
+    icon: "/images/favicon.png"
+  },
 };
 
 export default function RootLayout({

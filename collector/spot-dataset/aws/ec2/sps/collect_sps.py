@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import boto3.session, botocore
 import sys, os, argparse
-import pickle, gzip, json
+import pickle, gzip, json, yaml
 import pandas as pd
 from io import StringIO
 
@@ -11,6 +11,58 @@ from io import StringIO
 sys.path.append("/home/ubuntu/spotlake/utility")
 from slack_msg_sender import send_slack_message
 from sps_query_api import query_sps
+
+# ------ S3 File Helper Functions ------
+def read_metadata(s3_client, bucket_name, s3_key, local_fallback_path=None, default_value=None):
+    """
+    S3에서 YAML 메타데이터를 읽어 내용을 반환합니다.
+    """
+    try:
+        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+        content = response['Body'].read().decode('utf-8')
+        print(f"S3에서 메타데이터 읽기 성공: {s3_key}")
+        return yaml.safe_load(content)
+    except s3_client.exceptions.NoSuchKey:
+        # S3에 파일이 없으면 로컬 파일 시도 (fallback이 제공된 경우)
+        if local_fallback_path:
+            print(f"S3에 파일이 없습니다 ({s3_key}). 로컬 파일을 확인합니다: {local_fallback_path}")
+            if os.path.exists(local_fallback_path):
+                try:
+                    with open(local_fallback_path, 'r') as f:
+                        content = yaml.safe_load(f)
+                        print(f"로컬 파일에서 읽기 성공: {local_fallback_path}")
+                        return content
+                except Exception as e:
+                    print(f"로컬 파일 읽기 실패 ({local_fallback_path}): {e}")
+            else:
+                print(f"로컬 파일도 존재하지 않습니다: {local_fallback_path}")
+
+        # fallback도 실패하면 기본값 반환
+        if default_value is not None:
+            print(f"기본값을 사용합니다: {default_value}")
+            return default_value
+        else:
+            print(f"S3에 파일이 없고 기본값도 없습니다 ({s3_key})")
+            return {}
+    except Exception as e:
+        print(f"S3에서 파일 읽기 실패 ({s3_key}): {e}")
+        raise e
+
+def write_metadata(s3_client, bucket_name, s3_key, metadata):
+    """
+    S3에 YAML 메타데이터를 저장합니다.
+    """
+    try:
+        content = yaml.dump(metadata)
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=s3_key,
+            Body=content.encode('utf-8')
+        )
+        print(f"S3에 메타데이터 저장 성공: {s3_key}")
+    except Exception as e:
+        print(f"S3에 파일 쓰기 실패 ({s3_key}): {e}")
+        raise e
 
 def main():
     # ------ Setting Constants ------
@@ -21,21 +73,14 @@ def main():
     CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
     LOG_GROUP_NAME = "SPS-Server-Data-Count"
     LOG_STREAM_NAME = "aws"
+    # S3 파일 경로
+    LOCAL_FILE_BASE_PATH = "rawdata/aws/localfile"
+
 
     # ------ Setting Client ------
     session = boto3.session.Session()
     s3 = session.resource("s3")
     s3_client = session.client("s3", region_name="us-west-2")
-
-    # ------ Create Index Files ------
-    CREDENTIAL_START_INDEX_FILE_NAME = f"{CURRENT_LOCAL_BASE_PATH}/credential_index.txt"
-    if not os.path.exists(CREDENTIAL_START_INDEX_FILE_NAME):
-        with open(CREDENTIAL_START_INDEX_FILE_NAME, 'w') as file:
-            file.write('0\n0')
-    TARGET_CAPACITY_INDEX_FILE_NAME = f"{CURRENT_LOCAL_BASE_PATH}/target_capacity_index.txt"
-    if not os.path.exists(TARGET_CAPACITY_INDEX_FILE_NAME):
-        with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'w') as file:
-            file.write('0\n0')
 
     # ------ Receive UTC Time Data ------
     parser = argparse.ArgumentParser()
@@ -53,13 +98,28 @@ def main():
     execution_time_start = datetime.now(timezone.utc)
 
     # ------ Save Value of Credential Start Index ------
-    with open(CREDENTIAL_START_INDEX_FILE_NAME, 'r') as f:
-        init_credential_index, current_credential_index = map(int, f.readlines())
-    
+    SPS_METADATA_S3_KEY = f"{LOCAL_FILE_BASE_PATH}/sps_metadata.yaml"
+    LOCAL_METADATA_FILE_PATH = f"{CURRENT_LOCAL_BASE_PATH}/sps_metadata.yaml"
+
+    metadata = read_metadata(
+        s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY,
+        local_fallback_path=LOCAL_METADATA_FILE_PATH,
+        default_value={
+            "credential_index": {"init": 0, "current": 0},
+            "target_capacity_index": {"init": 0, "current": 0},
+            "workload_date": ""
+        }
+    )
+
+    init_credential_index = metadata["credential_index"]["init"]
+    current_credential_index = metadata["credential_index"]["current"]
+
     # ------ Set Target Capacities ------
     target_capacities = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-    with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'r') as f:
-        init_target_capacity_index, target_capacity_index = map(int, f.readlines())
+    
+    init_target_capacity_index = metadata["target_capacity_index"]["init"]
+    target_capacity_index = metadata["target_capacity_index"]["current"]
+    
     target_capacity_index = target_capacity_index % len(target_capacities)
     target_capacity = target_capacities[target_capacity_index]
 
@@ -70,23 +130,32 @@ def main():
         key = f"{WORKLOAD_BASE_PATH}/{S3_DIR_NAME}/binpacked_workloads.pkl.gz"
         workload = pickle.load(gzip.open(s3.Object(BUCKET_NAME, key).get()["Body"]))
 
-        local_workload_path = f"{CURRENT_LOCAL_BASE_PATH}/{date}_binpacked_workloads.pkl.gz"
-        
-        # workload파일을 새로 받았다면 다운로드
-        if not os.path.exists(local_workload_path):
-            for filename in os.listdir(f"{CURRENT_LOCAL_BASE_PATH}"):
-                if "_binpacked_workloads.pkl.gz" in filename:
-                    os.remove(f"{CURRENT_LOCAL_BASE_PATH}/{filename}")
-            
-            s3_client.download_file(BUCKET_NAME, key, local_workload_path)
+        # ------ Check Workload Date Change (S3 방식, Spot Batch 호환) ------
+        # S3에서 저장된 workload 날짜 읽기
+        saved_workload_date = metadata["workload_date"]
+
+        print(f"저장된 workload 날짜: '{saved_workload_date}', 현재 날짜: '{date}'")
+
+        # workload 날짜가 변경되었는지 확인
+        if saved_workload_date != date:
+            print(f"workload 날짜가 변경되었습니다: {saved_workload_date} -> {date}")
+
             # workload 파일이 바뀌었으므로 계정 묶음 change
             init_credential_index = 1800 if init_credential_index == 0 else 0
-            with open(CREDENTIAL_START_INDEX_FILE_NAME, 'w') as f:
-                f.write(f"{str(init_credential_index)}\n{str(init_credential_index)}")
-            # workload 파일이 바뀌었으므로 index location save
+            metadata["credential_index"]["init"] = init_credential_index
+            metadata["credential_index"]["current"] = init_credential_index
+
+            # workload 파일이 바뀌었으므로 target capacity index 초기화
             init_target_capacity_index = target_capacity_index
-            with open(TARGET_CAPACITY_INDEX_FILE_NAME, 'w') as f:
-                f.write(f"{str(init_target_capacity_index)}\n{str(init_target_capacity_index)}")
+            metadata["target_capacity_index"]["init"] = init_target_capacity_index
+            metadata["target_capacity_index"]["current"] = init_target_capacity_index
+
+            # 새로운 workload 날짜 저장
+            metadata["workload_date"] = date
+            
+            write_metadata(s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
+        else:
+            print("workload 날짜가 동일합니다. index를 유지합니다.")
     except Exception as e:
         message = f"bucket : {BUCKET_NAME}, object : {key} 가 수집되지 않았습니다.\n서버에 있는 로컬 workload파일을 불러옵니다."
         send_slack_message(message)
@@ -155,14 +224,18 @@ def main():
     # ------ Update config files ------
     next_target_capacity_index = (target_capacity_index + 1) % len(target_capacities)
     print(next_target_capacity_index)
+    
     if next_target_capacity_index == init_target_capacity_index:
-        with open(CREDENTIAL_START_INDEX_FILE_NAME, "w") as f:
-            f.write(f"{str(init_credential_index)}\n{str(init_credential_index)}")
+        metadata["credential_index"]["init"] = init_credential_index
+        metadata["credential_index"]["current"] = init_credential_index
     else:
-        with open(CREDENTIAL_START_INDEX_FILE_NAME, "w") as f:
-            f.write(f"{str(init_credential_index)}\n{str(current_credential_index)}")
-    with open(TARGET_CAPACITY_INDEX_FILE_NAME, "w") as f:
-        f.write(f"{str(init_target_capacity_index)}\n{str(next_target_capacity_index)}")
+        metadata["credential_index"]["init"] = init_credential_index
+        metadata["credential_index"]["current"] = current_credential_index
+        
+    metadata["target_capacity_index"]["init"] = init_target_capacity_index
+    metadata["target_capacity_index"]["current"] = next_target_capacity_index
+    
+    write_metadata(s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
     
     end_time = datetime.now(timezone.utc)
     print(f"Target Capacity {target_capacity} query time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")

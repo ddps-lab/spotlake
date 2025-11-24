@@ -133,9 +133,9 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
 
   compute_resources {
     type = "SPOT"
-    max_vcpus = 128
-    min_vcpus = 0
-    desired_vcpus = 0
+    max_vcpus = 4
+    min_vcpus = 4
+    desired_vcpus = 4
     
     instance_types = ["optimal"]
     

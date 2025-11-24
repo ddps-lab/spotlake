@@ -1,8 +1,25 @@
 #!/bin/bash
 set -e
 
+# Default values
 REGION="us-west-2"
 REPO_NAME="spotlake-batch"
+
+usage() {
+    echo "Usage: $0 [-r <aws_region>] [-p <aws_profile>]"
+    echo "  -r: AWS Region (default: us-west-2)"
+    echo "  -p: AWS Profile (optional, uses default if not set)"
+    exit 1
+}
+
+while getopts "r:p:" opt; do
+    case $opt in
+        r) REGION="$OPTARG" ;;
+        p) export AWS_PROFILE="$OPTARG" ;;
+        *) usage ;;
+    esac
+done
+
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 IMAGE_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:latest"
 
@@ -10,6 +27,9 @@ echo "Region: $REGION"
 echo "Repository: $REPO_NAME"
 echo "Account ID: $ACCOUNT_ID"
 echo "Image URI: $IMAGE_URI"
+if [ -n "$AWS_PROFILE" ]; then
+    echo "AWS Profile: $AWS_PROFILE"
+fi
 
 # Create ECR repository if it doesn't exist
 echo "Checking ECR repository..."

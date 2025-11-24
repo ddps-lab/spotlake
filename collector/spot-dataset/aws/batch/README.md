@@ -90,6 +90,46 @@ AWS SPS API는 쿼리 제한이 엄격하므로, 여러 AWS 계정(Credential)�
 | `spotlake-merge-job` | `merge_data.py` | 1.0 | 2048 MiB | S3 Upload 이벤트 |
 | `spotlake-workload-job` | `generate_workload.py` | 2.0 | 4096 MiB | 매일 23:55 UTC |
 
+## Terraform 변수 및 리소스 상세 (Terraform Variables & Resources)
+
+이 프로젝트의 Terraform 코드는 기존 인프라(VPC, S3 등)를 활용하여 AWS Batch 환경을 구축합니다.
+
+### 1. 입력 변수 (Input Variables)
+
+배포 스크립트(`deploy_infra.sh`)를 통해 입력받는 변수들은 다음과 같습니다.
+
+| 변수명 (Flag) | 설명 | 예시 |
+| :--- | :--- | :--- |
+| `vpc_id` (`-v`) | AWS Batch Compute Environment가 생성될 기존 VPC의 ID입니다. | `vpc-12345678` |
+| `subnet_ids` (`-s`) | Batch Job이 실행될 서브넷 ID 목록입니다. JSON 배열 형식으로 입력합니다. | `["subnet-123", "subnet-456"]` |
+| `security_group_ids` (`-g`) | Batch Compute Environment에 적용할 보안 그룹 ID 목록입니다. Outbound 인터넷 접근이 가능해야 합니다. | `["sg-12345678"]` |
+| `image_uri` (`-i`) | Batch Job Definition에서 사용할 Docker 이미지 URI입니다. (ECR 등) | `1234.dkr.ecr.../repo:tag` |
+| `aws_region` (`-r`) | 리소스를 생성할 AWS 리전입니다. (기본값: `us-west-2`) | `us-east-1` |
+| `s3_bucket` (`-b`) | 데이터 저장 및 상태 관리에 사용할 기존 S3 버킷 이름입니다. (기본값: `spotlake`) | `my-spotlake-bucket` |
+| `aws_profile` (`-p`) | 스크립트 실행 시 사용할 AWS CLI 프로파일입니다. 지정하지 않으면 환경 변수(`AWS_PROFILE`) 또는 기본 설정(`default`)을 따릅니다. | `my-profile` |
+
+### 2. 생성되는 리소스 vs 기존 리소스
+
+Terraform이 **새로 생성하는 리소스**와 **기존에 존재해야 하는 리소스**의 구분은 다음과 같습니다.
+
+#### 새로 생성되는 리소스 (Managed by Terraform)
+*   **AWS Batch Compute Environment**: Spot Instance를 사용하는 컴퓨팅 환경 (`spotlake-compute-env`).
+*   **AWS Batch Job Queue**: 작업을 대기시키는 큐 (`spotlake-job-queue`).
+*   **AWS Batch Job Definitions**: 각 작업(SPS, IF, Price, Merge, Workload)에 대한 정의.
+*   **IAM Roles & Policies**:
+    *   `aws_batch_service_role_spotlake`: Batch 서비스 역할.
+    *   `ecs_task_execution_role_spotlake`: ECS 태스크 실행 역할.
+    *   `batch_job_role_spotlake`: 컨테이너 내부에서 S3, Timestream 등에 접근하기 위한 역할.
+    *   `ecs_instance_role_spotlake`: EC2 인스턴스 프로파일 역할.
+*   **EventBridge Schedules & Rules**: 주기적인 작업 실행 및 S3 이벤트 트리거를 위한 규칙.
+
+#### 기존에 존재해야 하는 리소스 (Existing Resources)
+*   **VPC & Subnets**: 네트워크 환경은 미리 구성되어 있어야 합니다.
+*   **Security Group**: 적절한 Outbound 규칙(443 포트 등)이 설정된 보안 그룹이 필요합니다.
+*   **S3 Bucket**: 데이터 저장을 위한 버킷은 미리 생성되어 있어야 하며, 이름이 변수로 전달됩니다.
+*   **ECR Repository**: Docker 이미지가 푸시될 레지스트리.
+*   **Timestream Database & Table**: 시계열 데이터를 저장할 테이블은 미리 생성되어 있어야 합니다. (Batch Job이 쓰기 권한만 가짐)
+
 ## Docker 이미지
 
 *   **Base Image**: `python:3.9-slim`
@@ -132,22 +172,27 @@ AWS SPS API는 쿼리 제한이 엄격하므로, 여러 AWS 계정(Credential)�
 `scripts/build_and_push.sh` 스크립트를 실행하여 이미지를 빌드하고 ECR에 업로드합니다.
 ```bash
 # 프로젝트 루트 디렉토리에서 실행
+./collector/spot-dataset/aws/batch/scripts/build_and_push.sh [-r <aws_region>] [-p <aws_profile>]
+
+# 예시 (기본값 사용: us-west-2, default profile)
 ./collector/spot-dataset/aws/batch/scripts/build_and_push.sh
+
+# 예시 (특정 리전 및 프로파일 사용)
+./collector/spot-dataset/aws/batch/scripts/build_and_push.sh -r us-east-1 -p my-profile
 ```
 성공 시 출력되는 `Image URI`를 복사해둡니다.
 
 **Step 2: 인프라 배포**
-`scripts/deploy_infra.sh` 스크립트는 Terraform을 사용하여 AWS Batch 환경을 구축합니다. 필수 환경 변수를 설정한 후 실행해야 합니다.
+`scripts/deploy_infra.sh` 스크립트는 Terraform을 사용하여 AWS Batch 환경을 구축합니다. 필요한 인자를 지정하여 실행해야 합니다.
 
 ```bash
-# 필수 환경 변수 설정
-export TF_VAR_vpc_id="vpc-xxxxxxx"
-export TF_VAR_subnet_ids='["subnet-xxxxxxx", "subnet-yyyyyyy"]'
-export TF_VAR_security_group_ids='["sg-xxxxxxx"]'
-export TF_VAR_image_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/spotlake-batch:latest" # Step 1에서 획득한 URI
-
-# 배포 스크립트 실행
-./collector/spot-dataset/aws/batch/scripts/deploy_infra.sh
+# 배포 스크립트 실행 예시
+./collector/spot-dataset/aws/batch/scripts/deploy_infra.sh \
+    -v "vpc-xxxxxxx" \
+    -s '["subnet-xxxxxxx", "subnet-yyyyyyy"]' \
+    -g '["sg-xxxxxxx"]' \
+    -i "123456789012.dkr.ecr.us-west-2.amazonaws.com/spotlake-batch:latest" \
+    -p "my-aws-profile" # (Optional)
 ```
 
 ### 3. 수동 실행 (Manual Execution)

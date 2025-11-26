@@ -11,11 +11,11 @@ sys.path.append("/home/ubuntu/spotlake")
 from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 
-BUCKET_NAME = Storage.BUCKET_NAME
+BUCKET_NAME = "spotlake-test"
 S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
 
-DATABASE_NAME = Storage.DATABASE_NAME
-AWS_TABLE_NAME = Storage.AWS_TABLE_NAME
+DATABASE_NAME = "spotlake-test"
+AWS_TABLE_NAME = "aws-test"
 write_client = boto3.client('timestream-write', config=Config(read_timeout=20,
                             max_pool_connections=5000, retries={'max_attempts': 10}))
 

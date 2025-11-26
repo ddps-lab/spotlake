@@ -33,7 +33,12 @@ def main():
     args = parser.parse_args()
 
     # ------ Set Constants ------
+    # ------ Set Constants ------
+    # ------ Set Constants ------
+    # ------ Set Constants ------
     BUCKET_NAME = args.bucket if args.bucket else Storage.BUCKET_NAME
+    READ_BUCKET_NAME = Storage.BUCKET_NAME
+    WRITE_BUCKET_NAME = "spotlake-test"
     S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
     # BUCKET_FILE_PATH is removed in favor of specific paths from const_config
     
@@ -86,7 +91,7 @@ def main():
         s3_client = boto3.client('s3')
         s3_client = boto3.client('s3')
         SPS_FILE_PREFIX = f"{S3_PATH_PREFIX}/sps/{S3_DIR_NAME}"
-        sps_file_list = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=SPS_FILE_PREFIX)
+        sps_file_list = s3_client.list_objects_v2(Bucket=WRITE_BUCKET_NAME, Prefix=SPS_FILE_PREFIX)
         sps_files = []
         if 'Contents' in sps_file_list:
             for obj in sps_file_list['Contents']:
@@ -119,20 +124,20 @@ def main():
         # ------ Load Data from PKL File in S3 ------
         print("Loading data files...")
         try:
-            sps_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, sps_file_name).get()["Body"]))
+            sps_df = pickle.load(gzip.open(s3.Object(WRITE_BUCKET_NAME, sps_file_name).get()["Body"]))
         except Exception as e:
              print(f"Failed to load SPS file: {e}")
              raise e
              
         try:
-            spotinfo_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, SPOTIF_FILE_NAME.strip()).get()["Body"]))
+            spotinfo_df = pickle.load(gzip.open(s3.Object(READ_BUCKET_NAME, SPOTIF_FILE_NAME.strip()).get()["Body"]))
         except Exception as e:
             print(f"Failed to load Spot IF file ({SPOTIF_FILE_NAME}): {e}")
             # Should we fail or continue with empty? Original code would fail.
             raise e
 
         try:
-            ondemand_price_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, ONDEMAND_PRICE_FILE_NAME.strip()).get()["Body"]))
+            ondemand_price_df = pickle.load(gzip.open(s3.Object(READ_BUCKET_NAME, ONDEMAND_PRICE_FILE_NAME.strip()).get()["Body"]))
         except Exception as e:
              print(f"Failed to load OnDemand Price file ({ONDEMAND_PRICE_FILE_NAME}): {e}")
              # Maybe ondemand price is not collected every 10 mins? 
@@ -140,7 +145,7 @@ def main():
              raise e
 
         try:
-            spot_price_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, SPOTPRICE_FILE_NAME.strip()).get()["Body"]))
+            spot_price_df = pickle.load(gzip.open(s3.Object(READ_BUCKET_NAME, SPOTPRICE_FILE_NAME.strip()).get()["Body"]))
         except Exception as e:
             print(f"Failed to load Spot Price file ({SPOTPRICE_FILE_NAME}): {e}")
             raise e
@@ -187,7 +192,7 @@ def main():
         filename = 'latest_aws.json'
         LATEST_PATH = f'latest_data/{filename}'
         try:
-            previous_df = pd.DataFrame(json.load(s3.Object(BUCKET_NAME, LATEST_PATH).get()['Body']))
+            previous_df = pd.DataFrame(json.load(s3.Object(WRITE_BUCKET_NAME, LATEST_PATH).get()['Body']))
             # Verify that the data is in the old format
             columns_to_check = ["T3", "T2"]
             existing_columns = [col for col in columns_to_check if col in previous_df.columns]

@@ -34,21 +34,6 @@ class Storage(object):
 class AwsCollector(object):
     @constant
     def LOCAL_PATH():
-        return "/home/ubuntu/spotlake/collector/spot-dataset/aws/ec2_collector"
-
-    @constant
-    def S3_LATEST_DATA_SAVE_PATH():
-        return "latest_data/latest_aws.json"
-
-    @constant
-    def S3_LOCAL_FILES_SAVE_PATH():
-        return "rawdata/aws/localfile"
-
-    @constant
-    def S3_WORKLOAD_SAVE_PATH():
-        return "rawdata/aws/workloads"
-
-
 class AzureCollector(object):
     @constant
     def SLACK_WEBHOOK_URL():
@@ -64,7 +49,7 @@ class AzureCollector(object):
 
     @constant
     def GET_PRICE_URL():
-        return "https://s2.billing.ext.azure.com/api/Billing/Subscription/GetSpecsCosts?SpotPricing=true"
+        return "https://prices.azure.com:443/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and priceType eq 'Consumption' and unitOfMeasure eq '1 Hour' and  contains(productName, 'Windows') eq false and contains(meterName, 'Low Priority') eq false  and contains(meterName, 'Expired') eq false and contains(location, 'Gov') eq false and contains(location, 'ATT') eq false &$skip="
 
     @constant
     def AZURE_SUBSCRIPTION_ID():
@@ -105,10 +90,6 @@ class AzureCollector(object):
     @constant
     def SERVER_SAVE_FILENAME():
         return "latest_azure_df.pkl"
-
-    @constant
-    def GET_PRICE_URL():
-        return "https://prices.azure.com:443/api/retail/prices?$filter=serviceName eq 'Virtual Machines' and priceType eq 'Consumption' and unitOfMeasure eq '1 Hour' and  contains(productName, 'Windows') eq false and contains(meterName, 'Low Priority') eq false  and contains(meterName, 'Expired') eq false and contains(location, 'Gov') eq false and contains(location, 'ATT') eq false &$skip="
 
     @constant
     def FILTER_LOCATIONS():
@@ -160,20 +141,6 @@ class AzureCollector(object):
 
     @constant
     def S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH():
-        return "latest_data/latest_azure.json"
-
-    @constant
-    def S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH():
-        return "latest_data/latest_sps_zone_true_azure.pkl.gz"
-
-    @constant
-    def S3_RAW_DATA_PATH():
-        return "rawdata/azure"
-
-class GcpCollector(object):
-    @constant
-    def API_LINK():
-        return "https://cloudpricingcalculator.appspot.com/static/data/pricelist.json"
 
     @constant
     def S3_LATEST_DATA_SAVE_PATH():

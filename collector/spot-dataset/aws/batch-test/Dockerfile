@@ -25,7 +25,7 @@ RUN curl -L https://github.com/alexei-led/spotinfo/releases/download/v1.0.7/spot
 
 # Copy application code
 # Assuming build context is the project root (spotlake/)
-COPY collector/spot-dataset/aws/batch /app/collector/spot-dataset/aws/batch
+COPY collector/spot-dataset/aws/batch-test /app/collector/spot-dataset/aws/batch-test
 COPY const_config.py /app/
 COPY utility /app/utility
 

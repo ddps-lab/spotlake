@@ -18,7 +18,7 @@ def main():
     # ------ Set Constants ------
     # Constants are now imported from const_config
     S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
-    BUCKET_NAME = Storage.BUCKET_NAME
+    BUCKET_NAME = "spotlake-test"
 
     # ------ Set time data ------
     parser = argparse.ArgumentParser()

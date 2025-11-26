@@ -57,6 +57,8 @@ def main():
     # ------ Setting Constants ------
     # ------ Setting Constants ------
     BUCKET_NAME = Storage.BUCKET_NAME
+    READ_BUCKET_NAME = Storage.BUCKET_NAME
+    WRITE_BUCKET_NAME = "spotlake-test"
     S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
     CREDENTIAL_FILE_PATH = AwsCollector.CREDENTIAL_FILE_PATH
     LOG_GROUP_NAME = AwsCollector.SPOT_DATA_COLLECTION_LOG_GROUP_NAME
@@ -91,7 +93,7 @@ def main():
     SPS_METADATA_S3_KEY = f"{S3_PATH_PREFIX}/localfile/sps_metadata.yaml"
 
     metadata = read_metadata(
-        s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY,
+        s3_client, WRITE_BUCKET_NAME, SPS_METADATA_S3_KEY,
         default_value={
             "credential_index": {"init": 0, "current": 0},
             "target_capacity_index": {"init": 0, "current": 0},
@@ -117,7 +119,7 @@ def main():
     try:
         key = f"{S3_PATH_PREFIX}/workloads/{S3_DIR_NAME}/binpacked_workloads.pkl.gz"
         print(f"Loading workload from S3: {key}")
-        workload = pickle.load(gzip.open(s3.Object(BUCKET_NAME, key).get()["Body"]))
+        workload = pickle.load(gzip.open(s3.Object(READ_BUCKET_NAME, key).get()["Body"]))
 
         # ------ Check Workload Date Change (S3 방식, Spot Batch 호환) ------
         # S3에서 저장된 workload 날짜 읽기
@@ -142,7 +144,7 @@ def main():
             # 새로운 workload 날짜 저장
             metadata["workload_date"] = date
             
-            write_metadata(s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
+            write_metadata(s3_client, WRITE_BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
         else:
             print("workload 날짜가 동일합니다. index를 유지합니다.")
     except Exception as e:
@@ -156,7 +158,7 @@ def main():
     # ------ Load Credential File ------
     credentials = None
     try:
-        csv_content = s3.Object(BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
+        csv_content = s3.Object(READ_BUCKET_NAME, CREDENTIAL_FILE_PATH).get()["Body"].read().decode('utf-8')
         credentials = pd.read_csv(StringIO(csv_content))
     except Exception as e:
         send_slack_message(e)
@@ -213,7 +215,7 @@ def main():
     metadata["target_capacity_index"]["init"] = init_target_capacity_index
     metadata["target_capacity_index"]["current"] = next_target_capacity_index
     
-    write_metadata(s3_client, BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
+    write_metadata(s3_client, WRITE_BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
     
     end_time = datetime.now(timezone.utc)
     print(f"Target Capacity {target_capacity} query time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
@@ -234,7 +236,7 @@ def main():
             f_out.writelines(f_in)
 
         with open(gz_filename, "rb") as f:
-            s3_client.upload_fileobj(f, BUCKET_NAME, f"{S3_PATH_PREFIX}/sps/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
+            s3_client.upload_fileobj(f, WRITE_BUCKET_NAME, f"{S3_PATH_PREFIX}/sps/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz")
 
         os.remove(saved_filename)
         os.remove(gz_filename)

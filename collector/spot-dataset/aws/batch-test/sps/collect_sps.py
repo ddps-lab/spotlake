@@ -60,7 +60,7 @@ def main():
     READ_BUCKET_NAME = "spotlake"
     WRITE_BUCKET_NAME = "spotlake-test"
     S3_PATH_PREFIX = "rawdata/aws"
-    CREDENTIAL_FILE_PATH = "credential/credential.csv"
+    CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
     LOG_GROUP_NAME = "Collection-Data-Count"
     LOG_STREAM_NAME = "AWS-Count"
     

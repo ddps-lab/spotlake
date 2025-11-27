@@ -24,7 +24,11 @@ def get_spot_price_region(session: boto3.session.Session, region: str, start=Non
     while True:
         response = client.describe_spot_price_history(**describe_args)
         for obj in response['SpotPriceHistory']:
-            az, it, os, price, timestamp = obj.values()
+            az = obj['AvailabilityZone']
+            it = obj['InstanceType']
+            os = obj['ProductDescription']
+            price = obj['SpotPrice']
+            timestamp = obj['Timestamp']
             # get only Linux price
             if os != 'Linux/UNIX':
                 continue

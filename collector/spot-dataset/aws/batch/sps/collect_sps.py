@@ -73,7 +73,14 @@ def main():
     args = parser.parse_args()
     
     if args.timestamp:
-        timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+        # Handle EventBridge timestamp format (YYYY-MM-DDTHH:MM:SSZ)
+        if args.timestamp.endswith('Z'):
+            timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%SZ")
+        else:
+            try:
+                timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     else:
         timestamp_utc = datetime.now(timezone.utc)
         # Round down to nearest 10 minutes

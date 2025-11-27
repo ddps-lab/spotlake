@@ -26,7 +26,14 @@ def main():
     args = parser.parse_args()
     
     if args.timestamp:
-        timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+        # Handle EventBridge timestamp format (YYYY-MM-DDTHH:MM:SSZ)
+        if args.timestamp.endswith('Z'):
+            timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%SZ")
+        else:
+            try:
+                timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     else:
         start_time = datetime.now(timezone.utc)
         timestamp_utc = start_time.replace(minute=((start_time.minute // 10) * 10), second=0)

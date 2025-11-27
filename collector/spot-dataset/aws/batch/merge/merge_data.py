@@ -67,7 +67,14 @@ def main():
     elif args.timestamp:
         # If timestamp provided but no key, try to find the file? 
         # Or assume this mode is for manual run?
-        TIMESTAMP = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
+        # Handle EventBridge timestamp format (YYYY-MM-DDTHH:MM:SSZ)
+        if args.timestamp.endswith('Z'):
+            TIMESTAMP = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        else:
+            try:
+                TIMESTAMP = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+            except ValueError:
+                TIMESTAMP = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
         S3_DIR_NAME = TIMESTAMP.strftime('%Y/%m/%d')
         S3_OBJECT_PREFIX = TIMESTAMP.strftime('%H-%M')
         # We need a target capacity. Default to 50? Or loop?

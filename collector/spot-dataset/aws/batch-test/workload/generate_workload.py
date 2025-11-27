@@ -182,7 +182,14 @@ def main():
     start_time = datetime.now(timezone.utc)
     
     if args.timestamp:
-        timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
+        # Handle EventBridge timestamp format (YYYY-MM-DDTHH:MM:SSZ)
+        if args.timestamp.endswith('Z'):
+            timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%SZ")
+        else:
+            try:
+                timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     else:
         # Default to next day as per original logic
         timestamp = start_time.replace(minute=((start_time.minute // 10) * 10), second=0) + timedelta(days=1)

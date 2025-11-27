@@ -33,7 +33,7 @@ COPY --from=spotinfo-source /spotinfo /usr/local/bin/spotinfo
 # Copy application code
 # Assuming build context is the project root (spotlake/)
 COPY collector/spot-dataset/aws/batch /app/collector/spot-dataset/aws/batch
-COPY const_config.py /app/
+# COPY const_config.py /app/
 COPY utility /app/utility
 
 # Set PYTHONPATH to include /app so imports work

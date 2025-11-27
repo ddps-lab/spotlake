@@ -7,12 +7,12 @@ from botocore.config import Config
 
 # ------ import user module ------
 import sys
-sys.path.append("/home/ubuntu/spotlake")
-from const_config import AwsCollector, Storage
+# sys.path.append("/home/ubuntu/spotlake")
+# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 
 BUCKET_NAME = "spotlake-test"
-S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
+S3_PATH_PREFIX = "rawdata/aws"
 
 DATABASE_NAME = "spotlake-test"
 AWS_TABLE_NAME = "aws-test"

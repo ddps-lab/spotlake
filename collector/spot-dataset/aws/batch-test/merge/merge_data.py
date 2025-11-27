@@ -12,8 +12,8 @@ import sys
 
 # ------ import user module ------
 import sys
-sys.path.append("/home/ubuntu/spotlake")
-from const_config import AwsCollector, Storage
+# sys.path.append("/home/ubuntu/spotlake")
+# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 from upload_data import upload_timestream, update_latest, save_raw, update_query_selector, update_config
 from compare_data import compare, compare_max_instance
@@ -36,10 +36,10 @@ def main():
     # ------ Set Constants ------
     # ------ Set Constants ------
     # ------ Set Constants ------
-    BUCKET_NAME = args.bucket if args.bucket else Storage.BUCKET_NAME
-    READ_BUCKET_NAME = Storage.BUCKET_NAME
+    BUCKET_NAME = "spotlake-test"
+    READ_BUCKET_NAME = "spotlake-test"
     WRITE_BUCKET_NAME = "spotlake-test"
-    S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
+    S3_PATH_PREFIX = "rawdata/aws"
     # BUCKET_FILE_PATH is removed in favor of specific paths from const_config
     
     if args.sps_key:

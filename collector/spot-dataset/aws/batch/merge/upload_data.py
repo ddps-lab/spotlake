@@ -7,15 +7,15 @@ from botocore.config import Config
 
 # ------ import user module ------
 import sys
-sys.path.append("/home/ubuntu/spotlake")
-from const_config import AwsCollector, Storage
+# sys.path.append("/home/ubuntu/spotlake")
+# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 
-BUCKET_NAME = Storage.BUCKET_NAME
-S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
+BUCKET_NAME = "spotlake"
+S3_PATH_PREFIX = "rawdata/aws"
 
-DATABASE_NAME = Storage.DATABASE_NAME
-AWS_TABLE_NAME = Storage.AWS_TABLE_NAME
+DATABASE_NAME = "spotlake"
+AWS_TABLE_NAME = "aws"
 write_client = boto3.client('timestream-write', config=Config(read_timeout=20,
                             max_pool_connections=5000, retries={'max_attempts': 10}))
 

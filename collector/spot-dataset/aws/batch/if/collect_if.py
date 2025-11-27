@@ -10,15 +10,15 @@ import shutil
 
 # ------ import user module ------
 import sys
-sys.path.append("/home/ubuntu/spotlake")
-from const_config import AwsCollector, Storage
+# sys.path.append("/home/ubuntu/spotlake")
+# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 
 def main():
     # ------ Set Constants ------
     # Constants are now imported from const_config
-    S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
-    BUCKET_NAME = Storage.BUCKET_NAME
+    S3_PATH_PREFIX = "rawdata/aws"
+    BUCKET_NAME = "spotlake"
     
     # ------ Set time data ------
     parser = argparse.ArgumentParser()
@@ -90,7 +90,7 @@ def main():
         spotinfo_df = pd.DataFrame(spotinfo_dict)
 
         frequency_map = {'<5%': 3.0, '5-10%': 2.5, '10-15%': 2.0, '15-20%': 1.5, '>20%': 1.0}
-        spotinfo_df = spotinfo_df.replace({'IF': frequency_map})
+        spotinfo_df['IF'] = spotinfo_df['IF'].replace(frequency_map).infer_objects(copy=False)
         
         print(f"Collected {len(spotinfo_df)} rows of Spot IF data")
         

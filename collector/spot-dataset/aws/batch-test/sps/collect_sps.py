@@ -8,8 +8,8 @@ from io import StringIO
 
 # ------ import user module ------
 # Assuming utility modules are in PYTHONPATH
-sys.path.append("/home/ubuntu/spotlake")
-from const_config import AwsCollector, Storage
+# sys.path.append("/home/ubuntu/spotlake")
+# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 
 from sps_query_api import query_sps
@@ -56,13 +56,13 @@ def write_metadata(s3_client, bucket_name, s3_key, metadata):
 def main():
     # ------ Setting Constants ------
     # ------ Setting Constants ------
-    BUCKET_NAME = Storage.BUCKET_NAME
-    READ_BUCKET_NAME = Storage.BUCKET_NAME
+    BUCKET_NAME = "spotlake"
+    READ_BUCKET_NAME = "spotlake"
     WRITE_BUCKET_NAME = "spotlake-test"
-    S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
-    CREDENTIAL_FILE_PATH = AwsCollector.CREDENTIAL_FILE_PATH
-    LOG_GROUP_NAME = AwsCollector.SPOT_DATA_COLLECTION_LOG_GROUP_NAME
-    LOG_STREAM_NAME = AwsCollector.LOG_STREAM_NAME
+    S3_PATH_PREFIX = "rawdata/aws"
+    CREDENTIAL_FILE_PATH = "credential/credential.csv"
+    LOG_GROUP_NAME = "Collection-Data-Count"
+    LOG_STREAM_NAME = "AWS-Count"
     
     # ------ Setting Client ------
     session = boto3.session.Session()

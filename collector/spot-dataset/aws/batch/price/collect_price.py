@@ -9,16 +9,16 @@ import argparse
 # ------ import user module ------
 # ------ import user module ------
 import sys
-sys.path.append("/home/ubuntu/spotlake")
-from const_config import AwsCollector, Storage
+# sys.path.append("/home/ubuntu/spotlake")
+# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 from load_price import get_spot_price, get_regions
 
 def main():
     # ------ Set Constants ------
     # Constants are now imported from const_config
-    S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
-    BUCKET_NAME = Storage.BUCKET_NAME
+    S3_PATH_PREFIX = "rawdata/aws"
+    BUCKET_NAME = "spotlake"
 
     # ------ Set time data ------
     parser = argparse.ArgumentParser()

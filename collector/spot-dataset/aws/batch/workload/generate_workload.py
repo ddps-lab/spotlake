@@ -13,8 +13,8 @@ import argparse
 
 # ------ import user module ------
 import sys
-sys.path.append("/home/ubuntu/spotlake")
-from const_config import AwsCollector, Storage
+# sys.path.append("/home/ubuntu/spotlake")
+# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 from load_metadata import num_az_by_region
 
@@ -101,8 +101,8 @@ def get_binpacked_workload(filedate):
     # The original code used os.environ.get('S3_BUCKET') and hardcoded paths.
     # I will use S3_PATH_PREFIX if set, else root.
     
-    S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
-    BUCKET_NAME = Storage.BUCKET_NAME
+    S3_PATH_PREFIX = "rawdata/aws"
+    BUCKET_NAME = "spotlake"
     
     monitoring_key = f"{S3_PATH_PREFIX}/monitoring/{filedate}/workloads.pkl"
          
@@ -154,8 +154,8 @@ def get_binpacked_workload(filedate):
         # PARENT_PATH was likely rawdata/aws
         # Original: {os.environ.get('PARENT_PATH')}/workloads/{filedate}/binpacked_workloads.pkl.gz
         # PARENT_PATH was likely rawdata/aws
-        S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
-        BUCKET_NAME = Storage.BUCKET_NAME
+        S3_PATH_PREFIX = "rawdata/aws"
+        BUCKET_NAME = "spotlake"
         workload_key = f"{S3_PATH_PREFIX}/workloads/{filedate}/binpacked_workloads.pkl.gz"
         print(f"Uploading binpacked workloads to {workload_key}...")
         s3_client.upload_fileobj(compressed_buffer, BUCKET_NAME, workload_key)
@@ -218,8 +218,8 @@ def main():
         
         # Original: {os.environ.get('PARENT_PATH')}/localfile/workloads.pkl
         # Original: {os.environ.get('PARENT_PATH')}/localfile/workloads.pkl
-        S3_PATH_PREFIX = AwsCollector.S3_PATH_PREFIX
-        BUCKET_NAME = Storage.BUCKET_NAME
+        S3_PATH_PREFIX = "rawdata/aws"
+        BUCKET_NAME = "spotlake"
         localfile_key = f"{S3_PATH_PREFIX}/localfile/workloads.pkl"
         print(f"Uploading backup to {localfile_key}...")
         s3_client.upload_fileobj(buffer, BUCKET_NAME, localfile_key)

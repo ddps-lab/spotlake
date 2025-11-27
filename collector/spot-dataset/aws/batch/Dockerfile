@@ -2,7 +2,7 @@
 FROM ghcr.io/alexei-led/spotinfo:latest AS spotinfo-source
 
 # Stage 2: Final image
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 

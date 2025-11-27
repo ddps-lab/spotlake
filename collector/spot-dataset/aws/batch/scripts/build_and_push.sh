@@ -43,7 +43,7 @@ aws ecr get-login-password --region "${REGION}" | docker login --username AWS --
 # Build Docker image
 echo "Building Docker image..."
 # Assuming script is run from project root
-docker build -t "${REPO_NAME}" -f collector/spot-dataset/aws/batch/Dockerfile collector/spot-dataset/aws/batch/
+docker build -t "${REPO_NAME}" -f collector/spot-dataset/aws/batch/Dockerfile .
 
 # Tag Docker image
 echo "Tagging Docker image..."

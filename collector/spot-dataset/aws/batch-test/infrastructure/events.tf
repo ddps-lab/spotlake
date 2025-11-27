@@ -44,6 +44,16 @@ resource "aws_iam_policy" "scheduler_policy" {
           aws_batch_job_definition.workload_job.arn,
           aws_batch_job_queue.spot_job_queue.arn
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = [
+          aws_iam_role.batch_job_role.arn,
+          aws_iam_role.ecs_task_execution_role.arn
+        ]
       }
     ]
   })
@@ -54,97 +64,133 @@ resource "aws_iam_role_policy_attachment" "scheduler_policy_attachment" {
   policy_arn = aws_iam_policy.scheduler_policy.arn
 }
 
-# ------ Schedules ------
+# ------ Schedules using CloudWatch Events ------
 
 # SPS Collection (Every 10 minutes)
-resource "aws_scheduler_schedule" "sps_schedule" {
-  name = "spotlake-sps-schedule-test"
-  group_name = "default"
-  
-  flexible_time_window {
-    mode = "OFF"
+resource "aws_cloudwatch_event_rule" "sps_schedule" {
+  name                = "spotlake-sps-schedule-test"
+  description         = "Trigger SPS collection every 10 minutes"
+  schedule_expression = "cron(0/10 * * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "sps_schedule" {
+  rule      = aws_cloudwatch_event_rule.sps_schedule.name
+  target_id = "spotlake-sps-job-target"
+  arn       = aws_batch_job_queue.spot_job_queue.arn
+  role_arn  = aws_iam_role.scheduler_role.arn
+
+  batch_target {
+    job_definition = aws_batch_job_definition.sps_job.arn
+    job_name       = "sps-collection-scheduled"
   }
 
-  schedule_expression = "cron(0/10 * * * ? *)"
-
-  target {
-    arn      = aws_batch_job_queue.spot_job_queue.arn
-    role_arn = aws_iam_role.scheduler_role.arn
-    
-    input = jsonencode({
-      # No overrides needed, script defaults to current time
-    })
-
-    batch_parameters {
-      job_definition = aws_batch_job_definition.sps_job.arn
-      job_name       = "sps-collection-scheduled"
+  input_transformer {
+    input_paths = {
+      time = "$.time"
     }
+    input_template = <<EOF
+{
+  "Parameters": {
+    "timestamp": "<time>"
+  }
+}
+EOF
   }
 }
 
 # IF Collection (Every 10 minutes)
-resource "aws_scheduler_schedule" "if_schedule" {
-  name = "spotlake-if-schedule-test"
-  group_name = "default"
-  
-  flexible_time_window {
-    mode = "OFF"
+resource "aws_cloudwatch_event_rule" "if_schedule" {
+  name                = "spotlake-if-schedule-test"
+  description         = "Trigger IF collection every 10 minutes"
+  schedule_expression = "cron(0/10 * * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "if_schedule" {
+  rule      = aws_cloudwatch_event_rule.if_schedule.name
+  target_id = "spotlake-if-job-target"
+  arn       = aws_batch_job_queue.spot_job_queue.arn
+  role_arn  = aws_iam_role.scheduler_role.arn
+
+  batch_target {
+    job_definition = aws_batch_job_definition.if_job.arn
+    job_name       = "if-collection-scheduled"
   }
 
-  schedule_expression = "cron(0/10 * * * ? *)"
-
-  target {
-    arn      = aws_batch_job_queue.spot_job_queue.arn
-    role_arn = aws_iam_role.scheduler_role.arn
-    
-    batch_parameters {
-      job_definition = aws_batch_job_definition.if_job.arn
-      job_name       = "if-collection-scheduled"
+  input_transformer {
+    input_paths = {
+      time = "$.time"
     }
+    input_template = <<EOF
+{
+  "Parameters": {
+    "timestamp": "<time>"
+  }
+}
+EOF
   }
 }
 
 # Price Collection (Every 10 minutes)
-resource "aws_scheduler_schedule" "price_schedule" {
-  name = "spotlake-price-schedule-test"
-  group_name = "default"
-  
-  flexible_time_window {
-    mode = "OFF"
+resource "aws_cloudwatch_event_rule" "price_schedule" {
+  name                = "spotlake-price-schedule-test"
+  description         = "Trigger price collection every 10 minutes"
+  schedule_expression = "cron(0/10 * * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "price_schedule" {
+  rule      = aws_cloudwatch_event_rule.price_schedule.name
+  target_id = "spotlake-price-job-target"
+  arn       = aws_batch_job_queue.spot_job_queue.arn
+  role_arn  = aws_iam_role.scheduler_role.arn
+
+  batch_target {
+    job_definition = aws_batch_job_definition.price_job.arn
+    job_name       = "price-collection-scheduled"
   }
 
-  schedule_expression = "cron(0/10 * * * ? *)"
-
-  target {
-    arn      = aws_batch_job_queue.spot_job_queue.arn
-    role_arn = aws_iam_role.scheduler_role.arn
-    
-    batch_parameters {
-      job_definition = aws_batch_job_definition.price_job.arn
-      job_name       = "price-collection-scheduled"
+  input_transformer {
+    input_paths = {
+      time = "$.time"
     }
+    input_template = <<EOF
+{
+  "Parameters": {
+    "timestamp": "<time>"
+  }
+}
+EOF
   }
 }
 
 # Workload Generation (Daily at 23:55 UTC)
-resource "aws_scheduler_schedule" "workload_schedule" {
-  name = "spotlake-workload-schedule-test"
-  group_name = "default"
-  
-  flexible_time_window {
-    mode = "OFF"
+resource "aws_cloudwatch_event_rule" "workload_schedule" {
+  name                = "spotlake-workload-schedule-test"
+  description         = "Trigger workload generation daily at 23:55 UTC"
+  schedule_expression = "cron(55 23 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "workload_schedule" {
+  rule      = aws_cloudwatch_event_rule.workload_schedule.name
+  target_id = "spotlake-workload-job-target"
+  arn       = aws_batch_job_queue.spot_job_queue.arn
+  role_arn  = aws_iam_role.scheduler_role.arn
+
+  batch_target {
+    job_definition = aws_batch_job_definition.workload_job.arn
+    job_name       = "workload-generation-scheduled"
   }
 
-  schedule_expression = "cron(55 23 * * ? *)"
-
-  target {
-    arn      = aws_batch_job_queue.spot_job_queue.arn
-    role_arn = aws_iam_role.scheduler_role.arn
-    
-    batch_parameters {
-      job_definition = aws_batch_job_definition.workload_job.arn
-      job_name       = "workload-generation-scheduled"
+  input_transformer {
+    input_paths = {
+      time = "$.time"
     }
+    input_template = <<EOF
+{
+  "Parameters": {
+    "timestamp": "<time>"
+  }
+}
+EOF
   }
 }
 
@@ -184,14 +230,12 @@ resource "aws_cloudwatch_event_target" "s3_merge_target" {
   input_transformer {
     input_paths = {
       sps_key = "$.detail.object.key"
-      bucket  = "$.detail.bucket.name"
     }
     
-    # Construct ContainerOverrides to pass arguments
     input_template = <<EOF
 {
-  "ContainerOverrides": {
-    "Command": ["python3", "collector/spot-dataset/aws/batch-test/merge/merge_data.py", "--sps_key", <sps_key>, "--bucket", <bucket>]
+  "Parameters": {
+    "sps_key": <sps_key>
   }
 }
 EOF

@@ -27,6 +27,32 @@ resource "aws_iam_role_policy_attachment" "batch_service_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole"
 }
 
+# Additional policy for ECS permissions
+resource "aws_iam_policy" "batch_service_ecs_policy" {
+  name        = "batch_service_ecs_policy_spotlake_test"
+  description = "Additional ECS permissions for Batch Service Role"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:DescribeClusters",
+          "ecs:DescribeContainerInstances",
+          "ecs:ListContainerInstances"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "batch_service_ecs_policy_attachment" {
+  role       = aws_iam_role.batch_service_role.name
+  policy_arn = aws_iam_policy.batch_service_ecs_policy.arn
+}
+
 # ECS Task Execution Role
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "ecs_task_execution_role_spotlake_test"
@@ -129,15 +155,15 @@ resource "aws_iam_role_policy_attachment" "batch_job_policy_attachment" {
 # ------ Batch Compute Environment ------
 
 resource "aws_batch_compute_environment" "spot_compute_env" {
-  compute_environment_name = "spotlake-compute-env-test"
+  name = "spotlake-compute-env-test"
 
   compute_resources {
     type = "SPOT"
-    max_vcpus = 4
-    min_vcpus = 4
-    desired_vcpus = 4
+    max_vcpus = 10
+    min_vcpus = 0
+    desired_vcpus = 0
     
-    instance_types = ["optimal"]
+    instance_type = ["optimal"]
     
     subnets = var.subnet_ids
     security_group_ids = var.security_group_ids
@@ -183,10 +209,14 @@ resource "aws_iam_instance_profile" "ecs_instance_role" {
 # ------ Batch Job Queue ------
 
 resource "aws_batch_job_queue" "spot_job_queue" {
-  name                 = "spotlake-job-queue-test"
-  state                = "ENABLED"
-  priority             = 1
-  compute_environments = [aws_batch_compute_environment.spot_compute_env.arn]
+  name     = "spotlake-job-queue-test"
+  state    = "ENABLED"
+  priority = 1
+  
+  compute_environment_order {
+    order              = 1
+    compute_environment = aws_batch_compute_environment.spot_compute_env.arn
+  }
 }
 
 # ------ Batch Job Definitions ------
@@ -205,10 +235,14 @@ resource "aws_batch_job_definition" "sps_job" {
       { name = "AWS_REGION", value = var.aws_region }
     ]
     resourceRequirements = [
-      { type = "VCPU", value = "1.0" },
-      { type = "MEMORY", value = "2048" }
+      { type = "VCPU", value = "2" },
+      { type = "MEMORY", value = "4096" }
     ]
   })
+  
+  parameters = {
+    "timestamp" = "placeholder"
+  }
 }
 
 # IF Collection Job
@@ -225,10 +259,14 @@ resource "aws_batch_job_definition" "if_job" {
       { name = "AWS_REGION", value = var.aws_region }
     ]
     resourceRequirements = [
-      { type = "VCPU", value = "1.0" },
+      { type = "VCPU", value = "2" },
       { type = "MEMORY", value = "1024" }
     ]
   })
+  
+  parameters = {
+    "timestamp" = "placeholder"
+  }
 }
 
 # Price Collection Job
@@ -245,10 +283,14 @@ resource "aws_batch_job_definition" "price_job" {
       { name = "AWS_REGION", value = var.aws_region }
     ]
     resourceRequirements = [
-      { type = "VCPU", value = "1.0" },
+      { type = "VCPU", value = "2" },
       { type = "MEMORY", value = "1024" }
     ]
   })
+  
+  parameters = {
+    "timestamp" = "placeholder"
+  }
 }
 
 # Merge Data Job
@@ -265,10 +307,14 @@ resource "aws_batch_job_definition" "merge_job" {
       { name = "AWS_REGION", value = var.aws_region }
     ]
     resourceRequirements = [
-      { type = "VCPU", value = "1.0" },
+      { type = "VCPU", value = "2" },
       { type = "MEMORY", value = "2048" }
     ]
   })
+  
+  parameters = {
+    "sps_key" = "placeholder"
+  }
 }
 
 # Workload Generation Job
@@ -285,8 +331,12 @@ resource "aws_batch_job_definition" "workload_job" {
       { name = "AWS_REGION", value = var.aws_region }
     ]
     resourceRequirements = [
-      { type = "VCPU", value = "2.0" },
+      { type = "VCPU", value = "2" },
       { type = "MEMORY", value = "4096" }
     ]
   })
+  
+  parameters = {
+    "timestamp" = "placeholder"
+  }
 }

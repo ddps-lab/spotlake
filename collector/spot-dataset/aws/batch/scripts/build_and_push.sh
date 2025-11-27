@@ -6,16 +6,20 @@ REGION="us-west-2"
 REPO_NAME="spotlake-batch"
 
 usage() {
-    echo "Usage: $0 [-r <aws_region>] [-p <aws_profile>]"
+    echo "Usage: $0 [-r <aws_region>] [-p <aws_profile>] [-a <access_key_id>] [-s <secret_access_key>]"
     echo "  -r: AWS Region (default: us-west-2)"
     echo "  -p: AWS Profile (optional, uses default if not set)"
+    echo "  -a: AWS Access Key ID"
+    echo "  -s: AWS Secret Access Key"
     exit 1
 }
 
-while getopts "r:p:" opt; do
+while getopts "r:p:a:s:" opt; do
     case $opt in
         r) REGION="$OPTARG" ;;
         p) export AWS_PROFILE="$OPTARG" ;;
+        a) ACCESS_KEY="$OPTARG" ;;
+        s) SECRET_KEY="$OPTARG" ;;
         *) usage ;;
     esac
 done
@@ -28,7 +32,12 @@ echo "Repository: $REPO_NAME"
 echo "Account ID: $ACCOUNT_ID"
 echo "Image URI: $IMAGE_URI"
 if [ -n "$AWS_PROFILE" ]; then
-    echo "AWS Profile: $AWS_PROFILE"
+    echo "Using AWS Profile: $AWS_PROFILE"
+fi
+
+# Check if credentials are provided
+if [ -z "$ACCESS_KEY" ] || [ -z "$SECRET_KEY" ]; then
+    echo "Warning: AWS Credentials not provided. Image will be built without default credentials."
 fi
 
 # Create ECR repository if it doesn't exist
@@ -42,8 +51,12 @@ aws ecr get-login-password --region "${REGION}" | docker login --username AWS --
 
 # Build Docker image
 echo "Building Docker image..."
-# Assuming script is run from project root
-docker build -t "${REPO_NAME}" -f collector/spot-dataset/aws/batch/Dockerfile .
+docker build \
+    --platform linux/amd64 \
+    --build-arg AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
+    --build-arg AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
+    -t "$REPO_NAME" \
+    -f collector/spot-dataset/aws/batch/Dockerfile .
 
 # Tag Docker image
 echo "Tagging Docker image..."

@@ -142,6 +142,13 @@ resource "aws_iam_policy" "batch_job_policy" {
           "ec2:GetSpotPlacementScores"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "pricing:GetProducts"
+        ]
+        Resource = "*"
       }
     ]
   })

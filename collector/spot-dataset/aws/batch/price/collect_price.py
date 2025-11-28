@@ -5,6 +5,7 @@ import boto3.session
 import os, pickle, gzip
 import io
 import argparse
+import json
 
 # ------ import user module ------
 # ------ import user module ------
@@ -13,6 +14,56 @@ import sys
 # from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 from load_price import get_spot_price, get_regions
+
+# get ondemand price by all instance type in single region
+def get_ondemand_price_region(region, pricing_client):
+    response_list = []
+
+    filters = [
+    {'Type': 'TERM_MATCH', 'Field': 'capacitystatus', 'Value': 'Used'},
+    {'Type': 'TERM_MATCH', 'Field': 'regionCode', 'Value': region},
+    {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
+    {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
+    {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
+    {'Type': 'TERM_MATCH', 'Field': 'licenseModel', 'Value': 'No License required'}
+    ]
+
+    response = pricing_client.get_products(ServiceCode='AmazonEC2', Filters=filters) 
+    response_list = response['PriceList']
+
+    while "NextToken" in response:
+        response = pricing_client.get_products(ServiceCode='AmazonEC2', Filters=filters, NextToken=response["NextToken"]) 
+        response_list.extend(response['PriceList'])
+                
+    return response_list
+
+
+# get all ondemand price with regions
+def get_ondemand_price():
+    session = boto3.session.Session()
+    regions = get_regions(session)
+    
+    pricing_client = session.client('pricing', region_name='us-east-1')
+
+    ondemand_dict = {"Region": [], "InstanceType": [], "OndemandPrice": []}
+
+    for region in regions:
+        print(f"Collecting on-demand price for region: {region}")
+        for price_info in get_ondemand_price_region(region, pricing_client):
+            instance_type = json.loads(price_info)['product']['attributes']['instanceType']
+            instance_price = float(list(list(json.loads(price_info)['terms']['OnDemand'].values())[0]['priceDimensions'].values())[0]['pricePerUnit']['USD'])
+
+            # case of instance-region is not available
+            if instance_price == 0.0:
+                continue
+
+            ondemand_dict['Region'].append(region)
+            ondemand_dict['InstanceType'].append(instance_type)
+            ondemand_dict['OndemandPrice'].append(instance_price)
+    
+    ondemand_price_df = pd.DataFrame(ondemand_dict)
+
+    return ondemand_price_df
 
 def main():
     # ------ Set Constants ------
@@ -41,7 +92,7 @@ def main():
     S3_DIR_NAME = timestamp_utc.strftime('%Y/%m/%d')
     S3_OBJECT_PREFIX = timestamp_utc.strftime('%H-%M')
     
-    print(f"Collecting Spot Price for timestamp: {timestamp_utc}")
+    print(f"Collecting Spot Price and On-Demand Price for timestamp: {timestamp_utc}")
     start_time = datetime.now(timezone.utc)
 
     # ------ Collect Spot Price ------
@@ -70,11 +121,26 @@ def main():
         raise e
         
     end_time = datetime.now(timezone.utc)
-    print(f"Collecting time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+    print(f"Collecting Spot Price time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+
+    # ------ Collect On-Demand Price ------
+    start_time = datetime.now(timezone.utc)
+    try:
+        print("Collecting On-Demand Price...")
+        ondemand_price_df = get_ondemand_price()
+        print(f"Collected {len(ondemand_price_df)} rows of On-Demand Price data")
+    except Exception as e:
+        send_slack_message(f"Error during on-demand price collection\n{e}")
+        raise e
+    end_time = datetime.now(timezone.utc)
+    print(f"Collecting On-Demand Price time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
     # ------ Save Raw Data in S3 ------
     start_time = datetime.now(timezone.utc)
     try:
+        s3 = session.client('s3')
+
+        # Save Spot Price
         buffer = io.BytesIO()
         pickle.dump(spot_price_df, buffer)
         buffer.seek(0)
@@ -84,15 +150,28 @@ def main():
             gz.write(buffer.getvalue())
         compressed_buffer.seek(0)
         
-        s3 = session.client('s3')
         key = f"{S3_PATH_PREFIX}/spot_price/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_spot_price.pkl.gz"
         s3.upload_fileobj(compressed_buffer, BUCKET_NAME, key)
-        print(f"Uploaded data to s3://{BUCKET_NAME}/{key}")
+        print(f"Uploaded Spot Price data to s3://{BUCKET_NAME}/{key}")
+
+        # Save On-Demand Price
+        buffer = io.BytesIO()
+        pickle.dump(ondemand_price_df, buffer)
+        buffer.seek(0)
+
+        compressed_buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=compressed_buffer, mode='wb') as gz:
+            gz.write(buffer.getvalue())
+        compressed_buffer.seek(0)
+        
+        key = f"{S3_PATH_PREFIX}/ondemand_price/{S3_DIR_NAME}/ondemand_price.pkl.gz"
+        s3.upload_fileobj(compressed_buffer, BUCKET_NAME, key)
+        print(f"Uploaded On-Demand Price data to s3://{BUCKET_NAME}/{key}")
         
     except Exception as e:
         send_slack_message(f"Store spot price data to be stored in the cloud in memory\n{e}")
         raise e
-
+    
     end_time = datetime.now(timezone.utc)
     print(f"Upload time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 

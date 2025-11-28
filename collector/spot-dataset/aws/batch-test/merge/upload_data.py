@@ -9,15 +9,16 @@ from botocore.config import Config
 import sys
 # sys.path.append("/home/ubuntu/spotlake")
 # from const_config import AwsCollector, Storage
-from utility.slack_msg_sender import send_slack_message
+from utility.utils import get_region
 
 BUCKET_NAME = "spotlake-test"
 S3_PATH_PREFIX = "rawdata/aws"
 
 DATABASE_NAME = "spotlake-test"
 AWS_TABLE_NAME = "aws-test"
-write_client = boto3.client('timestream-write', config=Config(read_timeout=20,
-                            max_pool_connections=5000, retries={'max_attempts': 10}))
+
+write_client = boto3.client('timestream-write', region_name=get_region(),
+                            config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
 
 # Submit Batch To Timestream
 

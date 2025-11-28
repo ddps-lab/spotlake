@@ -9,7 +9,7 @@ IDX_INSTANCE_TYPE = 0
 IDX_REGION_NAMES = 1
 IDX_NUMBER_RESPONSE = 2
 
-REGION=None
+from utility.utils import get_region
 
 # SPS 점수를 계정별로 받아오는 함수입니다.
 # args는 다음과 같이 구성된 튜플이어야 합니다
@@ -82,54 +82,3 @@ def query_sps(args):
                 sps_dict["T2"].append(0)
     
     return pd.DataFrame(sps_dict)
-
-def get_token():
-    token_url = "http://169.254.169.254/latest/api/token"
-    headers = {"X-aws-ec2-metadata-token-ttl-seconds": "5"}
-    try:
-        response = requests.put(token_url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            return response.text
-        else:
-            # 로컬 테스트 등을 위해 토큰 획득 실패 시 예외 대신 None 반환 또는 기본값 사용 고려 가능
-            # 하지만 EC2 환경을 가정하므로 예외 발생이 맞음.
-            # 단, 로컬 테스트 시에는 이 함수가 실패할 수 있음.
-            # 사용자가 "ec2 collector처럼 동작해야 한다"고 했으므로 그대로 유지.
-            raise Exception("토큰을 가져오는 데 실패했습니다. 상태 코드: {}".format(response.status_code))
-    except Exception as e:
-        # 로컬 환경 등에서 타임아웃 발생 시
-        print(f"IMDSv2 토큰 요청 실패 (로컬 환경일 수 있음): {e}")
-        raise e
-
-def get_region():
-    global REGION
-    if REGION is not None:
-        return REGION
-    
-    try:
-        token = get_token()
-        if token:
-            metadata_url = "http://169.254.169.254/latest/dynamic/instance-identity/document"
-            headers = {"X-aws-ec2-metadata-token": token}
-            response = requests.get(metadata_url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                document = response.json()
-                REGION = document.get("region")
-                return REGION
-            else:
-                raise Exception("메타데이터를 가져오는 데 실패했습니다. 상태 코드: {}".format(response.status_code))
-        else:
-            raise Exception("토큰이 없습니다.")
-    except Exception as e:
-        # 로컬 테스트를 위한 fallback?
-        # 사용자는 "배포 시 선택하게끔 되어있는데"라고 했으므로 EC2 환경을 전제함.
-        # 하지만 로컬 테스트 시에는 환경 변수로 대체 가능하도록 수정하는 것이 안전함.
-        # 그러나 사용자의 요구사항("ec2 collector처럼")을 우선시하여 원본 유지.
-        # 단, requests에 timeout 추가하여 무한 대기 방지.
-        print(f"리전 정보 획득 실패: {e}")
-        # Fallback to environment variable if available (for local testing)
-        if os.environ.get('AWS_REGION'):
-            return os.environ.get('AWS_REGION')
-        if os.environ.get('AWS_DEFAULT_REGION'):
-            return os.environ.get('AWS_DEFAULT_REGION')
-        raise e

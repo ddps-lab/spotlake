@@ -107,7 +107,7 @@ def update_query_selector(changed_df):
         query_selector_aws = changed_df[['InstanceType', 'Region', 'AZ']].dropna().drop_duplicates().reset_index(drop=True)
 
     result = query_selector_aws.to_json(f"/tmp/{filename}", orient="records")
-    s3 = boto3.client('s3')
+    s3_client = boto3.client('s3')
     with open(f"/tmp/{filename}", 'rb') as f:
         s3_client.upload_fileobj(f, BUCKET_NAME, s3_path, ExtraArgs={'ContentType': 'application/json'})
     s3 = boto3.resource('s3')

@@ -61,6 +61,7 @@ Production 데이터를 읽어와서 로직을 수행하되, 결과는 **Test S3
 ### 인프라 배포
 테스트용 인프라를 별도로 배포하거나, 기존 Batch 환경에서 Job Definition만 변경하여 테스트할 수 있습니다.
 이 테스트 환경은 Production과 리소스 이름이 충돌하지 않도록 모든 리소스(Role, Queue, Compute Environment 등)에 `_test` 또는 `-test` 접미사가 붙습니다.
+또한, Production과 마찬가지로 **통합된 Compute Environment와 Job Queue**를 사용하여 `run_collection.sh`를 통해 수집 및 병합 작업을 수행합니다.
 
 **Linux/Mac**
 ```bash

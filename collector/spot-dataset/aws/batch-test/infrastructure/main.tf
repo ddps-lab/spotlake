@@ -152,32 +152,6 @@ resource "aws_iam_role_policy_attachment" "batch_job_policy_attachment" {
   policy_arn = aws_iam_policy.batch_job_policy.arn
 }
 
-# ------ Batch Compute Environment ------
-
-resource "aws_batch_compute_environment" "spot_compute_env" {
-  name = "spotlake-compute-env-test"
-
-  compute_resources {
-    type = "SPOT"
-    max_vcpus = 10
-    min_vcpus = 0
-    desired_vcpus = 0
-    
-    instance_type = ["optimal"]
-    
-    subnets = var.subnet_ids
-    security_group_ids = var.security_group_ids
-    
-    instance_role = aws_iam_instance_profile.ecs_instance_role.arn
-    
-    allocation_strategy = "SPOT_CAPACITY_OPTIMIZED"
-  }
-
-  service_role = aws_iam_role.batch_service_role.arn
-  type         = "MANAGED"
-  depends_on   = [aws_iam_role_policy_attachment.batch_service_role_policy]
-}
-
 # ECS Instance Role (required for EC2 launch type)
 resource "aws_iam_role" "ecs_instance_role" {
   name = "ecs_instance_role_spotlake_test"
@@ -206,7 +180,37 @@ resource "aws_iam_instance_profile" "ecs_instance_role" {
   role = aws_iam_role.ecs_instance_role.name
 }
 
-# ------ Batch Job Queue ------
+# ------ Batch Compute Environment ------
+
+# ------ Batch Compute Environments & Job Queues ------
+
+# 1. Shared Compute Environment
+resource "aws_batch_compute_environment" "spot_compute_env" {
+  name = "spotlake-compute-env-test"
+
+  compute_resources {
+    type = "SPOT"
+    max_vcpus = 8
+    min_vcpus = 0
+    desired_vcpus = 0
+    
+    instance_type = ["optimal"]
+    
+    subnets = var.subnet_ids
+    security_group_ids = var.security_group_ids
+    
+    instance_role = aws_iam_instance_profile.ecs_instance_role.arn
+    
+    allocation_strategy = "SPOT_CAPACITY_OPTIMIZED"
+  }
+
+  service_role = aws_iam_role.batch_service_role.arn
+  type         = "MANAGED"
+  depends_on   = [
+    aws_iam_role_policy_attachment.batch_service_role_policy,
+    aws_iam_role_policy_attachment.batch_service_ecs_policy_attachment
+  ]
+}
 
 resource "aws_batch_job_queue" "spot_job_queue" {
   name     = "spotlake-job-queue-test"
@@ -221,86 +225,14 @@ resource "aws_batch_job_queue" "spot_job_queue" {
 
 # ------ Batch Job Definitions ------
 
-# SPS Collection Job
-resource "aws_batch_job_definition" "sps_job" {
-  name = "spotlake-sps-job-test"
+# Consolidated Collection Job
+resource "aws_batch_job_definition" "collection_job" {
+  name = "spotlake-collection-job-test"
   type = "container"
 
   container_properties = jsonencode({
     image = var.image_uri
-    command = ["python3", "collector/spot-dataset/aws/batch-test/sps/collect_sps.py", "--timestamp", "Ref::timestamp"]
-    jobRoleArn = aws_iam_role.batch_job_role.arn
-    environment = [
-      { name = "S3_BUCKET", value = var.s3_bucket },
-      { name = "AWS_REGION", value = var.aws_region }
-    ]
-    resourceRequirements = [
-      { type = "VCPU", value = "2" },
-      { type = "MEMORY", value = "4096" }
-    ]
-  })
-  
-  parameters = {
-    "timestamp" = "placeholder"
-  }
-}
-
-# IF Collection Job
-resource "aws_batch_job_definition" "if_job" {
-  name = "spotlake-if-job-test"
-  type = "container"
-
-  container_properties = jsonencode({
-    image = var.image_uri
-    command = ["python3", "collector/spot-dataset/aws/batch-test/if/collect_if.py", "--timestamp", "Ref::timestamp"]
-    jobRoleArn = aws_iam_role.batch_job_role.arn
-    environment = [
-      { name = "S3_BUCKET", value = var.s3_bucket },
-      { name = "AWS_REGION", value = var.aws_region }
-    ]
-    resourceRequirements = [
-      { type = "VCPU", value = "2" },
-      { type = "MEMORY", value = "1024" }
-    ]
-  })
-  
-  parameters = {
-    "timestamp" = "placeholder"
-  }
-}
-
-# Price Collection Job
-resource "aws_batch_job_definition" "price_job" {
-  name = "spotlake-price-job-test"
-  type = "container"
-
-  container_properties = jsonencode({
-    image = var.image_uri
-    command = ["python3", "collector/spot-dataset/aws/batch-test/price/collect_price.py", "--timestamp", "Ref::timestamp"]
-    jobRoleArn = aws_iam_role.batch_job_role.arn
-    environment = [
-      { name = "S3_BUCKET", value = var.s3_bucket },
-      { name = "AWS_REGION", value = var.aws_region }
-    ]
-    resourceRequirements = [
-      { type = "VCPU", value = "2" },
-      { type = "MEMORY", value = "1024" }
-    ]
-  })
-  
-  parameters = {
-    "timestamp" = "placeholder"
-  }
-}
-
-# Merge Data Job
-resource "aws_batch_job_definition" "merge_job" {
-  name = "spotlake-merge-job-test"
-  type = "container"
-
-  container_properties = jsonencode({
-    image = var.image_uri
-    command = ["python3", "collector/spot-dataset/aws/batch-test/merge/merge_data.py", "--sps_key", "Ref::sps_key"]
+    command = ["/bin/bash", "/app/collector/spot-dataset/aws/batch-test/scripts/run_collection.sh", "Ref::timestamp"]
     jobRoleArn = aws_iam_role.batch_job_role.arn
     environment = [
       { name = "S3_BUCKET", value = var.s3_bucket },
@@ -313,7 +245,7 @@ resource "aws_batch_job_definition" "merge_job" {
   })
   
   parameters = {
-    "sps_key" = "placeholder"
+    "timestamp" = "placeholder"
   }
 }
 
@@ -332,7 +264,7 @@ resource "aws_batch_job_definition" "workload_job" {
     ]
     resourceRequirements = [
       { type = "VCPU", value = "2" },
-      { type = "MEMORY", value = "4096" }
+      { type = "MEMORY", value = "1024" }
     ]
   })
   

@@ -60,19 +60,33 @@ AWS SPS API는 쿼리 제한이 엄격하므로, 여러 AWS 계정(Credential)�
 *   **권한**: Batch Job Role은 Timestream에 레코드를 쓸 수 있는 권한(`timestream:WriteRecords`)을 가집니다. 테이블 생성은 이 코드 범위 밖에서 관리됩니다.
 
 ### 4. ECS & AWS Batch (Managed)
-*   **Compute Environment**: `infrastructure/main.tf`에서 `aws_batch_compute_environment` 리소스로 정의됩니다. Spot Instance를 사용하도록 설정되어 있으며, `SPOT_CAPACITY_OPTIMIZED` 전략을 통해 중단 가능성을 최소화합니다.
+*   **Compute Environment**: `infrastructure/main.tf`에서 `aws_batch_compute_environment` 리소스로 정의됩니다.
 *   **Job Queue**: `aws_batch_job_queue` 리소스로 정의되며, Compute Environment와 연결되어 작업의 우선순위를 관리합니다.
-*   **Job Definitions**: 각 수집 작업(SPS, IF, Price, Merge, Workload)에 대한 컨테이너 정의가 포함됩니다.
+*   **Job Definitions**:
+    *   `spotlake-collection-job`: `run_collection.sh` 스크립트를 실행하여 SPS, IF, Price 수집을 병렬로 수행하고, 완료 후 Merge 작업을 실행합니다.
+    *   `spotlake-workload-job`: 매일 워크로드를 생성합니다.
 
 ## 인프라 구성 (Terraform)
 
 `infrastructure/` 디렉토리의 Terraform 코드는 다음과 같은 AWS 리소스를 생성합니다.
 
-### AWS Batch Compute Environment
-*   **Type**: SPOT (Spot Instance 사용)
-*   **Allocation Strategy**: `SPOT_CAPACITY_OPTIMIZED` (중단 확률이 가장 낮은 스팟 인스턴스 풀 사용)
-*   **Instance Types**: `optimal` (AWS Batch가 적절한 인스턴스 타입을 자동 선택)
+### AWS Batch Compute Environment & Job Queue
+기존 단일 환경에서 **작업별 전용 환경**으로 분리되었습니다. 이를 통해 `min_vcpus` / `max_vcpus` 설정이 각 작업마다 독립적으로 적용되며, 병렬 처리가 보장됩니다.
+
+*   **SPS Collection**: `spotlake-sps-compute-env` / `spotlake-sps-job-queue`
+*   **IF Collection**: `spotlake-if-compute-env` / `spotlake-if-job-queue`
+*   **Price Collection**: `spotlake-price-compute-env` / `spotlake-price-job-queue`
+*   **Merge Data**: `spotlake-merge-compute-env` / `spotlake-merge-job-queue`
+*   **Workload Generation**: `spotlake-workload-compute-env` / `spotlake-workload-job-queue`
+
+각### AWS Batch Compute Environment & Job Queue
+단일 Compute Environment(`spotlake-compute-env`)와 Job Queue(`spotlake-job-queue`)를 사용하여 리소스를 효율적으로 관리합니다.
+
+*   **Type**: SPOT
+*   **Allocation Strategy**: `SPOT_CAPACITY_OPTIMIZED`
+*   **Instance Types**: `optimal`
 *   **Max vCPUs**: 128
+ (각 작업별)
 
 ### IAM Roles
 *   **`aws_batch_service_role_spotlake`**: AWS Batch 서비스가 AWS 리소스를 관리하기 위한 역할.
@@ -84,10 +98,7 @@ AWS SPS API는 쿼리 제한이 엄격하므로, 여러 AWS 계정(Credential)�
 
 | Job Name | Script | vCPU | Memory | Trigger |
 | :--- | :--- | :--- | :--- | :--- |
-| `spotlake-sps-job` | `collect_sps.py` | 1.0 | 2048 MiB | 10분 마다 |
-| `spotlake-if-job` | `collect_if.py` | 1.0 | 1024 MiB | 10분 마다 |
-| `spotlake-price-job` | `collect_price.py` | 1.0 | 1024 MiB | 10분 마다 |
-| `spotlake-merge-job` | `merge_data.py` | 1.0 | 2048 MiB | S3 Upload 이벤트 |
+| `spotlake-collection-job` | `run_collection.sh` | 4.0 | 4096 MiB | 10분 마다 |
 | `spotlake-workload-job` | `generate_workload.py` | 2.0 | 4096 MiB | 매일 23:55 UTC |
 
 ## Terraform 변수 및 리소스 상세 (Terraform Variables & Resources)
@@ -113,9 +124,9 @@ AWS SPS API는 쿼리 제한이 엄격하므로, 여러 AWS 계정(Credential)�
 Terraform이 **새로 생성하는 리소스**와 **기존에 존재해야 하는 리소스**의 구분은 다음과 같습니다.
 
 #### 새로 생성되는 리소스 (Managed by Terraform)
-*   **AWS Batch Compute Environment**: Spot Instance를 사용하는 컴퓨팅 환경 (`spotlake-compute-env`).
-*   **AWS Batch Job Queue**: 작업을 대기시키는 큐 (`spotlake-job-queue`).
-*   **AWS Batch Job Definitions**: 각 작업(SPS, IF, Price, Merge, Workload)에 대한 정의.
+*   **AWS Batch Compute Environment**: `spotlake-compute-env`
+*   **AWS Batch Job Queue**: `spotlake-job-queue`
+*   **AWS Batch Job Definitions**: `spotlake-collection-job`, `spotlake-workload-job`
 *   **IAM Roles & Policies**:
     *   `aws_batch_service_role_spotlake`: Batch 서비스 역할.
     *   `ecs_task_execution_role_spotlake`: ECS 태스크 실행 역할.
@@ -199,11 +210,11 @@ Terraform이 **새로 생성하는 리소스**와 **기존에 존재해야 하�
 EventBridge 스케줄 외에 즉시 작업을 실행해야 할 경우 AWS CLI를 사용합니다.
 
 ```bash
-# SPS 수집 작업 수동 실행
+# 통합 수집 작업 수동 실행
 aws batch submit-job \
-    --job-name manual-sps-collection \
+    --job-name manual-collection \
     --job-queue spotlake-job-queue \
-    --job-definition spotlake-sps-job
+    --job-definition spotlake-collection-job
 
 # 워크로드 생성 작업 수동 실행
 aws batch submit-job \

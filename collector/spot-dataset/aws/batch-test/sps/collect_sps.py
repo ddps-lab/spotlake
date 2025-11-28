@@ -248,6 +248,12 @@ def main():
         os.remove(saved_filename)
         os.remove(gz_filename)
 
+        # Save S3 key to a file for the merge script
+        s3_key = f"{S3_PATH_PREFIX}/sps/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_sps_{target_capacity}.pkl.gz"
+        with open("/tmp/sps_key.txt", "w") as f:
+            f.write(s3_key)
+        print(f"SPS Key saved to /tmp/sps_key.txt: {s3_key}")
+
     except Exception as e:
         send_slack_message(e)
         print(f"파일 저장 및 업로드 중 오류 발생: {e}")

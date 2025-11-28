@@ -35,6 +35,7 @@ COPY --from=spotinfo-source /spotinfo /usr/local/bin/spotinfo
 COPY collector/spot-dataset/aws/batch-test /app/collector/spot-dataset/aws/batch-test
 # COPY const_config.py /app/
 COPY utility /app/utility
+RUN chmod +x /app/collector/spot-dataset/aws/batch-test/scripts/run_collection.sh
 
 # Set PYTHONPATH to include /app so imports work
 ENV PYTHONPATH=/app

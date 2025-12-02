@@ -208,7 +208,7 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
     
     instance_role = aws_iam_instance_profile.ecs_instance_role.arn
     
-    allocation_strategy = "SPOT_CAPACITY_OPTIMIZED"
+    allocation_strategy = "SPOT_PRICE_CAPACITY_OPTIMIZED"
   }
 
   service_role = aws_iam_role.batch_service_role.arn

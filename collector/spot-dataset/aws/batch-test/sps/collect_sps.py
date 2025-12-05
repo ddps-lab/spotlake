@@ -140,6 +140,7 @@ def main():
 
             # workload 파일이 바뀌었으므로 계정 묶음 change
             init_credential_index = 1800 if init_credential_index == 0 else 0
+            current_credential_index = init_credential_index
             metadata["credential_index"]["init"] = init_credential_index
             metadata["credential_index"]["current"] = init_credential_index
 

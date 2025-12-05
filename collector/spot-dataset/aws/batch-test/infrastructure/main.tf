@@ -201,7 +201,7 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
     min_vcpus = 0
     desired_vcpus = 0
     
-    instance_type = ["optimal"]
+    instance_type = ["t4g.micro", "t3.micro", "t3a.micro", "t4g.small", "t3.small", "t3a.small"]
     
     subnets = var.subnet_ids
     security_group_ids = var.security_group_ids

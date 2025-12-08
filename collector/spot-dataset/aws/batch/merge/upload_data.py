@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import json
 from botocore.config import Config
+import concurrent.futures
 
 # ------ import user module ------
 import sys
@@ -48,6 +49,7 @@ def upload_timestream(data, timestamp):
     time_value = str(int(timestamp.timestamp() * 1000))
 
     records = []
+    all_batches = []
     counter = 0
     for idx, row in data.iterrows():
         dimensions = []
@@ -67,11 +69,21 @@ def upload_timestream(data, timestamp):
         records.append(submit_data)
         counter += 1
         if len(records) == 100:
-            submit_batch(records, counter, 0)
+            all_batches.append(records)
             records = []
 
     if len(records) != 0:
-        submit_batch(records, counter, 0)
+        all_batches.append(records)
+
+    # Submit batches in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(submit_batch, batch, counter, 0) for batch in all_batches]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Error submitting batch: {e}")
+                pass
 
 
 def update_latest(data, timestamp):

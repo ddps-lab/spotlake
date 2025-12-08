@@ -246,7 +246,7 @@ resource "aws_batch_job_definition" "collection_job" {
       { name = "AWS_REGION", value = var.aws_region }
     ]
     resourceRequirements = [
-      { type = "VCPU", value = "4" },
+      { type = "VCPU", value = "1" },
       { type = "MEMORY", value = "4096" }
     ]
   })
@@ -270,7 +270,7 @@ resource "aws_batch_job_definition" "workload_job" {
       { name = "AWS_REGION", value = var.aws_region }
     ]
     resourceRequirements = [
-      { type = "VCPU", value = "2" },
+      { type = "VCPU", value = "1" },
       { type = "MEMORY", value = "1024" }
     ]
   })

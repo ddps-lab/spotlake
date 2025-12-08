@@ -6,6 +6,7 @@ import os, pickle, gzip
 import io
 import argparse
 import json
+import concurrent.futures
 
 # ------ import user module ------
 # ------ import user module ------
@@ -47,19 +48,35 @@ def get_ondemand_price():
 
     ondemand_dict = {"Region": [], "InstanceType": [], "OndemandPrice": []}
 
-    for region in regions:
+    def process_region(region):
         print(f"Collecting on-demand price for region: {region}")
-        for price_info in get_ondemand_price_region(region, pricing_client):
-            instance_type = json.loads(price_info)['product']['attributes']['instanceType']
-            instance_price = float(list(list(json.loads(price_info)['terms']['OnDemand'].values())[0]['priceDimensions'].values())[0]['pricePerUnit']['USD'])
+        local_data = {"Region": [], "InstanceType": [], "OndemandPrice": []}
+        try:
+            price_infos = get_ondemand_price_region(region, pricing_client)
+            for price_info in price_infos:
+                instance_type = json.loads(price_info)['product']['attributes']['instanceType']
+                instance_price = float(list(list(json.loads(price_info)['terms']['OnDemand'].values())[0]['priceDimensions'].values())[0]['pricePerUnit']['USD'])
 
-            # case of instance-region is not available
-            if instance_price == 0.0:
-                continue
+                # case of instance-region is not available
+                if instance_price == 0.0:
+                    continue
 
-            ondemand_dict['Region'].append(region)
-            ondemand_dict['InstanceType'].append(instance_type)
-            ondemand_dict['OndemandPrice'].append(instance_price)
+                local_data['Region'].append(region)
+                local_data['InstanceType'].append(instance_type)
+                local_data['OndemandPrice'].append(instance_price)
+            return local_data
+        except Exception as e:
+            print(f"Error collecting on-demand price for region {region}: {e}")
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_region = {executor.submit(process_region, region): region for region in regions}
+        for future in concurrent.futures.as_completed(future_to_region):
+            result = future.result()
+            if result:
+                ondemand_dict['Region'].extend(result['Region'])
+                ondemand_dict['InstanceType'].extend(result['InstanceType'])
+                ondemand_dict['OndemandPrice'].extend(result['OndemandPrice'])
     
     ondemand_price_df = pd.DataFrame(ondemand_dict)
 
@@ -100,14 +117,22 @@ def main():
         session = boto3.session.Session()
         regions = get_regions(session)
         spot_price_df_list = []
-        for region in regions:
+        spot_price_df_list = []
+        
+        def process_spot_price_region(region):
             print(f"Collecting price for region: {region}")
             try:
-                spot_price_df_list.append(get_spot_price(region))
+                return get_spot_price(region)
             except Exception as e:
                 print(f"Error collecting price for region {region}: {e}")
-                # Continue to other regions even if one fails
-                continue
+                return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_region = {executor.submit(process_spot_price_region, region): region for region in regions}
+            for future in concurrent.futures.as_completed(future_to_region):
+                result = future.result()
+                if result is not None:
+                    spot_price_df_list.append(result)
                 
         if spot_price_df_list:
             spot_price_df = pd.concat(spot_price_df_list).reset_index(drop=True)

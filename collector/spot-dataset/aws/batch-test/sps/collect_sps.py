@@ -5,6 +5,8 @@ import sys, os, argparse
 import pickle, gzip, json, yaml
 import pandas as pd
 from io import StringIO
+import threading
+import concurrent.futures
 
 # ------ import user module ------
 # Assuming utility modules are in PYTHONPATH
@@ -174,7 +176,52 @@ def main():
         raise e
     
     end_time = datetime.now(timezone.utc)
+    end_time = datetime.now(timezone.utc)
     print(f"Load credential and workload time : {(end_time - start_time).total_seconds():.4f} ms")
+
+    # ------ Thread-safe Credential Provider ------
+    class CredentialProvider:
+        def __init__(self, credentials_df, start_index):
+            self.lock = threading.Lock()
+            self.credentials = credentials_df
+            self.current_index = start_index
+            self.max_index = len(credentials_df)
+
+        def get_next_credential(self):
+            with self.lock:
+                if self.current_index >= self.max_index:
+                    raise IndexError("No more credentials available in the current set.")
+                
+                credential = self.credentials.iloc[self.current_index]
+                self.current_index += 1
+                return credential
+
+        def get_current_index(self):
+            with self.lock:
+                return self.current_index
+
+    credential_provider = CredentialProvider(credentials, current_credential_index)
+
+    # ------ Worker Function for Parallel Execution ------
+    def process_scenario(scenario, target_capacity, credential_provider):
+        while True:
+            try:
+                credential = credential_provider.get_next_credential()
+                args = (credential, scenario, target_capacity)
+                df = query_sps(args)
+                return df
+            except IndexError:
+                raise Exception("Ran out of credentials during processing")
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
+                    print(f"MaxConfigLimitExceeded for credential. Retrying with next credential.")
+                    continue
+                else:
+                    print(f"ClientError in process_scenario: {e}")
+                    raise e
+            except Exception as e:
+                print(f"Error in process_scenario: {e}")
+                raise e
 
     # ------ Start Query Per Target Capacity ------
     start_time = datetime.now(timezone.utc)
@@ -182,25 +229,20 @@ def main():
 
     try:
         df_list = []
-        for scenarios in workload:
-            while True:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_scenario = {executor.submit(process_scenario, scenario, target_capacity, credential_provider): scenario for scenario in workload}
+            
+            for future in concurrent.futures.as_completed(future_to_scenario):
+                scenario = future_to_scenario[future]
                 try:
-                    args = (credentials.iloc[current_credential_index], scenarios, target_capacity)
-                    current_credential_index += 1
-                    df = query_sps(args)
+                    df = future.result()
                     df_list.append(df)
-                    break
-                except botocore.exceptions.ClientError as e:
-                    if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
-                        continue
-                    else:
-                        send_slack_message(e)
-                        print(e)
-                        raise e
                 except Exception as e:
-                    send_slack_message(e)
-                    print(e)
+                    message = f"Error processing scenario: {e}"
+                    print(message)
                     raise e
+        
+        current_credential_index = credential_provider.get_current_index()
 
         sps_df = pd.concat(df_list, axis=0, ignore_index=True)
     except Exception as e:

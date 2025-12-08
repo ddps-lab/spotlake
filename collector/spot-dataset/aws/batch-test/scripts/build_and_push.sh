@@ -52,7 +52,7 @@ aws ecr get-login-password --region "$REGION" | docker login --username AWS --pa
 # Build Docker image
 echo "Building Docker image..."
 docker build \
-    --platform linux/amd64 \
+
     --build-arg AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
     --build-arg AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
     -t "$REPO_NAME" \

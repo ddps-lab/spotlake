@@ -15,6 +15,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     curl \
     unzip \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install AWS CLI based on architecture

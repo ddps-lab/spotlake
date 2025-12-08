@@ -1,5 +1,4 @@
-# Stage 1: Get spotinfo binary
-FROM ghcr.io/alexei-led/spotinfo:latest AS spotinfo-source
+
 
 # Stage 2: Final image
 FROM python:3.12-slim
@@ -27,8 +26,20 @@ RUN pip install --no-cache-dir \
     ortools \
     requests
 
-# Copy spotinfo from builder
-COPY --from=spotinfo-source /spotinfo /usr/local/bin/spotinfo
+# Download and install spotinfo based on architecture
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        URL="https://github.com/alexei-led/spotinfo/releases/latest/download/spotinfo_linux_amd64.tar.gz"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        URL="https://github.com/alexei-led/spotinfo/releases/latest/download/spotinfo_linux_arm64.tar.gz"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    curl -L $URL -o spotinfo.tar.gz && \
+    tar -xzf spotinfo.tar.gz && \
+    mv spotinfo /usr/local/bin/spotinfo && \
+    chmod +x /usr/local/bin/spotinfo && \
+    rm spotinfo.tar.gz
 
 # Copy application code
 # Assuming build context is the project root (spotlake/)

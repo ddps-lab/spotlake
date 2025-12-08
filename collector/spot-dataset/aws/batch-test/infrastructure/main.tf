@@ -200,7 +200,7 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
     max_vcpus = 8
     min_vcpus = 0
     desired_vcpus = 0
-    instance_type = ["a1.medium", "c6gd.medium", "c6gn.medium", "c7g.medium", "c7gd.medium", "c7gn.medium", "c8g.medium", "c8gd.medium", "c8gn.medium", "is4gen.medium", "m8g.medium", "m8gd.medium", "r7g.medium", "r7gd.medium", "r8g.medium", "r8gb.medium", "r8gd.medium", "r8gn.medium", "x2gd.medium"]
+    instance_type = ["c6gd.medium", "c6gn.medium", "c7g.medium", "c7gd.medium", "c7gn.medium", "c8g.medium", "c8gd.medium", "c8gn.medium", "m8g.medium", "m8gd.medium", "r7g.medium", "r7gd.medium", "r8g.medium", "r8gb.medium", "r8gd.medium", "r8gn.medium", "x2gd.medium"]
     
     
     subnets = var.subnet_ids

@@ -27,19 +27,17 @@ RUN pip install --no-cache-dir \
     requests
 
 # Download and install spotinfo based on architecture
+# Download and install spotinfo based on architecture
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-        URL="https://github.com/alexei-led/spotinfo/releases/latest/download/spotinfo_linux_amd64.tar.gz"; \
+        URL="https://github.com/alexei-led/spotinfo/releases/download/2.2.0/spotinfo_linux_amd64"; \
     elif [ "$ARCH" = "aarch64" ]; then \
-        URL="https://github.com/alexei-led/spotinfo/releases/latest/download/spotinfo_linux_arm64.tar.gz"; \
+        URL="https://github.com/alexei-led/spotinfo/releases/download/2.2.0/spotinfo_linux_arm64"; \
     else \
         echo "Unsupported architecture: $ARCH" && exit 1; \
     fi && \
-    curl -L $URL -o spotinfo.tar.gz && \
-    tar -xzf spotinfo.tar.gz && \
-    mv spotinfo /usr/local/bin/spotinfo && \
-    chmod +x /usr/local/bin/spotinfo && \
-    rm spotinfo.tar.gz
+    curl -L $URL -o /usr/local/bin/spotinfo && \
+    chmod +x /usr/local/bin/spotinfo
 
 # Copy application code
 # Assuming build context is the project root (spotlake/)

@@ -48,6 +48,22 @@ class AwsCollector(object):
     def S3_WORKLOAD_SAVE_PATH():
         return "rawdata/aws/workloads"
 
+    @constant
+    def S3_PATH_PREFIX():
+        return "rawdata/aws"
+
+    @constant
+    def CREDENTIAL_FILE_PATH():
+        return "credential/credential.csv"
+
+    @constant
+    def SPOT_DATA_COLLECTION_LOG_GROUP_NAME():
+        return "Collection-Data-Count"
+
+    @constant
+    def LOG_STREAM_NAME():
+        return "AWS-Count"
+
 
 class AzureCollector(object):
     @constant

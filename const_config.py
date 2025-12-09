@@ -48,6 +48,22 @@ class AwsCollector(object):
     def S3_WORKLOAD_SAVE_PATH():
         return "rawdata/aws/workloads"
 
+    @constant
+    def S3_PATH_PREFIX():
+        return "rawdata/aws"
+
+    @constant
+    def CREDENTIAL_FILE_PATH():
+        return "credential/credential.csv"
+
+    @constant
+    def SPOT_DATA_COLLECTION_LOG_GROUP_NAME():
+        return "Collection-Data-Count"
+
+    @constant
+    def LOG_STREAM_NAME():
+        return "AWS-Count"
+
 
 class AzureCollector(object):
     @constant
@@ -75,12 +91,20 @@ class AzureCollector(object):
         return 2000
 
     @constant
-    def LATEST_FILENAME():
-        return "latest_azure.json"
+    def LATEST_PRICE_SAVING_IF_FILENAME():
+        return "latest_price_saving_if.json"
 
     @constant
-    def S3_LATEST_DATA_SAVE_PATH():
-        return "latest_data/latest_azure.json"
+    def LATEST_PRICE_SAVING_IF_PKL_GZIP_FILENAME():
+        return "latest_price_saving_if.pkl.gz"
+
+    @constant
+    def S3_LATEST_PRICE_SAVING_IF_DATA_SAVE_PATH():
+        return "latest_data/latest_price_saving_if.json"
+
+    @constant
+    def S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH():
+        return "latest_data/latest_price_saving_if.pkl.gz"
 
     @constant
     def QUERY_SELECTOR_FILENAME():
@@ -89,14 +113,6 @@ class AzureCollector(object):
     @constant
     def S3_QUERY_SELECTOR_SAVE_PATH():
         return "query-selector/query-selector-azure.json"
-
-    @constant
-    def DF_WORKLOAD_COLS():
-        return ['InstanceTier', 'InstanceType', 'Region']
-
-    @constant
-    def DF_FEATURE_COLS():
-        return ['OndemandPrice', 'SpotPrice', 'IF']
 
     @constant
     def SERVER_SAVE_DIR():
@@ -119,13 +135,56 @@ class AzureCollector(object):
         return 200
 
     @constant
-    def SPOT_DATA_COLLECTION_LOG_GROUP_NAME():
-        return "Collection-Data-Count"
+    def S3_SAVED_VARIABLE_PATH():
+        return "sps-collector/azure/saved_variable"
 
     @constant
-    def LOG_STREAM_NAME():
-        return "Azure-Count"
+    def S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME():
+        return "locations_call_history.json"
 
+    @constant
+    def S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME():
+        return "locations_over_limit.json"
+
+    @constant
+    def S3_INVALID_REGIONS_JSON_FILENAME():
+        return "invalid_regions.json"
+
+    @constant
+    def S3_INVALID_INSTANCE_TYPES_JSON_FILENAME():
+        return "invalid_instance_types.json"
+
+    @constant
+    def S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME():
+        return "last_subscription_id_and_location.json"
+
+    @constant
+    def S3_REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME():
+        return "region_map_and_instance_map.json"
+
+    @constant
+    def S3_AVAILABLE_LOCATIONS_JSON_FILENAME():
+        return "available_locations.json"
+
+    @constant
+    def ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH():
+        return "sps-collector/azure/saved_variable/error_locations_call_history"
+
+    @constant
+    def S3_DF_TO_USE_TODAY_PKL_FILENAME():
+        return "sps-collector/azure/df_to_use_today.pkl"
+
+    @constant
+    def S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH():
+        return "latest_data/latest_azure.json"
+
+    @constant
+    def S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH():
+        return "latest_data/latest_sps_zone_true_azure.pkl.gz"
+
+    @constant
+    def S3_RAW_DATA_PATH():
+        return "rawdata/azure"
 
 class GcpCollector(object):
     @constant

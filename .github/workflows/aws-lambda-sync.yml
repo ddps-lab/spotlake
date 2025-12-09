@@ -1,0 +1,57 @@
+name: deploy AWS files to lambda
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "collector/spot-dataset/aws/lambda/**"
+      - "utility/slack_msg_sender.py"
+  workflow_dispatch:
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: "us-west-2"
+
+jobs:
+  deploy_source:
+    name: deploy lambda from source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Zip lambda function code
+        run: |
+          set -e
+
+          declare -A LAMBDA_PATHS=(
+            ["ondemand_price_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/ondemand_price"
+            ["spotlake_post_processing_lambda.zip"]="collector/spot-dataset/aws/lambda/post_processing_data"
+            ["spot_if_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/spot_if"
+            ["spot_price_collector_lambda.zip"]="collector/spot-dataset/aws/lambda/spot_price"
+            ["binpacked_workloads_generator_lambda.zip"]="collector/spot-dataset/aws/lambda/workload"
+          )
+
+          for zip_name in "${!LAMBDA_PATHS[@]}"; do
+            echo "Creating ZIP: $zip_name"
+            zip -j "$zip_name" utility/slack_msg_sender.py
+            zip -j "$zip_name" "${LAMBDA_PATHS[$zip_name]}"/*
+          done
+
+      - name: Deploy to AWS Lambda
+        run: |
+          set -e
+
+          declare -A LAMBDA_FUNCTIONS=(
+            ["ondemand_price_collector"]="ondemand_price_collector_lambda.zip"
+            ["spotlake_post_processing"]="spotlake_post_processing_lambda.zip"
+            ["spot_if_collector"]="spot_if_collector_lambda.zip"
+            ["spot_price_collector"]="spot_price_collector_lambda.zip"
+            ["binpacked_workloads_generator"]="binpacked_workloads_generator_lambda.zip"
+          )
+
+          for function_name in "${!LAMBDA_FUNCTIONS[@]}"; do
+            echo "Deploying: $function_name"
+            aws lambda update-function-code --function-name "$function_name" --zip-file "fileb://${LAMBDA_FUNCTIONS[$function_name]}"
+          done

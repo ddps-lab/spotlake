@@ -1,3 +1,10 @@
 __pycache__
 .DS_Store
 /frontend/node_modules/
+**/*binpacked_workloads.pkl.gz
+**/*test.py
+**/.vscode
+**/*.terraform
+**/*.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.backup

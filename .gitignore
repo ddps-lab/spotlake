@@ -4,3 +4,7 @@ __pycache__
 **/*binpacked_workloads.pkl.gz
 **/*test.py
 **/.vscode
+**/*.terraform
+**/*.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.backup

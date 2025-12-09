@@ -1,15 +1,11 @@
 # ------ import module ------
 import boto3
 import pandas as pd
-import os
 import json
 from botocore.config import Config
 import concurrent.futures
 
 # ------ import user module ------
-import sys
-# sys.path.append("/home/ubuntu/spotlake")
-# from const_config import AwsCollector, Storage
 from utility.utils import get_region
 
 BUCKET_NAME = "spotlake"
@@ -28,7 +24,7 @@ def submit_batch(records, counter, recursive):
     if recursive == 10:
         return
     try:
-        result = write_client.write_records(DatabaseName=DATABASE_NAME, TableName=AWS_TABLE_NAME,
+        write_client.write_records(DatabaseName=DATABASE_NAME, TableName=AWS_TABLE_NAME,
                                             Records=records, CommonAttributes={})
     except write_client.exceptions.RejectedRecordsException as err:
         re_records = []
@@ -83,7 +79,6 @@ def upload_timestream(data, timestamp):
                 future.result()
             except Exception as e:
                 print(f"Error submitting batch: {e}")
-                pass
 
 
 def update_latest(data, timestamp):
@@ -93,7 +88,7 @@ def update_latest(data, timestamp):
 
     data['id'] = data.index+1
     data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    result = data.to_json(f"/tmp/{filename}", orient="records")
+    data.to_json(f"/tmp/{filename}", orient="records")
 
     s3 = boto3.resource('s3')
     s3_client = boto3.client('s3')
@@ -101,7 +96,7 @@ def update_latest(data, timestamp):
     with open(f"/tmp/{filename}", 'rb') as f:
         s3_client.upload_fileobj(f, BUCKET_NAME, LATEST_PATH, ExtraArgs={'ContentType': 'application/json'})
     object_acl = s3.ObjectAcl(BUCKET_NAME, LATEST_PATH)
-    response = object_acl.put(ACL='public-read')
+    object_acl.put(ACL='public-read')
 
     data.drop(['id'], axis=1, inplace=True)
 
@@ -118,13 +113,13 @@ def update_query_selector(changed_df):
         print(f"Failed to load existing query selector, creating new one: {e}")
         query_selector_aws = changed_df[['InstanceType', 'Region', 'AZ']].dropna().drop_duplicates().reset_index(drop=True)
 
-    result = query_selector_aws.to_json(f"/tmp/{filename}", orient="records")
+    query_selector_aws.to_json(f"/tmp/{filename}", orient="records")
     s3_client = boto3.client('s3')
     with open(f"/tmp/{filename}", 'rb') as f:
         s3_client.upload_fileobj(f, BUCKET_NAME, s3_path, ExtraArgs={'ContentType': 'application/json'})
     s3 = boto3.resource('s3')
     object_acl = s3.ObjectAcl(BUCKET_NAME, s3_path)
-    response = object_acl.put(ACL='public-read')
+    object_acl.put(ACL='public-read')
 
 
 def save_raw(data, timestamp):

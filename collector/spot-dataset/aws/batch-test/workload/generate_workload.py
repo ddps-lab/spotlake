@@ -5,16 +5,13 @@
 import boto3
 import botocore
 import pickle
-import os, gzip
+import gzip
 from datetime import datetime, timezone, timedelta
 from ortools.linear_solver import pywraplp
 import io
 import argparse
 
 # ------ import user module ------
-import sys
-# sys.path.append("/home/ubuntu/spotlake")
-# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 from load_metadata import num_az_by_region
 
@@ -133,7 +130,6 @@ def get_binpacked_workload(filedate):
 
     if len(user_queries) != 0:
         user_queries_list.append(user_queries)
-        user_queries = []
     
     start_time = datetime.now(timezone.utc)
     try:
@@ -175,9 +171,6 @@ def main():
     parser.add_argument('--timestamp', dest='timestamp', action='store', help='Timestamp in format YYYY-MM-DDTHH:MM')
     args = parser.parse_args()
 
-    # ------ Set Constants ------
-    # Constants are now imported from const_config
-
     # ------ Set time data ------
     start_time = datetime.now(timezone.utc)
     
@@ -216,8 +209,6 @@ def main():
         pickle.dump(workload, buffer)
         buffer.seek(0)
         
-        # Original: {os.environ.get('PARENT_PATH')}/localfile/workloads.pkl
-        # Original: {os.environ.get('PARENT_PATH')}/localfile/workloads.pkl
         S3_PATH_PREFIX = "rawdata/aws"
         BUCKET_NAME = "spotlake-test"
         localfile_key = f"{S3_PATH_PREFIX}/localfile/workloads.pkl"

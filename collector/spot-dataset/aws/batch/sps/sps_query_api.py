@@ -1,9 +1,7 @@
 import boto3
 import botocore
 import time
-import requests
 import pandas as pd
-import numpy as np
 
 IDX_INSTANCE_TYPE = 0
 IDX_REGION_NAMES = 1

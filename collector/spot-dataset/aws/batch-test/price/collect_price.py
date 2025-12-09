@@ -2,17 +2,13 @@
 from datetime import datetime, timezone
 import pandas as pd
 import boto3.session
-import os, pickle, gzip
+import pickle, gzip
 import io
 import argparse
 import json
 import concurrent.futures
 
 # ------ import user module ------
-# ------ import user module ------
-import sys
-# sys.path.append("/home/ubuntu/spotlake")
-# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 from load_price import get_spot_price, get_regions
 

@@ -9,9 +9,6 @@ import argparse
 import shutil
 
 # ------ import user module ------
-import sys
-# sys.path.append("/home/ubuntu/spotlake")
-# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 
 def main():

@@ -1,12 +1,13 @@
 # ------ import module ------
 import pandas as pd
 import numpy as np
+import warnings
 
 # ------ import user module ------
 try:
     from slack_msg_sender import send_slack_message
 except ImportError:
-    print("Warning: slack_msg_sender not found. Slack notifications will be disabled.")
+    warnings.warn("slack_msg_sender not found. Slack notifications will be disabled.")
     def send_slack_message(msg):
         print(f"[SLACK] {msg}")
 
@@ -41,10 +42,8 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 print(f"{prev_workload}, {curr_workload} workload error")
                 raise Exception("workload error")
-            break
         elif prev_idx == len(previous_indices):
             curr_workload = current_values[curr_idx][0]
-            curr_feature = current_values[curr_idx][1]
             if curr_workload not in previous_values[:,0]:
                 changed_indices.append(current_indices[curr_idx])
                 curr_idx += 1
@@ -53,7 +52,6 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 send_slack_message(f"{prev_workload}, {curr_workload} workload error")
                 print(f"{prev_workload}, {curr_workload} workload error")
                 raise Exception("workload error")
-            break
             
         prev_workload = previous_values[prev_idx][0]
         prev_feature = previous_values[prev_idx][1]

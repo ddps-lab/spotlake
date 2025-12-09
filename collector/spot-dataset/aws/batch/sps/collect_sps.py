@@ -1,7 +1,7 @@
 # ------ import module ------
 from datetime import datetime, timezone
 import boto3.session, botocore
-import sys, os, argparse
+import os, argparse
 import pickle, gzip, json, yaml
 import pandas as pd
 from io import StringIO
@@ -9,9 +9,6 @@ import threading
 import concurrent.futures
 
 # ------ import user module ------
-# Assuming utility modules are in PYTHONPATH
-# sys.path.append("/home/ubuntu/spotlake")
-# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
 
 from sps_query_api import query_sps
@@ -174,7 +171,6 @@ def main():
         raise e
     
     end_time = datetime.now(timezone.utc)
-    end_time = datetime.now(timezone.utc)
     print(f"Load credential and workload time : {(end_time - start_time).total_seconds():.4f} ms")
 
     # ------ Thread-safe Credential Provider ------
@@ -231,7 +227,6 @@ def main():
             future_to_scenario = {executor.submit(process_scenario, scenario, target_capacity, credential_provider): scenario for scenario in workload}
             
             for future in concurrent.futures.as_completed(future_to_scenario):
-                scenario = future_to_scenario[future]
                 try:
                     df = future.result()
                     df_list.append(df)
@@ -314,10 +309,10 @@ def main():
     # ------ Upload Collecting Data Number at Cloud Logs ------
     log_client = session.client('logs', 'us-west-2')
     try:
-        message = json.dumps({"MUMBER_ROWS" : sps_df.shape[0]})
+        message = json.dumps({"NUMBER_ROWS" : sps_df.shape[0]})
         timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
         try:
-            response = log_client.put_log_events(
+            log_client.put_log_events(
                 logGroupName=LOG_GROUP_NAME,
                 logStreamName=LOG_STREAM_NAME,
                 logEvents=[

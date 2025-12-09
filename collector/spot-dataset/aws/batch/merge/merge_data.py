@@ -5,17 +5,11 @@ import pickle
 import gzip
 import json
 import pandas as pd
-import numpy as np
-import os
 import argparse
-import sys
 
 # ------ import user module ------
-import sys
-# sys.path.append("/home/ubuntu/spotlake")
-# from const_config import AwsCollector, Storage
 from utility.slack_msg_sender import send_slack_message
-from upload_data import upload_timestream, update_latest, save_raw, update_query_selector, update_config
+from upload_data import upload_timestream, update_latest, save_raw, update_query_selector
 from compare_data import compare, compare_max_instance
 
 class FirstRunError(Exception):
@@ -89,8 +83,6 @@ def main():
         S3_DIR_NAME = TIMESTAMP.strftime('%Y/%m/%d')
         S3_OBJECT_PREFIX = TIMESTAMP.strftime('%H-%M')
         # It then listed objects to find the file.
-        s3_client = boto3.client('s3')
-        s3_client = boto3.client('s3')
         s3_client = boto3.client('s3')
         SPS_FILE_PREFIX = f"{S3_PATH_PREFIX}/sps/{S3_DIR_NAME}"
         sps_file_list = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=SPS_FILE_PREFIX)

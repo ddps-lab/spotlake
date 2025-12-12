@@ -71,26 +71,44 @@ def lambda_handler(event, context):
             desired_count_index = metadata["desired_count_index"]
             current_desired_count = DESIRED_COUNTS[desired_count_index]
             
-            workload_date = metadata.get("workload_date")
+            # 2. Determine Execution Parameters (Date Check & Index Rotation)
+            is_first_time_optimization = False
             
-            # 2. Check Date for First Time Optimization
+            # Check Workload Date
             if workload_date != current_date:
-                Logger.info(f"Workload date changed: {workload_date} -> {current_date}. Running First Time Optimization with Count: {current_desired_count}")
-                # Use the rotated desired count for the optimization run too
-                sps_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[current_desired_count])
+                Logger.info(f"Workload date changed: {workload_date} -> {current_date}. Prepared First Time Optimization.")
+                is_first_time_optimization = True
+                
+                # Update Metadata: Date
                 metadata["workload_date"] = current_date
+                
+                # Force Desired Count to 1 for First Time Optimization execution
+                # Note: We do NOT reset the index here. We continue rotation seamlessly.
+                current_execution_desired_count = 1
             else:
-                Logger.info(f"Running Regular Collection. Desired Count: {current_desired_count} (Index: {desired_count_index})")
-                sps_df = load_sps.collect_spot_placement_score(desired_counts=[current_desired_count])
+                current_execution_desired_count = current_desired_count
             
-            # 3. Update Index for Next Run
+            # Update Metadata: Next Index (Always rotate to prevent stuck loops)
             next_index = (desired_count_index + 1) % len(DESIRED_COUNTS)
             metadata["desired_count_index"] = next_index
+            
+            # 3. Save Metadata (State Commit BEFORE Execution)
             try:
                 write_metadata(metadata)
             except Exception as e:
                 Logger.error(f"Failed to write metadata: {e}")
-                raise
+                # Log but proceed. If write failed, we might retry same index next time,
+                # but if execution succeeds, at least data is collected.
+                # If execution also fails, we risk loop, but S3 failure is rare compared to API Timeout.
+
+            # 4. Execute Logic
+            if is_first_time_optimization:
+                Logger.info(f"Executing First Time Optimization with Count: {current_execution_desired_count} (Forced)")
+                sps_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[current_execution_desired_count])
+            else:
+                Logger.info(f"Executing Regular Collection. Desired Count: {current_execution_desired_count} (Index: {desired_count_index})")
+                sps_df = load_sps.collect_spot_placement_score(desired_counts=[current_execution_desired_count])
+
 
         else:
             # --- Legacy Fallback Logic: S3 Metadata Missing ---

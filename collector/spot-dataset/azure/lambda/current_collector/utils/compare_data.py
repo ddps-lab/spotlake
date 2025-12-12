@@ -61,6 +61,12 @@ def compare_max_instance(previous_df, new_df, target_capacity):
         if col not in previous_df.columns:
             previous_df[col] = 0
 
+    print(f"[DEBUG] compare_max_instance - target_capacity: {target_capacity}")
+    print(f"[DEBUG] new_df columns: {new_df.columns}")
+    print(f"[DEBUG] new_df Score sample: {new_df['Score'].head(5).tolist()}")
+    print(f"[DEBUG] previous_df columns: {previous_df.columns}")
+    print(f"[DEBUG] previous_df Score sample: {previous_df['Score'].head(5).tolist() if 'Score' in previous_df else 'No Score col'}")
+
     merged_df = pd.merge(
         new_df,
         previous_df[["InstanceType", "Region", "AvailabilityZone", "DesiredCount", "Score", "T3", "T2"]],
@@ -114,7 +120,12 @@ def compare_max_instance(previous_df, new_df, target_capacity):
         # AWS comment: "Fix SPS to Single node SPS" - this logic seems specific to assuming single node fallback.
         # But let's copy logic:
         # FIXED: Do not blindly overwrite if Score_prev is NaN (e.g. first run). Use combine_first or fillna.
+        print(f"[DEBUG] Before assignment - Score sample: {merged_df['Score'].head(5).tolist()}")
+        print(f"[DEBUG] Before assignment - Score_prev sample: {merged_df['Score_prev'].head(5).tolist()}")
+        
         merged_df["Score"] = merged_df["Score_prev"].fillna(merged_df["Score"])
+        
+        print(f"[DEBUG] After assignment - Score sample: {merged_df['Score'].head(5).tolist()}")
 
     # Convert to standard types to prevent '3' vs '3.0' change detection mismatch
     for col in ["T2", "T3"]:

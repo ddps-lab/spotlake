@@ -72,6 +72,7 @@ def lambda_handler(event, context):
             current_desired_count = DESIRED_COUNTS[desired_count_index]
             
             # 2. Determine Execution Parameters (Date Check & Index Rotation)
+            workload_date = metadata.get("workload_date")
             is_first_time_optimization = False
             
             # Check Workload Date

@@ -173,7 +173,7 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_df, time_datetime, desire
             prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True, errors='ignore')
             
             # Apply T2/T3 Aggregation Logic
-            sps_merged_df = compare_max_instance(prev_availability_zone_true_all_data_df, sps_merged_df, current_desired_count)
+            sps_merged_df = compare_max_instance(prev_availability_zone_true_all_data_df, sps_merged_df, desired_count)
             
             changed_df = compare_sps(prev_availability_zone_true_all_data_df, sps_merged_df, workload_cols, feature_cols)
             

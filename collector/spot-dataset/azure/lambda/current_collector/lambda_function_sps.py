@@ -8,6 +8,7 @@ from utils.merge_df import merge_if_saving_price_sps_df
 from utils.upload_data import update_latest, save_raw, upload_timestream, query_selector, upload_cloudwatch
 from utils.compare_data import compare_sps
 from utils.pub_service import send_slack_message, Logger, S3, AZURE_CONST
+from utils.azure_auth import get_sps_token_and_subscriptions
 
 availability_zones = os.environ.get("availability_zones", "False").lower() == "true"
 DESIRED_COUNTS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
@@ -44,6 +45,16 @@ def lambda_handler(event, context):
                  event_time_utc_datetime = datetime.now(timezone.utc)
     else:
         event_time_utc_datetime = datetime.now(timezone.utc)
+    
+    # Check Token Refresh for Warm Containers
+    try:
+        sps_shared_resources.sps_token, sps_shared_resources.subscriptions = get_sps_token_and_subscriptions(availability_zones)
+        Logger.info("Successfully refreshed Azure SPS Token and Subscriptions.")
+    except Exception as e:
+        Logger.error(f"Failed to refresh Azure Token: {e}")
+        # Proceeding might fail, but letting it try or failing here? 
+        # Better to fail early or let existing logic handle it. 
+        # Given the error is critical, we log it. logic below might fail.
 
     sps_shared_resources.succeed_to_get_next_available_location_count_all = 0
     current_date = event_time_utc_datetime.strftime("%Y-%m-%d")
@@ -57,7 +68,7 @@ def lambda_handler(event, context):
         if metadata:
             # --- New Logic: S3 Metadata Exists ---
             # 1. Determine Desired Count (Seamless Rotation)
-            desired_count_index = metadata["desired_count_index"]["current"]
+            desired_count_index = metadata["desired_count_index"]
             current_desired_count = DESIRED_COUNTS[desired_count_index]
             
             workload_date = metadata.get("workload_date")
@@ -74,7 +85,7 @@ def lambda_handler(event, context):
             
             # 3. Update Index for Next Run
             next_index = (desired_count_index + 1) % len(DESIRED_COUNTS)
-            metadata["desired_count_index"]["current"] = next_index
+            metadata["desired_count_index"] = next_index
             try:
                 write_metadata(metadata)
             except Exception as e:
@@ -108,7 +119,7 @@ def lambda_handler(event, context):
             next_index = (init_index + 1) % len(DESIRED_COUNTS)
 
             new_metadata = {
-                "desired_count_index": {"init": init_index, "current": next_index},
+                "desired_count_index": next_index,
                 "workload_date": current_date
             }
             write_metadata(new_metadata)

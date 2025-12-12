@@ -229,17 +229,12 @@ def save_raw(all_data_dataframe, time_utc, az, data_type=None):
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-        az_str = f"availability-zones-{str(az).lower()}"
         base_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}"
 
-        if data_type == "desired_count_1":
-            if az:
-                data_path = f"{base_path}/{s3_dir_name}/{s3_obj_name}.csv.gz"
-            else:
-                data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
-
-        elif data_type in {"multi", "specific"}:
-            data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        if data_type in ["desired_count_1", "multi", "specific"]:
+            # Unify keeping path as rawdata/azure/YYYY/MM/DD/...
+            # Ignoring data_type and az_str for path construction as requested
+            data_path = f"{base_path}/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
         else:
             print(f"save_raw failed. error: no data_type.")

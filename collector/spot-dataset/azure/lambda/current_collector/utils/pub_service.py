@@ -64,7 +64,14 @@ class S3Handler:
             if file_type == "json":
                 if not isinstance(data, (dict, list)):
                     raise ValueError("JSON must be a dictionary or a list")
-                file = io.BytesIO(json.dumps(data).encode("utf-8"))
+                
+                class PandasJSONEncoder(json.JSONEncoder):
+                    def default(self, obj):
+                        if pd.isna(obj):
+                            return None
+                        return super().default(obj)
+                
+                file = io.BytesIO(json.dumps(data, cls=PandasJSONEncoder).encode("utf-8"))
 
             elif file_type == "pkl":
                 if data is None:

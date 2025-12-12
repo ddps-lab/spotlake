@@ -113,7 +113,8 @@ def compare_max_instance(previous_df, new_df, target_capacity):
         # Fix SPS to Single node SPS ? mimic AWS "merged_df["SPS"] = merged_df["SPS_prev"]"
         # AWS comment: "Fix SPS to Single node SPS" - this logic seems specific to assuming single node fallback.
         # But let's copy logic:
-        merged_df["Score"] = merged_df["Score_prev"]
+        # FIXED: Do not blindly overwrite if Score_prev is NaN (e.g. first run). Use combine_first or fillna.
+        merged_df["Score"] = merged_df["Score_prev"].fillna(merged_df["Score"])
 
     # Convert to standard types to prevent '3' vs '3.0' change detection mismatch
     for col in ["T2", "T3"]:

@@ -115,7 +115,19 @@ def compare_max_instance(previous_df, new_df, target_capacity):
         # But let's copy logic:
         merged_df["Score"] = merged_df["Score_prev"]
 
-    # Convert to standard types if needed
+    # Convert to standard types to prevent '3' vs '3.0' change detection mismatch
+    for col in ["T2", "T3"]:
+        merged_df[col] = merged_df[col].astype(int)
+    
+    # Score might be NaN, so use Int64 (nullable int) or object if mixed
+    # But usually we compare strings in compare_sps.
+    # To be safe and consistent with AWS:
+    if "SPS" in merged_df.columns:
+         merged_df["SPS"] = merged_df["SPS"].astype("Int64")
+    
+    # In Azure we use "Score"
+    merged_df["Score"] = pd.to_numeric(merged_df["Score"], errors='coerce').astype("Int64")
+
     # Drop unnecessary columns
     merged_df.drop(columns=["T3_prev", "T2_prev", "Score_prev"], errors='ignore', inplace=True)
 

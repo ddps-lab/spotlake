@@ -21,10 +21,10 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
 
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-        "DesiredCount", "Score", "SPS_Update_Time"]
+        "DesiredCount", "Score", "SPS_Update_Time", "T2", "T3"]
 
     if az:
-        columns.insert(-2, "AvailabilityZone")  # "Score" 앞에 삽입
+        columns.insert(-4, "AvailabilityZone")  # "Score" 앞에 삽입
 
     join_df = join_df[columns]
 
@@ -39,7 +39,9 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
         "DesiredCount": -1,
         "Score": "N/A",
         "AvailabilityZone": "N/A",
-        "SPS_Update_Time": "N/A"
+        "SPS_Update_Time": "N/A",
+        "T2": 0,
+        "T3": 0
     }, inplace=True)
 
     join_df = join_df[

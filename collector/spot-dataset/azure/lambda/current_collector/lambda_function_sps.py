@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sps_module import sps_shared_resources
 from utils.merge_df import merge_if_saving_price_sps_df
 from utils.upload_data import update_latest, save_raw, upload_timestream, query_selector, upload_cloudwatch
-from utils.compare_data import compare_sps
+from utils.compare_data import compare_sps, compare_max_instance
 from utils.pub_service import send_slack_message, Logger, S3, AZURE_CONST
 from utils.azure_auth import get_sps_token_and_subscriptions
 
@@ -164,13 +164,17 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_df, time_datetime, desire
             f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
 
         workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
-        feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
+        feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time', 'T2', 'T3']
 
         query_success = timestream_success = cloudwatch_success = \
             update_latest_success = save_raw_success = False
 
         if prev_availability_zone_true_all_data_df is not None and not prev_availability_zone_true_all_data_df.empty:
-            prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
+            prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True, errors='ignore')
+            
+            # Apply T2/T3 Aggregation Logic
+            sps_merged_df = compare_max_instance(prev_availability_zone_true_all_data_df, sps_merged_df, current_desired_count)
+            
             changed_df = compare_sps(prev_availability_zone_true_all_data_df, sps_merged_df, workload_cols, feature_cols)
             
             query_success = query_selector(changed_df)

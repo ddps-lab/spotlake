@@ -137,7 +137,7 @@ def upload_timestream(data, time_datetime):
     try:
         data = data.copy()
         data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time"]]
+            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time", "T2", "T3"]]
 
         fill_values = {
             "InstanceTier": 'N/A',
@@ -150,7 +150,9 @@ def upload_timestream(data, time_datetime):
             'DesiredCount': -1,
             'AvailabilityZone': 'N/A',
             'Score': 'N/A',
-            'SPS_Update_Time': 'N/A'
+            'SPS_Update_Time': 'N/A',
+            'T2': 0,
+            'T3': 0
         }
         data = data.fillna(fill_values)
 
@@ -177,7 +179,9 @@ def upload_timestream(data, time_datetime):
                 ('SpotPrice', 'DOUBLE'),
                 ('IF', 'DOUBLE'),
                 ('Score', 'VARCHAR'),
-                ('SPS_Update_Time', 'VARCHAR')
+                ('SPS_Update_Time', 'VARCHAR'),
+                ('T2', 'DOUBLE'),
+                ('T3', 'DOUBLE')
             ]
 
             for column, value_type in measure_columns:

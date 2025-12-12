@@ -56,6 +56,11 @@ def compare_max_instance(previous_df, new_df, target_capacity):
     fallback_dict = {50:45, 45:40, 40:35, 35:30, 30:25, 25:20, 20:15, 15:10, 10:5, 5:1, 1:0}
     fallback_val = fallback_dict.get(target_capacity, 0)
     
+    # Ensure T2/T3 columns exist in previous_df for legacy compatibility
+    for col in ["T2", "T3"]:
+        if col not in previous_df.columns:
+            previous_df[col] = 0
+
     merged_df = pd.merge(
         new_df,
         previous_df[["InstanceType", "Region", "AvailabilityZone", "DesiredCount", "Score", "T3", "T2"]],

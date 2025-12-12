@@ -90,7 +90,7 @@ class S3Handler:
             elif file_type == "yaml":
                 if data is None:
                     raise ValueError("Data cannot be None for yaml file")
-                file = io.BytesIO(yaml.dump(data).encode("utf-8"))
+                file = io.BytesIO(yaml.safe_dump(data).encode("utf-8"))
 
             self.client.upload_fileobj(file, STORAGE_CONST.BUCKET_NAME, file_path)
 

@@ -2,7 +2,6 @@ import os
 import load_sps
 import pandas as pd
 import traceback
-import yaml
 from datetime import datetime, timezone
 from sps_module import sps_shared_resources
 from utils.merge_df import merge_if_saving_price_sps_df
@@ -35,32 +34,30 @@ def write_metadata(metadata):
 def lambda_handler(event, context):
     log_stream_name = context.log_stream_name
     event_time_utc = event.get("time")
-    try:
-        event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
-    except ValueError:
+    if event_time_utc:
         try:
-            event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%d %H:%M:%S")
-        except:
-             event_time_utc_datetime = datetime.now(timezone.utc)
+            event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
+        except (ValueError, TypeError):
+            try:
+                event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%d %H:%M:%S")
+            except:
+                 event_time_utc_datetime = datetime.now(timezone.utc)
+    else:
+        event_time_utc_datetime = datetime.now(timezone.utc)
 
     sps_shared_resources.succeed_to_get_next_available_location_count_all = 0
     current_date = event_time_utc_datetime.strftime("%Y-%m-%d")
     
     try:
-        if not event_time_utc:
-            raise ValueError("Invalid event info: time is missing")
-
         Logger.info(f"Lambda triggered: event_time: {datetime.strftime(event_time_utc_datetime, '%Y-%m-%d %H:%M:%S')}")
 
         metadata = read_metadata()
         sps_df = None
-        current_desired_count = 1
 
         if metadata:
             # --- New Logic: S3 Metadata Exists ---
             # 1. Determine Desired Count (Seamless Rotation)
             desired_count_index = metadata["desired_count_index"]["current"]
-            desired_count_index = desired_count_index % len(DESIRED_COUNTS)
             current_desired_count = DESIRED_COUNTS[desired_count_index]
             
             workload_date = metadata.get("workload_date")
@@ -78,7 +75,11 @@ def lambda_handler(event, context):
             # 3. Update Index for Next Run
             next_index = (desired_count_index + 1) % len(DESIRED_COUNTS)
             metadata["desired_count_index"]["current"] = next_index
-            write_metadata(metadata)
+            try:
+                write_metadata(metadata)
+            except Exception as e:
+                Logger.error(f"Failed to write metadata: {e}")
+                raise
 
         else:
             # --- Legacy Fallback Logic: S3 Metadata Missing ---

@@ -229,7 +229,6 @@ def save_raw(all_data_dataframe, time_utc, az, data_type=None):
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-        az_str = f"availability-zones-{str(az).lower()}"
         base_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}"
 
         if data_type in ["desired_count_1", "multi", "specific"]:

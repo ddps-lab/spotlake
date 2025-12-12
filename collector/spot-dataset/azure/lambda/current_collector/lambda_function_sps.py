@@ -68,7 +68,7 @@ def lambda_handler(event, context):
         if metadata:
             # --- New Logic: S3 Metadata Exists ---
             # 1. Determine Desired Count (Seamless Rotation)
-            desired_count_index = metadata["desired_count_index"]["current"]
+            desired_count_index = metadata["desired_count_index"]
             current_desired_count = DESIRED_COUNTS[desired_count_index]
             
             workload_date = metadata.get("workload_date")
@@ -85,7 +85,7 @@ def lambda_handler(event, context):
             
             # 3. Update Index for Next Run
             next_index = (desired_count_index + 1) % len(DESIRED_COUNTS)
-            metadata["desired_count_index"]["current"] = next_index
+            metadata["desired_count_index"] = next_index
             try:
                 write_metadata(metadata)
             except Exception as e:
@@ -119,7 +119,7 @@ def lambda_handler(event, context):
             next_index = (init_index + 1) % len(DESIRED_COUNTS)
 
             new_metadata = {
-                "desired_count_index": {"init": init_index, "current": next_index},
+                "desired_count_index": next_index,
                 "workload_date": current_date
             }
             write_metadata(new_metadata)

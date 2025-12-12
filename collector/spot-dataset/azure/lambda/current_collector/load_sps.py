@@ -213,9 +213,9 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
                                     score.get("sku", ""), {}).get("InstanceTier"),
                                 "InstanceType": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
                                     score.get("sku", ""), {}).get("InstanceTypeOld"),
-                                "Score": score.get("score"),
-                                "T3": desired_count if score.get("score") == 3 else 0,
-                                "T2": desired_count if score.get("score") == 2 else 0
+                                "Score": map_score_to_int(score.get("score")),
+                                "T3": desired_count if map_score_to_int(score.get("score")) == 3 else 0,
+                                "T2": desired_count if map_score_to_int(score.get("score")) >= 2 else 0
                             }
                             if availability_zones is True:
                                 score_data["AvailabilityZone"] = score.get("availabilityZone", "Single")
@@ -257,6 +257,21 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
 
     print(f"execute_spot_placement_score_task_by_parameter_pool_df Successfully! availability_zones: {availability_zones}")
     return sps_res_df
+
+
+    return sps_res_df
+
+
+def map_score_to_int(score_val):
+    if isinstance(score_val, int):
+        return score_val
+    
+    score_map = {
+        "High": 3,
+        "Medium": 2,
+        "Low": 1
+    }
+    return score_map.get(score_val, 0)
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_count, max_retries=12):

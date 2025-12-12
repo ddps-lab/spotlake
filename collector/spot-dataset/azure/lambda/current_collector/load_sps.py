@@ -49,7 +49,7 @@ def log_execution_time(func):
 def collect_spot_placement_score_first_time(desired_counts):
     # 시간 수집 로직들은 추후 제거 예정입니다.
     '''
-    이 메서드는 0:00분에 호출합니다.
+    이 메서드는 00:00 UTC에 호출합니다.
     1. RESET 필요한 일부 S3 파일을 RESET
     2. priceapi로 regions_and_instance_types 원본 수집
     3. greedy_clustering 방법으로 호출 파라미터 pool만들기

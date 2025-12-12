@@ -2,100 +2,145 @@ import os
 import load_sps
 import pandas as pd
 import traceback
-from datetime import datetime
+import yaml
+from datetime import datetime, timezone
 from sps_module import sps_shared_resources
 from utils.merge_df import merge_if_saving_price_sps_df
 from utils.upload_data import update_latest, save_raw, upload_timestream, query_selector, upload_cloudwatch
 from utils.compare_data import compare_sps
 from utils.pub_service import send_slack_message, Logger, S3, AZURE_CONST
 
-FIRST_TIME_ACTION = "First_Time"  # 첫 실행 액션
-EVERY_10MIN_ACTION = "Every_10Min"  # 10분마다 실행 액션
-UTC_1500_TIME = "15:00"  # UTC 15:00 (KST 00:00)
-
 availability_zones = os.environ.get("availability_zones", "False").lower() == "true"
+DESIRED_COUNTS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+SPS_METADATA_S3_KEY = f"{AZURE_CONST.S3_RAW_DATA_PATH}/localfile/sps_metadata.yaml"
+
+def read_metadata():
+    try:
+        data = S3.read_file(SPS_METADATA_S3_KEY, 'yaml')
+        if data:
+            Logger.info(f"Read metadata from S3: {SPS_METADATA_S3_KEY}")
+            return data
+    except Exception as e:
+        Logger.info(f"Failed to read metadata from S3: {e}")
+    
+    return None
+
+def write_metadata(metadata):
+    try:
+        S3.upload_file(metadata, SPS_METADATA_S3_KEY, 'yaml')
+        Logger.info(f"Saved metadata to S3: {SPS_METADATA_S3_KEY}")
+    except Exception as e:
+        Logger.error(f"Failed to save metadata to S3: {e}")
 
 def lambda_handler(event, context):
     log_stream_name = context.log_stream_name
     event_time_utc = event.get("time")
-    event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
-    sps_shared_resources.succeed_to_get_next_available_location_count_all = 0
-
-    if event_time_utc_datetime.strftime("%H:%M") == UTC_1500_TIME:
-        action = FIRST_TIME_ACTION
-    else:
-        action = EVERY_10MIN_ACTION
-
     try:
-        if not action or not event_time_utc:
-            raise ValueError("Invalid event info: action or time is missing")
+        event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        try:
+            event_time_utc_datetime = datetime.strptime(event_time_utc, "%Y-%m-%d %H:%M:%S")
+        except:
+             event_time_utc_datetime = datetime.now(timezone.utc)
 
-        desired_count = sps_shared_resources.time_desired_count_map.get(event_time_utc_datetime.strftime("%H:%M"), 1)
-        Logger.info(f"Lambda triggered: action: {action}, event_time: {datetime.strftime(event_time_utc_datetime, '%Y-%m-%d %H:%M:%S')}")
+    sps_shared_resources.succeed_to_get_next_available_location_count_all = 0
+    current_date = event_time_utc_datetime.strftime("%Y-%m-%d")
+    
+    try:
+        if not event_time_utc:
+            raise ValueError("Invalid event info: time is missing")
 
-        specific_desired_counts = [specific_desired_count.strip() for specific_desired_count in os.environ.get('specific_desired_counts').split(",") if specific_desired_count.strip()]
-        specific_instance_types = [specific_instance_type.strip() for specific_instance_type in os.environ.get('specific_instance_types').split(",") if specific_instance_type.strip()]
+        Logger.info(f"Lambda triggered: event_time: {datetime.strftime(event_time_utc_datetime, '%Y-%m-%d %H:%M:%S')}")
 
-        if action == FIRST_TIME_ACTION:
-            if availability_zones is True:
-                sps_res_desired_count_1_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[1])
+        metadata = read_metadata()
+        sps_df = None
+        current_desired_count = 1
+
+        if metadata:
+            # --- New Logic: S3 Metadata Exists ---
+            # 1. Determine Desired Count (Seamless Rotation)
+            desired_count_index = metadata["desired_count_index"]["current"]
+            desired_count_index = desired_count_index % len(DESIRED_COUNTS)
+            current_desired_count = DESIRED_COUNTS[desired_count_index]
+            
+            workload_date = metadata.get("workload_date")
+            
+            # 2. Check Date for First Time Optimization
+            if workload_date != current_date:
+                Logger.info(f"Workload date changed: {workload_date} -> {current_date}. Running First Time Optimization with Count: {current_desired_count}")
+                # Use the rotated desired count for the optimization run too
+                sps_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[current_desired_count])
+                metadata["workload_date"] = current_date
             else:
-                sps_res_desired_count_1_df = load_sps.collect_spot_placement_score(desired_counts=[1])
-
-            sps_res_desired_count_loop_df = load_sps.collect_spot_placement_score(desired_counts=[desired_count])
-
-            sps_res_specific_df = load_sps.collect_spot_placement_score(
-                desired_counts=specific_desired_counts, instance_types=specific_instance_types)
-
-
-        elif action == EVERY_10MIN_ACTION:
-            sps_res_desired_count_1_df = load_sps.collect_spot_placement_score(desired_counts=[1])
-
-            sps_res_desired_count_loop_df = load_sps.collect_spot_placement_score(desired_counts=[desired_count])
-
-            sps_res_specific_df = load_sps.collect_spot_placement_score(
-                desired_counts=specific_desired_counts, instance_types=specific_instance_types)
+                Logger.info(f"Running Regular Collection. Desired Count: {current_desired_count} (Index: {desired_count_index})")
+                sps_df = load_sps.collect_spot_placement_score(desired_counts=[current_desired_count])
+            
+            # 3. Update Index for Next Run
+            next_index = (desired_count_index + 1) % len(DESIRED_COUNTS)
+            metadata["desired_count_index"]["current"] = next_index
+            write_metadata(metadata)
 
         else:
-            raise ValueError(f"Invalid lambda action.")
+            # --- Legacy Fallback Logic: S3 Metadata Missing ---
+            Logger.info("Metadata missing. Using legacy calculation logic.")
+            time_str_hm = event_time_utc_datetime.strftime("%H:%M")
+            UTC_0000_TIME = "00:00"
+            
+            if time_str_hm == UTC_0000_TIME:
+                Logger.info("Legacy Logic: First Time Optimization (00:00)")
+                current_desired_count = 1 # Legacy behavior starts with 1
+                sps_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[current_desired_count])
+                
+                # Initialize metadata file for future runs. 
+                # Next run should be index 1 (Capacity 5).
+                new_metadata = {
+                    "desired_count_index": {"init": 0, "current": 1},
+                    "workload_date": current_date
+                }
+                write_metadata(new_metadata)
+                
+            else:
+                # Get desired count from map
+                current_desired_count = sps_shared_resources.time_desired_count_map.get(time_str_hm, 1)
+                Logger.info(f"Legacy Logic: Regular Collection. Desired Count from Map: {current_desired_count}")
+                
+                sps_df = load_sps.collect_spot_placement_score(desired_counts=[current_desired_count])
 
+        if sps_df is None:
+             raise ValueError("sps_df is None")
 
-        if sps_res_desired_count_1_df is None: raise ValueError("sps_res_desired_count_1_df is None")
-        if sps_res_desired_count_loop_df is None: raise ValueError("sps_res_desired_count_loop_df is None")
-        if sps_res_specific_df is None: raise ValueError("sps_res_specific_df is None")
-
+        # Step 3: Handle Results
         if availability_zones is True:
             price_saving_if_df = S3.read_file(AZURE_CONST.S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH, 'pkl.gz')
             if price_saving_if_df is None:
                 raise ValueError("price_if_df is None")
 
-            if not handle_res_df_for_spotlake(price_saving_if_df, sps_res_desired_count_1_df, event_time_utc_datetime):
+            if not handle_res_df_for_spotlake(price_saving_if_df, sps_df, event_time_utc_datetime, current_desired_count):
                 raise RuntimeError("Failed to handle_res_df_for_spotlake")
 
-        if not handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count_loop_df, sps_res_specific_df,
-                                          event_time_utc_datetime):
+        if not handle_res_df_for_research(sps_df, event_time_utc_datetime, current_desired_count):
             raise RuntimeError("Failed to handle_res_for_research_df")
 
         print(f"succeed_to_get_next_available_location_count_all: {sps_shared_resources.succeed_to_get_next_available_location_count_all}")
 
         analyze_id_location_data()
-        return handle_response(200, "Executed Successfully!", action, event_time_utc_datetime)
+        return handle_response(200, "Executed Successfully!", event_time_utc_datetime)
 
     except Exception as e:
         error_msg = f"Unexpected error: {e}"
         Logger.error(error_msg)
         Logger.error(traceback.format_exc())
         send_slack_message(f"AZURE SPS MODULE EXCEPTION!\n{error_msg} \nlog_stream_id: {log_stream_name}")
-        return handle_response(500, "Execute Failed!", action, event_time_utc_datetime, str(e))
+        return handle_response(500, "Execute Failed!", event_time_utc_datetime, str(e))
 
 
-def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count_1_df, time_datetime):
+def handle_res_df_for_spotlake(price_saving_if_df, sps_df, time_datetime, desired_count):
     try:
         time_str = time_datetime.strftime("%Y-%m-%d %H:%M:%S")
-        sps_res_az_true_desired_count_1_df['time'] = time_str
-        sps_res_az_true_desired_count_1_df['AvailabilityZone'] = sps_res_az_true_desired_count_1_df['AvailabilityZone'].where(pd.notna(sps_res_az_true_desired_count_1_df['AvailabilityZone']), None)
+        sps_df['time'] = time_str
+        sps_df['AvailabilityZone'] = sps_df['AvailabilityZone'].where(pd.notna(sps_df['AvailabilityZone']), None)
 
-        sps_res_az_true_desired_count_1_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_res_az_true_desired_count_1_df, True)
+        sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, True)
 
         prev_availability_zone_true_all_data_df = S3.read_file(
             f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
@@ -104,22 +149,25 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count
         feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time']
 
         query_success = timestream_success = cloudwatch_success = \
-            update_latest_success = save_raw_az_true_desired_count_1_success = False
+            update_latest_success = save_raw_success = False
 
         if prev_availability_zone_true_all_data_df is not None and not prev_availability_zone_true_all_data_df.empty:
             prev_availability_zone_true_all_data_df.drop(columns=['id'], inplace=True)
-            changed_df = compare_sps(prev_availability_zone_true_all_data_df, sps_res_az_true_desired_count_1_merged_df, workload_cols, feature_cols)
+            changed_df = compare_sps(prev_availability_zone_true_all_data_df, sps_merged_df, workload_cols, feature_cols)
+            
             query_success = query_selector(changed_df)
             timestream_success = upload_timestream(changed_df, time_datetime)
-            cloudwatch_success = upload_cloudwatch(sps_res_az_true_desired_count_1_merged_df, time_datetime)
+            cloudwatch_success = upload_cloudwatch(sps_merged_df, time_datetime)
 
-        update_latest_success = update_latest(sps_res_az_true_desired_count_1_merged_df)
-        save_raw_az_true_desired_count_1_success = save_raw(sps_res_az_true_desired_count_1_merged_df, time_datetime, availability_zones,
-                                data_type='desired_count_1')
+        update_latest_success = update_latest(sps_merged_df)
+        
+        data_type = 'desired_count_1' if desired_count == 1 else 'multi'
+        
+        save_raw_success = save_raw(sps_merged_df, time_datetime, availability_zones, data_type=data_type)
 
-        success_flag = all([query_success, timestream_success, cloudwatch_success, update_latest_success, save_raw_az_true_desired_count_1_success])
+        success_flag = all([query_success, timestream_success, cloudwatch_success, update_latest_success, save_raw_success])
         log_details = (
-            f"update_latest_success: {update_latest_success}, save: {save_raw_az_true_desired_count_1_success}, cloudwatch: {cloudwatch_success}"
+            f"update_latest_success: {update_latest_success}, save: {save_raw_success}, cloudwatch: {cloudwatch_success}"
             f"query: {query_success}, timestream: {timestream_success}"
         )
         if success_flag:
@@ -135,32 +183,21 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_res_az_true_desired_count
         return False
 
 
-def handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count_loop_df, sps_res_specific_df, time_datetime):
+def handle_res_df_for_research(sps_df, time_datetime, desired_count):
     try:
-
         time_str = time_datetime.strftime("%Y-%m-%d %H:%M:%S")
-        sps_res_desired_count_1_df['time'] = time_str
-        sps_res_desired_count_loop_df['time'] = time_str
-        sps_res_specific_df['time'] = time_str
+        sps_df['time'] = time_str
+        
+        data_type = 'desired_count_1' if desired_count == 1 else 'multi'
 
         if availability_zones is True:
-            save_raw_az_desired_count_1_success = True
+            pass # Previously handled
         else:
-            save_raw_az_desired_count_1_success = save_raw(sps_res_desired_count_1_df, time_datetime, availability_zones,
-                                                           data_type='desired_count_1')
-
-        save_raw_az_true_desired_count_loop_success = save_raw(sps_res_desired_count_loop_df, time_datetime, availability_zones,
-                                                               data_type='multi')
-        save_raw_specific_az_true_success = save_raw(sps_res_specific_df, time_datetime, availability_zones, data_type='specific')
-
-
-        success_flag = all([save_raw_az_desired_count_1_success, save_raw_az_true_desired_count_loop_success, save_raw_specific_az_true_success])
-        if success_flag:
-            Logger.info("Successfully merged the price/if/sps df, process data for research!")
-            return True
-        else:
-            Logger.info("Failed to merge the price/if/sps df, process data for research!")
-            return False
+            # AZ=False
+            save_raw_success = save_raw(sps_df, time_datetime, availability_zones, data_type=data_type)
+            return save_raw_success
+        
+        return True
 
     except Exception as e:
         Logger.error(f"Error in handle_res_df_for_research function: {e}")
@@ -168,23 +205,19 @@ def handle_res_df_for_research(sps_res_desired_count_1_df, sps_res_desired_count
 
 
 def analyze_id_location_data():
-    # 1. 구독의 개수 계산
     id_count = len(sps_shared_resources.locations_call_history_tmp)
+    if id_count > 0:
+        first_id = list(sps_shared_resources.locations_call_history_tmp.keys())[0]
+        location_count = len(sps_shared_resources.locations_call_history_tmp[first_id])
+    else:
+        location_count = 0
 
-    # 2. 단일 구독의 Location 개수 계산
-    first_id = list(sps_shared_resources.locations_call_history_tmp.keys())[0]
-    location_count = len(sps_shared_resources.locations_call_history_tmp[first_id])
-
-    # 3. 최대 시간 발생 횟수 계산 (구독 개수 * 단일 구독의 Location 개수 * 10)
     max_time_occurrence = id_count * location_count * 10
-
-    # 4. 이미 호출한 횟수의 총합
     total_time_occurrences = 0
     for id_data in sps_shared_resources.locations_call_history_tmp.values():
         for location_data in id_data.values():
             total_time_occurrences += len(location_data)
 
-    # 결과 출력
     print(f"\n-----------------------")
     print(f"1. 구독 ID의 개수: {id_count}, 단일 구독 Location 개수: {location_count}")
     print(f"2. 한 시간에 최대 호출 가능 횟수: {max_time_occurrence}")
@@ -192,11 +225,10 @@ def analyze_id_location_data():
     print(f"-----------------------")
 
 
-def handle_response(status_code, body, action, time_datetime, error_message=None):
+def handle_response(status_code, body, time_datetime, error_message=None):
     response = {
         "statusCode": status_code,
         "body": body,
-        "action": action,
         "time": datetime.strftime(time_datetime, '%Y-%m-%d %H:%M:%S')
     }
     if error_message:

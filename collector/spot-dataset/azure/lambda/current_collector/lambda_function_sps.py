@@ -83,29 +83,35 @@ def lambda_handler(event, context):
 
         else:
             # --- Legacy Fallback Logic: S3 Metadata Missing ---
-            Logger.info("Metadata missing. Using legacy calculation logic.")
+            Logger.info("Metadata missing. Using legacy calculation logic and bootstrapping metadata.")
             time_str_hm = event_time_utc_datetime.strftime("%H:%M")
             UTC_0000_TIME = "00:00"
             
             if time_str_hm == UTC_0000_TIME:
                 Logger.info("Legacy Logic: First Time Optimization (00:00)")
-                current_desired_count = 1 # Legacy behavior starts with 1
+                current_desired_count = 1
                 sps_df = load_sps.collect_spot_placement_score_first_time(desired_counts=[current_desired_count])
-                
-                # Initialize metadata file for future runs. 
-                # Next run should be index 1 (Capacity 5).
-                new_metadata = {
-                    "desired_count_index": {"init": 0, "current": 1},
-                    "workload_date": current_date
-                }
-                write_metadata(new_metadata)
-                
             else:
                 # Get desired count from map
                 current_desired_count = sps_shared_resources.time_desired_count_map.get(time_str_hm, 1)
                 Logger.info(f"Legacy Logic: Regular Collection. Desired Count from Map: {current_desired_count}")
-                
                 sps_df = load_sps.collect_spot_placement_score(desired_counts=[current_desired_count])
+
+            # Bootstrap Metadata Immediately
+            # Find closest index for current_capacity or default to 0
+            try:
+                init_index = DESIRED_COUNTS.index(current_desired_count)
+            except ValueError:
+                init_index = 0
+            
+            # Prepare next index
+            next_index = (init_index + 1) % len(DESIRED_COUNTS)
+
+            new_metadata = {
+                "desired_count_index": {"init": init_index, "current": next_index},
+                "workload_date": current_date
+            }
+            write_metadata(new_metadata)
 
         if sps_df is None:
              raise ValueError("sps_df is None")

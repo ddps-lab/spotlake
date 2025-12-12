@@ -4,8 +4,8 @@ import numpy as np
 # compare previous collected workload with current collected workload
 # return changed workload
 def compare_sps(previous_df, current_df, workload_cols, feature_cols):
-    previous_df = previous_df.copy()
-    current_df = current_df.copy()
+    previous_df = previous_df.copy().astype(object)
+    current_df = current_df.copy().astype(object)
 
     fill_values = {
         'OndemandPrice': -1,

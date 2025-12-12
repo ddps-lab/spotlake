@@ -320,7 +320,14 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
                     retries = handle_retry("InvalidInstanceType", retries, max_retries)
 
             if "BadGatewayConnection" in error_message:
-                print(f"HTTP error occurred: {error_message}")
+                print(f"[DEBUG_ERROR] BadGatewayConnection occurred!")
+                print(f"URL: {url}")
+                print(f"Data - DesiredCount: {desired_count}, AvailabilityZones: {availability_zones}")
+                print(f"Data - Region Chunk: {region_chunk}")
+                print(f"Data - Instance Chunk: {instance_type_chunk}")
+                print(f"Response Headers: {http_err.response.headers}")
+                print(f"Full Error Message: {error_message}")
+                
                 retries = handle_retry("BadGatewayConnection", retries, max_retries)
 
             elif "InvalidParameter" in error_message:

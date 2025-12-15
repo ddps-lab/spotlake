@@ -107,7 +107,7 @@ def get_binpacked_workload(filedate):
     s3_resource.Object(BUCKET_NAME, monitoring_key).put(Body=pickle.dumps(workloads))
     
     end_time = datetime.now(timezone.utc)
-    print(f"Upload time used for minitoring is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+    print(f"Upload time used for monitoring is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
     print("Starting bin packing...")
     result_binpacked = {}

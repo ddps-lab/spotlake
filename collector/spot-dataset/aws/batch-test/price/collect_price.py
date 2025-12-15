@@ -113,7 +113,6 @@ def main():
         session = boto3.session.Session()
         regions = get_regions(session)
         spot_price_df_list = []
-        spot_price_df_list = []
         
         def process_spot_price_region(region):
             print(f"Collecting price for region: {region}")

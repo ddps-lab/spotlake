@@ -311,7 +311,7 @@ def main():
     # ------ Upload Collecting Data Number at Cloud Logs ------
     log_client = session.client('logs', 'us-west-2')
     try:
-        message = json.dumps({"MUMBER_ROWS" : sps_df.shape[0]})
+        message = json.dumps({"NUMBER_ROWS" : sps_df.shape[0]})
         timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
         try:
             log_client.put_log_events(

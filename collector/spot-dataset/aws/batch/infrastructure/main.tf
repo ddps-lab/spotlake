@@ -247,7 +247,7 @@ resource "aws_batch_job_definition" "collection_job" {
     ]
     resourceRequirements = [
       { type = "VCPU", value = "1" },
-      { type = "MEMORY", value = "4096" }
+      { type = "MEMORY", value = "2048" }
     ]
   })
   

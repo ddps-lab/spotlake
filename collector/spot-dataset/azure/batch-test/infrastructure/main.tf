@@ -6,7 +6,7 @@ provider "aws" {
 
 # Batch Service Role
 resource "aws_iam_role" "batch_service_role" {
-  name = "aws_batch_service_role_spotlake_azure"
+  name = "aws_batch_service_role_spotlake_azure_test"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -29,7 +29,7 @@ resource "aws_iam_role_policy_attachment" "batch_service_role_policy" {
 
 # Additional policy for ECS permissions
 resource "aws_iam_policy" "batch_service_ecs_policy" {
-  name        = "batch_service_ecs_policy_spotlake_azure"
+  name        = "batch_service_ecs_policy_spotlake_azure_test"
   description = "Additional ECS permissions for Batch Service Role"
 
   policy = jsonencode({
@@ -55,7 +55,7 @@ resource "aws_iam_role_policy_attachment" "batch_service_ecs_policy_attachment" 
 
 # ECS Task Execution Role
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "ecs_task_execution_role_spotlake_azure"
+  name = "ecs_task_execution_role_spotlake_azure_test"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -78,7 +78,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 
 # Job Role (used by the container)
 resource "aws_iam_role" "batch_job_role" {
-  name = "batch_job_role_spotlake_azure"
+  name = "batch_job_role_spotlake_azure_test"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -96,8 +96,8 @@ resource "aws_iam_role" "batch_job_role" {
 
 # Policy for S3, Timestream, Logs, DynamoDB (AzureAuth), SSM (Slack URL)
 resource "aws_iam_policy" "batch_job_policy" {
-  name        = "batch_job_policy_spotlake_azure"
-  description = "Policy for SpotLake Azure Batch Jobs"
+  name        = "batch_job_policy_spotlake_azure_test"
+  description = "Policy for SpotLake Azure Batch Test Jobs"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -112,7 +112,9 @@ resource "aws_iam_policy" "batch_job_policy" {
         ]
         Resource = [
           "arn:aws:s3:::${var.s3_bucket}",
-          "arn:aws:s3:::${var.s3_bucket}/*"
+          "arn:aws:s3:::${var.s3_bucket}/*",
+          "arn:aws:s3:::spotlake",
+          "arn:aws:s3:::spotlake/*"
         ]
       },
       {
@@ -143,7 +145,7 @@ resource "aws_iam_policy" "batch_job_policy" {
         ]
         Resource = [
             "arn:aws:dynamodb:${var.aws_region}:*:table/AzureAuth",
-            "arn:aws:dynamodb:${var.aws_region}:*:table/azure"
+            "arn:aws:dynamodb:${var.aws_region}:*:table/azure-test"
         ]
       },
       {
@@ -165,7 +167,7 @@ resource "aws_iam_role_policy_attachment" "batch_job_policy_attachment" {
 
 # ECS Instance Role (required for EC2 launch type in AWS Batch)
 resource "aws_iam_role" "ecs_instance_role" {
-  name = "ecs_instance_role_spotlake_azure"
+  name = "ecs_instance_role_spotlake_azure_test"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -187,18 +189,14 @@ resource "aws_iam_role_policy_attachment" "ecs_instance_role_policy" {
 }
 
 resource "aws_iam_instance_profile" "ecs_instance_role" {
-  name = "ecs_instance_role_profile_spotlake_azure"
+  name = "ecs_instance_role_profile_spotlake_azure_test"
   role = aws_iam_role.ecs_instance_role.name
 }
 
 # ------ Batch Compute Environment ------
 
-# Reuse existing SpotLake Compute Env if possible? 
-# Usually separation is better for testing/migration. Let's create a specific one for Azure to avoid conflict if deploying side-by-side. 
-# But user might want to reuse resources. Given "spotlake-compute-env" name in referenced file, I'll name this "spotlake-azure-compute-env".
-
 resource "aws_batch_compute_environment" "spot_compute_env" {
-  name = "spotlake-azure-compute-env"
+  name = "spotlake-azure-test-compute-env"
 
   compute_resources {
     type = "SPOT"
@@ -226,7 +224,7 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
 }
 
 resource "aws_batch_job_queue" "spot_job_queue" {
-  name     = "spotlake-azure-job-queue"
+  name     = "spotlake-azure-test-job-queue"
   state    = "ENABLED"
   priority = 1
   
@@ -240,18 +238,16 @@ resource "aws_batch_job_queue" "spot_job_queue" {
 
 # Consolidated Azure Collection Job
 resource "aws_batch_job_definition" "collection_job" {
-  name = "spotlake-azure-collection-job"
+  name = "spotlake-azure-test-collection-job"
   type = "container"
 
   container_properties = jsonencode({
     image = var.image_uri
-    command = ["/bin/bash", "/app/collector/spot-dataset/azure/batch/scripts/run_collection.sh", "Ref::timestamp"]
+    command = ["/bin/bash", "/app/collector/spot-dataset/azure/batch-test/scripts/run_collection.sh", "Ref::timestamp"]
     jobRoleArn = aws_iam_role.batch_job_role.arn
     environment = [
       { name = "S3_BUCKET", value = var.s3_bucket },
       { name = "AWS_REGION", value = var.aws_region }
-      # Availability Zones environment variable handling might be needed if script logic depends on it.
-      # Defaulting to False or controlled via another var? Logic in Python: os.environ.get("availability_zones", "False")
     ]
     resourceRequirements = [
       { type = "VCPU", value = "1" },

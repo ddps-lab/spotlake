@@ -69,10 +69,6 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
 
     return join_df
 
-def main():
-    Logger.info("Start Merge Data Script")
-    start_time = datetime.now(timezone.utc)
-
 def merge_price_saving_if_df(price_df, if_df):
     # Lambda Logic: Join on armRegionName (Price Code) == Region (IF Code)
     join_df = pd.merge(price_df, if_df,
@@ -85,15 +81,19 @@ def merge_price_saving_if_df(price_df, if_df):
     join_df = join_df[['InstanceTier', 'InstanceType', 'Region_x', 'armRegionName', 'OndemandPrice_x', 'SpotPrice_x', 'Savings_x', 'IF']]
     
     # Filter rows where SpotPrice is NaN (Lambda logic: join_df[~join_df['SpotPrice_x'].isna()])
-    # However, if we want to keep IF-only data, we shouldn't drop? 
-    # Lambda code: join_df = join_df[~join_df['SpotPrice_x'].isna()] -> This drops IF-only rows!
-    # User complained about IF data being present? 
-    # Actually, if Price is missing, we usually can't calculate Savings.
-    # Let's stick to Lambda behavior for exact alignment.
     join_df = join_df[~join_df['SpotPrice_x'].isna()]
 
     join_df.rename(columns={'Region_x' : 'Region', 'OndemandPrice_x' : 'OndemandPrice', 'SpotPrice_x' : 'SpotPrice', 'Savings_x' : 'Savings'}, inplace=True)
     return join_df
+
+def main():
+    Logger.info("Start Merge Data Script")
+    start_time = datetime.now(timezone.utc)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sps_key', dest='sps_key', action='store', help='S3 Key of the SPS file')
+    parser.add_argument('--timestamp', dest='timestamp', action='store')
+    args = parser.parse_args()
 
     s3_client = boto3.client('s3')
     # Use WRITE_BUCKET_NAME (Test) for listing/reading raw data

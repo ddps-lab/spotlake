@@ -163,10 +163,9 @@ def main():
         if sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
         
-        # CRITICAL: SPS has 'Region' (region name) and 'RegionCodeSPS' (region code)
-        # IF and Price use region codes, so we must use RegionCodeSPS for merging
-        if 'RegionCodeSPS' in sps_df.columns:
-            sps_df['Region'] = sps_df['RegionCodeSPS']  # Replace Region with region code
+        # NOTE: SPS has both 'Region' (region name) and 'RegionCodeSPS' (region code)
+        # Lambda keeps Region as region NAME for merging
+        # Do NOT replace Region - it must stay as name to match price_saving_if_df
         
         # Strip potential whitespace and lower case keys
         for col in ['InstanceTier', 'InstanceType', 'Region']:
@@ -210,9 +209,13 @@ def main():
              price_df = pd.DataFrame()
 
         if not price_df.empty and not if_df.empty:
+            print("\nDEBUG: Before Price+IF Merge:")
+            print(f"  Price sample: {price_df[['InstanceType', 'Region', 'armRegionName']].head(2)}")
+            print(f"  IF sample: {if_df[['InstanceType', 'Region']].head(2)}")
             # Drop dummy cols from IF is not needed if we use merge_price_saving_if_df
             # Use Lambda-aligned logic
             price_saving_if_df = merge_price_saving_if_df(price_df, if_df)
+            print(f"  Merged sample: {price_saving_if_df[['InstanceType', 'Region']].head(2)}")
             
         elif not price_df.empty:
             price_saving_if_df = price_df
@@ -224,7 +227,12 @@ def main():
             price_saving_if_df = pd.DataFrame(columns=['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF'])
 
         # Merge with SPS
+        print("\nDEBUG: Before SPS Merge:")
+        print(f"  price_saving_if sample: {price_saving_if_df[['InstanceType', 'Region']].head(2)}")
+        print(f"  SPS sample: {sps_df[['InstanceType', 'Region']].head(2)}")
         sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True)
+        print(f"\nDEBUG: After Merge - Result shape: {sps_merged_df.shape}")
+        print(f"  Sample with IF/Score: {sps_merged_df[['InstanceType', 'Region', 'IF', 'Score', 'DesiredCount']].head(3)}")
 
         # Load Previous Data from WRITE_BUCKET (Test)
         prev_all_data = S3.read_file(AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)

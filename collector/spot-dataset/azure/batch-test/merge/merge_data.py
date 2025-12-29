@@ -20,22 +20,17 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
     
     # Handle column renaming from merge collisions or source names
-    if 'time_x' in join_df.columns:
-        join_df.rename(columns={'time_x': 'PriceEviction_Update_Time'}, inplace=True)
-    if 'time_y' in join_df.columns:
-        join_df.rename(columns={'time_y': 'SPS_Update_Time'}, inplace=True)
-        
+    join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True, errors='ignore')
 
-    if 'SPS_Update_Time' in join_df.columns and 'PriceEviction_Update_Time' in join_df.columns:
-        join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
+    join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
     
     # Define expected columns
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
         "DesiredCount", "Score", "SPS_Update_Time", "T2", "T3"]
 
     if az:
-        columns.insert(8, "AvailabilityZone") # Insert before Score
+        columns.insert(-4, "AvailabilityZone")  # Insert before Score (4 positions from end)
 
     # Ensure all columns exist
     for col in columns:

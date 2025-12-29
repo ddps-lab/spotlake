@@ -19,12 +19,17 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     # Ensure join keys are present and types match
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
     
-    # Handle column renaming from merge collisions or source names
+    # Rename time columns - handle both suffix and no-suffix cases
+    rename_map = {}
     if 'time_x' in join_df.columns:
-        join_df.rename(columns={'time_x': 'PriceEviction_Update_Time'}, inplace=True)
+        rename_map['time_x'] = 'PriceEviction_Update_Time'
     if 'time_y' in join_df.columns:
-        join_df.rename(columns={'time_y': 'SPS_Update_Time'}, inplace=True)
-        
+        rename_map['time_y'] = 'SPS_Update_Time'
+    if 'time' in join_df.columns and 'time_y' not in join_df.columns:
+        # Only SPS has time column, so no suffix
+        rename_map['time'] = 'SPS_Update_Time'
+    
+    join_df.rename(columns=rename_map, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True, errors='ignore')
 
     if 'SPS_Update_Time' in join_df.columns and 'PriceEviction_Update_Time' in join_df.columns:
@@ -35,7 +40,7 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
         "DesiredCount", "Score", "SPS_Update_Time", "T2", "T3"]
 
     if az:
-        columns.insert(8, "AvailabilityZone") # Insert before Score
+        columns.insert(-4, "AvailabilityZone")  # Insert before Score (4 positions from end)
 
     # Ensure all columns exist
     for col in columns:

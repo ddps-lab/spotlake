@@ -54,7 +54,6 @@ echo "Building Docker image..."
 # Note: Path to Dockerfile is relative to build context (project root)
 # The context is the project root, so we point to the Dockerfile in azure/batch-test
 docker build \
-    --platform linux/amd64 \
     --build-arg AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
     --build-arg AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
     -t "$REPO_NAME" \

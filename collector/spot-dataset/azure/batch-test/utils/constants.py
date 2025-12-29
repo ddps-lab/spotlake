@@ -11,11 +11,11 @@ class AzureCollector:
 
         # S3 Paths for SPS State
         self.S3_RAW_DATA_PATH = "rawdata/azure"
-        self.S3_SAVED_VARIABLE_PATH = "rawdata/azure/sps/state"
+        self.S3_SAVED_VARIABLE_PATH = "sps-collector/azure/saved_variable"
         
         self.S3_REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME = "region_map_and_instance_map.json"
         
-        self.S3_DF_TO_USE_TODAY_PKL_FILENAME = "rawdata/azure/sps/state/today_request_pool.pkl"
+        self.S3_DF_TO_USE_TODAY_PKL_FILENAME = "sps-collector/azure/df_to_use_today.pkl"
         
         self.S3_INVALID_REGIONS_JSON_FILENAME = "invalid_regions.json"
         self.S3_INVALID_INSTANCE_TYPES_JSON_FILENAME = "invalid_instance_types.json"
@@ -24,7 +24,7 @@ class AzureCollector:
         self.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME = "last_subscription_id_and_location.json"
         self.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME = "locations_over_limit.json"
         
-        self.ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH = "rawdata/azure/sps/error/locations_call_history"
+        self.ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH = "sps-collector/azure/saved_variable/error_locations_call_history"
         
         self.S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH = "latest_data/azure/price_saving_if.pkl.gz"
         self.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH = "latest_data/azure/all_data_az_true.pkl.gz"

@@ -10,7 +10,8 @@ from datetime import datetime, timezone, timedelta
 # Add parent directory to path to import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.common import S3, AZURE_CONST, STORAGE_CONST, Logger
+from utils.common import S3, Logger
+from utils.constants import AZURE_CONST, STORAGE_CONST
 from utils.slack_msg_sender import send_slack_message
 from merge import upload_data, compare_data
 

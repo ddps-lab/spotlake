@@ -17,10 +17,23 @@ from merge import upload_data, compare_data
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
-    join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
+    
+    # Rename time columns - handle both suffix and no-suffix cases
+    rename_map = {}
+    if 'time_x' in join_df.columns:
+        rename_map['time_x'] = 'PriceEviction_Update_Time'
+    if 'time_y' in join_df.columns:
+        rename_map['time_y'] = 'SPS_Update_Time'
+    if 'time' in join_df.columns and 'time_y' not in join_df.columns:
+        # Only SPS has time column, so no suffix
+        rename_map['time'] = 'SPS_Update_Time'
+    
+    join_df.rename(columns=rename_map, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True, errors='ignore')
 
-    join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
+    # Only fillna if both columns exist
+    if 'SPS_Update_Time' in join_df.columns and 'PriceEviction_Update_Time' in join_df.columns:
+        join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
 
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
         "DesiredCount", "Score", "SPS_Update_Time", "T2", "T3"]

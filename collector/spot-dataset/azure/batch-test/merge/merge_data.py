@@ -19,11 +19,24 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     # Ensure join keys are present and types match
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
     
+    print(f"DEBUG: Columns after merge: {list(join_df.columns)}")
+    
     # Handle column renaming from merge collisions or source names
-    join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
+    # Use errors='ignore' to handle cases where columns don't exist
+    join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, 
+                   inplace=True, errors='ignore')
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True, errors='ignore')
 
-    join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
+    print(f"DEBUG: Columns after rename: {list(join_df.columns)}")
+    
+    # Only fillna if both columns exist
+    if 'SPS_Update_Time' in join_df.columns and 'PriceEviction_Update_Time' in join_df.columns:
+        join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
+        print("DEBUG: Filled SPS_Update_Time with PriceEviction_Update_Time")
+    elif 'SPS_Update_Time' not in join_df.columns:
+        print("DEBUG: SPS_Update_Time column missing - will be created as None")
+    elif 'PriceEviction_Update_Time' not in join_df.columns:
+        print("DEBUG: PriceEviction_Update_Time column missing")
     
     # Define expected columns
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",

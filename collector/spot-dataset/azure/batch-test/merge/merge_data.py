@@ -16,40 +16,18 @@ from utils.slack_msg_sender import send_slack_message
 from merge import upload_data, compare_data
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
-    # Ensure join keys are present and types match
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
-    
-    print(f"DEBUG: Columns after merge: {list(join_df.columns)}")
-    
-    # Handle column renaming from merge collisions or source names
-    # Use errors='ignore' to handle cases where columns don't exist
-    join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, 
-                   inplace=True, errors='ignore')
+    join_df.rename(columns={'time_x': 'PriceEviction_Update_Time', 'time_y': 'SPS_Update_Time'}, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True, errors='ignore')
 
-    print(f"DEBUG: Columns after rename: {list(join_df.columns)}")
-    
-    # Only fillna if both columns exist
-    if 'SPS_Update_Time' in join_df.columns and 'PriceEviction_Update_Time' in join_df.columns:
-        join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
-        print("DEBUG: Filled SPS_Update_Time with PriceEviction_Update_Time")
-    elif 'SPS_Update_Time' not in join_df.columns:
-        print("DEBUG: SPS_Update_Time column missing - will be created as None")
-    elif 'PriceEviction_Update_Time' not in join_df.columns:
-        print("DEBUG: PriceEviction_Update_Time column missing")
-    
-    # Define expected columns
+    join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
+
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
         "DesiredCount", "Score", "SPS_Update_Time", "T2", "T3"]
 
     if az:
-        columns.insert(-4, "AvailabilityZone")  # Insert before Score (4 positions from end)
+        columns.insert(-4, "AvailabilityZone")
 
-    # Ensure all columns exist
-    for col in columns:
-        if col not in join_df.columns:
-            join_df[col] = None 
-            
     join_df = join_df[columns]
 
     join_df.fillna({
@@ -167,12 +145,17 @@ def main():
         if sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
         
+        # CRITICAL: SPS has 'Region' (region name) and 'RegionCodeSPS' (region code)
+        # IF and Price use region codes, so we must use RegionCodeSPS for merging
+        if 'RegionCodeSPS' in sps_df.columns:
+            sps_df['Region'] = sps_df['RegionCodeSPS']  # Replace Region with region code
+        
         # Strip potential whitespace and lower case keys
         for col in ['InstanceTier', 'InstanceType', 'Region']:
              if col in sps_df.columns:
                  sps_df[col] = sps_df[col].astype(str).str.strip().str.lower()
 
-        print("DEBUG: SPS DF Head (Normalized):")
+        print("DEBUG: SPS DF Head (Normalized):") 
         print(sps_df[['InstanceTier', 'InstanceType', 'Region']].head())
         print("DEBUG: SPS Unique Regions (Top 5):", sps_df['Region'].unique()[:5])
         print("DEBUG: SPS Unique InstanceTypes (Top 5):", sps_df['InstanceType'].unique()[:5])

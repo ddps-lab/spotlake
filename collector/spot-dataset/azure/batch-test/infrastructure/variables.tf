@@ -4,6 +4,11 @@ variable "aws_region" {
   default     = "us-west-2"
 }
 
+variable "vpc_id" {
+  description = "VPC ID for Batch Compute Environment"
+  type        = string
+}
+
 variable "s3_bucket" {
   description = "S3 bucket for SpotLake data"
   type        = string

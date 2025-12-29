@@ -195,6 +195,15 @@ resource "aws_iam_instance_profile" "ecs_instance_role" {
 
 # ------ Batch Compute Environment ------
 
+resource "time_sleep" "wait_for_iam_propagation" {
+  depends_on = [
+    aws_iam_role_policy_attachment.batch_service_role_policy,
+    aws_iam_role_policy_attachment.batch_service_ecs_policy_attachment
+  ]
+
+  create_duration = "10s"
+}
+
 resource "aws_batch_compute_environment" "spot_compute_env" {
   name = "spotlake-azure-test-compute-env"
 
@@ -218,8 +227,7 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
   service_role = aws_iam_role.batch_service_role.arn
   type         = "MANAGED"
   depends_on   = [
-    aws_iam_role_policy_attachment.batch_service_role_policy,
-    aws_iam_role_policy_attachment.batch_service_ecs_policy_attachment
+    time_sleep.wait_for_iam_propagation
   ]
 }
 

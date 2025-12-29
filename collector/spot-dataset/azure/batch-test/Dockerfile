@@ -38,7 +38,9 @@ RUN pip install --no-cache-dir \
     pyyaml \
     ortools \
     requests \
-    scikit-learn
+    scikit-learn \
+    azure-identity \
+    azure-core
 
 # Copy application code
 # Assuming build context is the project root (spotlake/)

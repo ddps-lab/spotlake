@@ -42,6 +42,11 @@ class S3Handler:
                 file = io.BytesIO()
                 data.to_pickle(file, compression="gzip")
                 file.seek(0)
+
+            elif file_type == "df_to_csv.gz":
+                file = io.BytesIO()
+                data.to_csv(file, index=False, compression="gzip")
+                file.seek(0)
             
             elif file_type == "yaml":
                 file = io.BytesIO(yaml.safe_dump(data).encode("utf-8"))

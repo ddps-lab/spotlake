@@ -87,18 +87,8 @@ def load_if():
         from utils.constants import AZURE_CONST, STORAGE_CONST
         
         az_str = "availability-zones-false"
-        
-        region_map_path = f"{AZURE_CONST.S3_SAVED_VARIABLE_PATH}/availability-zones-false/{AZURE_CONST.S3_REGION_MAP_AND_INSTANCE_MAP_JSON_FILENAME}"
-        try:
-            region_map_data = S3.read_file(region_map_path, 'json', bucket_name=STORAGE_CONST.READ_BUCKET_NAME)
-            if region_map_data and 'region_map' in region_map_data:
-                region_map = region_map_data['region_map']
-                eviction_df['Region'] = eviction_df['Region'].apply(lambda x: region_map.get(x, x))
-                print("Applied Region Map to IF Data")
-            else:
-                print("Region Map not found or empty. Skipping mapping.")
-        except Exception as e:
-             print(f"Failed to load Region Map for IF: {e}")
+        # Revert to Legacy Logic: Do not map Region Code to Name here.
+        # Merge logic will handle Code-to-Code join via armRegionName.
 
         eviction_df['OndemandPrice'] = -1.0
         eviction_df['SpotPrice'] = -1.0

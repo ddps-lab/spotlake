@@ -73,10 +73,27 @@ def main():
     Logger.info("Start Merge Data Script")
     start_time = datetime.now(timezone.utc)
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--sps_key', dest='sps_key', action='store', help='S3 Key of the SPS file')
-    parser.add_argument('--timestamp', dest='timestamp', action='store')
-    args = parser.parse_args()
+def merge_price_saving_if_df(price_df, if_df):
+    # Lambda Logic: Join on armRegionName (Price Code) == Region (IF Code)
+    join_df = pd.merge(price_df, if_df,
+                    left_on=['InstanceType', 'InstanceTier', 'armRegionName'],
+                    right_on=['InstanceType', 'InstanceTier', 'Region'],
+                    how='outer')
+    
+    # Select columns and rename
+    # Note: Region_x is Price Region Name ("East US"), Region_y is IF Region Code ("eastus")
+    join_df = join_df[['InstanceTier', 'InstanceType', 'Region_x', 'armRegionName', 'OndemandPrice_x', 'SpotPrice_x', 'Savings_x', 'IF']]
+    
+    # Filter rows where SpotPrice is NaN (Lambda logic: join_df[~join_df['SpotPrice_x'].isna()])
+    # However, if we want to keep IF-only data, we shouldn't drop? 
+    # Lambda code: join_df = join_df[~join_df['SpotPrice_x'].isna()] -> This drops IF-only rows!
+    # User complained about IF data being present? 
+    # Actually, if Price is missing, we usually can't calculate Savings.
+    # Let's stick to Lambda behavior for exact alignment.
+    join_df = join_df[~join_df['SpotPrice_x'].isna()]
+
+    join_df.rename(columns={'Region_x' : 'Region', 'OndemandPrice_x' : 'OndemandPrice', 'SpotPrice_x' : 'SpotPrice', 'Savings_x' : 'Savings'}, inplace=True)
+    return join_df
 
     s3_client = boto3.client('s3')
     # Use WRITE_BUCKET_NAME (Test) for listing/reading raw data
@@ -142,21 +159,39 @@ def main():
         if sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
         
+        # Strip potential whitespace from keys
+        for col in ['InstanceTier', 'InstanceType', 'Region']:
+             if col in sps_df.columns:
+                 sps_df[col] = sps_df[col].astype(str).str.strip()
+
         print("DEBUG: SPS DF Head:")
-        print(sps_df.head())
-        print(sps_df.columns)
+        print(sps_df[['InstanceTier', 'InstanceType', 'Region']].head())
+        print("DEBUG: SPS Unique Regions (Top 5):", sps_df['Region'].unique()[:5])
+        print("DEBUG: SPS Unique InstanceTypes (Top 5):", sps_df['InstanceType'].unique()[:5])
              
         if_df = S3.read_file(if_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         if if_df is not None:
+            # Strip potential whitespace
+            for col in ['InstanceTier', 'InstanceType', 'Region']:
+                 if col in if_df.columns:
+                     if_df[col] = if_df[col].astype(str).str.strip()
+
             print("DEBUG: IF DF Head:")
-            print(if_df.head())
-            print(if_df.columns)
+            print(if_df[['InstanceTier', 'InstanceType', 'Region']].head())
+            print("DEBUG: IF Unique Regions (Top 5):", if_df['Region'].unique()[:5])
+            print("DEBUG: IF Unique InstanceTypes (Top 5):", if_df['InstanceType'].unique()[:5])
 
         price_df = S3.read_file(price_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         if price_df is not None:
+             # Strip potential whitespace. Note: Price DF has armRegionName too.
+            for col in ['InstanceTier', 'InstanceType', 'Region', 'armRegionName']:
+                 if col in price_df.columns:
+                     price_df[col] = price_df[col].astype(str).str.strip()
+
             print("DEBUG: Price DF Head:")
-            print(price_df.head())
-            print(price_df.columns)
+            print(price_df[['InstanceTier', 'InstanceType', 'Region']].head())
+            print("DEBUG: Price Unique Regions (Top 5):", price_df['Region'].unique()[:5])
+            print("DEBUG: Price Unique InstanceTypes (Top 5):", price_df['InstanceType'].unique()[:5])
         
         if if_df is None:
              Logger.warning("IF data missing. Proceeding with empty IF columns.")
@@ -166,14 +201,16 @@ def main():
              price_df = pd.DataFrame()
 
         if not price_df.empty and not if_df.empty:
-            # Drop dummy cols from IF before merge to avoid suffixes
-            if_df_clean = if_df[['InstanceTier', 'InstanceType', 'Region', 'IF']]
-            price_saving_if_df = pd.merge(price_df, if_df_clean, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
+            # Drop dummy cols from IF is not needed if we use merge_price_saving_if_df
+            # Use Lambda-aligned logic
+            price_saving_if_df = merge_price_saving_if_df(price_df, if_df)
+            
         elif not price_df.empty:
             price_saving_if_df = price_df
             price_saving_if_df['IF'] = -1
         elif not if_df.empty:
             price_saving_if_df = if_df
+            # Missing Price means no Ondemand/Spot price info
         else:
             price_saving_if_df = pd.DataFrame(columns=['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF'])
 

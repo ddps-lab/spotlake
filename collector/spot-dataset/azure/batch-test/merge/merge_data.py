@@ -159,36 +159,36 @@ def main():
         if sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
         
-        # Strip potential whitespace from keys
+        # Strip potential whitespace and lower case keys
         for col in ['InstanceTier', 'InstanceType', 'Region']:
              if col in sps_df.columns:
-                 sps_df[col] = sps_df[col].astype(str).str.strip()
+                 sps_df[col] = sps_df[col].astype(str).str.strip().str.lower()
 
-        print("DEBUG: SPS DF Head:")
+        print("DEBUG: SPS DF Head (Normalized):")
         print(sps_df[['InstanceTier', 'InstanceType', 'Region']].head())
         print("DEBUG: SPS Unique Regions (Top 5):", sps_df['Region'].unique()[:5])
         print("DEBUG: SPS Unique InstanceTypes (Top 5):", sps_df['InstanceType'].unique()[:5])
              
         if_df = S3.read_file(if_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         if if_df is not None:
-            # Strip potential whitespace
+            # Strip potential whitespace and lower case keys
             for col in ['InstanceTier', 'InstanceType', 'Region']:
                  if col in if_df.columns:
-                     if_df[col] = if_df[col].astype(str).str.strip()
+                     if_df[col] = if_df[col].astype(str).str.strip().str.lower()
 
-            print("DEBUG: IF DF Head:")
+            print("DEBUG: IF DF Head (Normalized):")
             print(if_df[['InstanceTier', 'InstanceType', 'Region']].head())
             print("DEBUG: IF Unique Regions (Top 5):", if_df['Region'].unique()[:5])
             print("DEBUG: IF Unique InstanceTypes (Top 5):", if_df['InstanceType'].unique()[:5])
 
         price_df = S3.read_file(price_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         if price_df is not None:
-             # Strip potential whitespace. Note: Price DF has armRegionName too.
+             # Strip potential whitespace and lower case keys
             for col in ['InstanceTier', 'InstanceType', 'Region', 'armRegionName']:
                  if col in price_df.columns:
-                     price_df[col] = price_df[col].astype(str).str.strip()
+                     price_df[col] = price_df[col].astype(str).str.strip().str.lower()
 
-            print("DEBUG: Price DF Head:")
+            print("DEBUG: Price DF Head (Normalized):")
             print(price_df[['InstanceTier', 'InstanceType', 'Region']].head())
             print("DEBUG: Price Unique Regions (Top 5):", price_df['Region'].unique()[:5])
             print("DEBUG: Price Unique InstanceTypes (Top 5):", price_df['InstanceType'].unique()[:5])

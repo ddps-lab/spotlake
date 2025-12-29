@@ -22,7 +22,7 @@ from utils.azure_auth import get_sps_token_and_subscriptions
 from utils.common import S3, Logger
 from utils.constants import AZURE_CONST
 
-availability_zones = os.environ.get("availability_zones", "False").lower() == "true"
+availability_zones = True  # Hardcoded to always collect AvailabilityZone data
 
 SS_Resources = sps_shared_resources
 SL_Manager = sps_location_manager

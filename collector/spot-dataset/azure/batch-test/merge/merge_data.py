@@ -41,6 +41,11 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     if az:
         columns.insert(-4, "AvailabilityZone")
 
+    # Ensure all columns exist before selecting them
+    for col in columns:
+        if col not in join_df.columns:
+            join_df[col] = None
+
     join_df = join_df[columns]
 
     join_df.fillna({

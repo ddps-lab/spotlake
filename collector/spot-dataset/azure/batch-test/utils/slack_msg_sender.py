@@ -25,10 +25,7 @@ def send_slack_message(msg):
     url = SSM.get_parameter(url_key, with_decryption=False)
 
     if not url:
-        url = os.environ.get(url_key)
-
-    if not url:
-        print(f"Slack webhook URL not found. Message: {msg}")
+        print(f"Slack webhook URL not found in SSM. Message: {msg}")
         return
 
     stack = inspect.stack()

@@ -141,9 +141,22 @@ def main():
         sps_df = S3.read_file(sps_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         if sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
+        
+        print("DEBUG: SPS DF Head:")
+        print(sps_df.head())
+        print(sps_df.columns)
              
         if_df = S3.read_file(if_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
+        if if_df is not None:
+            print("DEBUG: IF DF Head:")
+            print(if_df.head())
+            print(if_df.columns)
+
         price_df = S3.read_file(price_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
+        if price_df is not None:
+            print("DEBUG: Price DF Head:")
+            print(price_df.head())
+            print(price_df.columns)
         
         if if_df is None:
              Logger.warning("IF data missing. Proceeding with empty IF columns.")

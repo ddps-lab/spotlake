@@ -49,7 +49,7 @@ def log_execution_time(func):
 def collect_spot_placement_score_first_time(desired_counts):
     # 시간 수집 로직들은 추후 제거 예정입니다.
     '''
-    이 메서드는 0:00분에 호출합니다.
+    이 메서드는 00:00 UTC에 호출합니다.
     1. RESET 필요한 일부 S3 파일을 RESET
     2. priceapi로 regions_and_instance_types 원본 수집
     3. greedy_clustering 방법으로 호출 파라미터 pool만들기
@@ -213,7 +213,9 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
                                     score.get("sku", ""), {}).get("InstanceTier"),
                                 "InstanceType": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
                                     score.get("sku", ""), {}).get("InstanceTypeOld"),
-                                "Score": score.get("score")
+                                "Score": map_score_to_int(score.get("score")),
+                                "T3": desired_count if map_score_to_int(score.get("score")) == 3 else 0,
+                                "T2": desired_count if map_score_to_int(score.get("score")) >= 2 else 0
                             }
                             if availability_zones is True:
                                 score_data["AvailabilityZone"] = score.get("availabilityZone", "Single")
@@ -255,6 +257,21 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
 
     print(f"execute_spot_placement_score_task_by_parameter_pool_df Successfully! availability_zones: {availability_zones}")
     return sps_res_df
+
+
+    return sps_res_df
+
+
+def map_score_to_int(score_val):
+    if isinstance(score_val, int):
+        return score_val
+    
+    score_map = {
+        "High": 3,
+        "Medium": 2,
+        "Low": 1
+    }
+    return score_map.get(score_val, 0)
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_count, max_retries=12):
@@ -318,7 +335,14 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
                     retries = handle_retry("InvalidInstanceType", retries, max_retries)
 
             if "BadGatewayConnection" in error_message:
-                print(f"HTTP error occurred: {error_message}")
+                print(f"[DEBUG_ERROR] BadGatewayConnection occurred!")
+                print(f"URL: {url}")
+                print(f"Data - DesiredCount: {desired_count}, AvailabilityZones: {availability_zones}")
+                print(f"Data - Region Chunk: {region_chunk}")
+                print(f"Data - Instance Chunk: {instance_type_chunk}")
+                print(f"Response Headers: {http_err.response.headers}")
+                print(f"Full Error Message: {error_message}")
+                
                 retries = handle_retry("BadGatewayConnection", retries, max_retries)
 
             elif "InvalidParameter" in error_message:

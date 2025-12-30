@@ -137,7 +137,7 @@ def upload_timestream(data, time_datetime):
     try:
         data = data.copy()
         data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time"]]
+            "DesiredCount", "AvailabilityZone", "Score", "SPS_Update_Time", "T2", "T3"]]
 
         fill_values = {
             "InstanceTier": 'N/A',
@@ -150,7 +150,9 @@ def upload_timestream(data, time_datetime):
             'DesiredCount': -1,
             'AvailabilityZone': 'N/A',
             'Score': 'N/A',
-            'SPS_Update_Time': 'N/A'
+            'SPS_Update_Time': 'N/A',
+            'T2': 0,
+            'T3': 0
         }
         data = data.fillna(fill_values)
 
@@ -177,7 +179,9 @@ def upload_timestream(data, time_datetime):
                 ('SpotPrice', 'DOUBLE'),
                 ('IF', 'DOUBLE'),
                 ('Score', 'VARCHAR'),
-                ('SPS_Update_Time', 'VARCHAR')
+                ('SPS_Update_Time', 'VARCHAR'),
+                ('T2', 'DOUBLE'),
+                ('T3', 'DOUBLE')
             ]
 
             for column, value_type in measure_columns:
@@ -229,17 +233,12 @@ def save_raw(all_data_dataframe, time_utc, az, data_type=None):
         s3_dir_name = time_utc.strftime("%Y/%m/%d")
         s3_obj_name = time_utc.strftime("%H-%M-%S")
 
-        az_str = f"availability-zones-{str(az).lower()}"
         base_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}"
 
-        if data_type == "desired_count_1":
-            if az:
-                data_path = f"{base_path}/{s3_dir_name}/{s3_obj_name}.csv.gz"
-            else:
-                data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
-
-        elif data_type in {"multi", "specific"}:
-            data_path = f"{base_path}/{data_type}/{az_str}/{s3_dir_name}/{s3_obj_name}.csv.gz"
+        if data_type in ["desired_count_1", "multi", "specific"]:
+            # Unify keeping path as rawdata/azure/YYYY/MM/DD/...
+            # Ignoring data_type and az_str for path construction as requested
+            data_path = f"{base_path}/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
         else:
             print(f"save_raw failed. error: no data_type.")

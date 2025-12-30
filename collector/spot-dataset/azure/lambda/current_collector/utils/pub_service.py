@@ -7,6 +7,7 @@ import inspect
 import os
 import logging
 import pandas as pd
+import yaml
 from botocore.config import Config
 from const_config import AzureCollector, Storage
 
@@ -57,13 +58,20 @@ class S3Handler:
 
     def upload_file(self, data, file_path, file_type="json", set_public_read = False):
         try:
-            if file_type not in ['json', 'pkl', 'pkl.gz', 'df_to_csv.gz']:
-                raise ValueError("Unsupported file type. To use 'json', 'pkl', 'pkl.gz', 'df_to_csv.gz'.")
+            if file_type not in ['json', 'pkl', 'pkl.gz', 'df_to_csv.gz', 'yaml']:
+                raise ValueError("Unsupported file type. To use 'json', 'pkl', 'pkl.gz', 'df_to_csv.gz', 'yaml'.")
 
             if file_type == "json":
                 if not isinstance(data, (dict, list)):
                     raise ValueError("JSON must be a dictionary or a list")
-                file = io.BytesIO(json.dumps(data).encode("utf-8"))
+                
+                class PandasJSONEncoder(json.JSONEncoder):
+                    def default(self, obj):
+                        if pd.isna(obj):
+                            return None
+                        return super().default(obj)
+                
+                file = io.BytesIO(json.dumps(data, cls=PandasJSONEncoder).encode("utf-8"))
 
             elif file_type == "pkl":
                 if data is None:
@@ -85,6 +93,11 @@ class S3Handler:
                 file = io.BytesIO()
                 data.to_csv(file, index=False, compression="gzip")
                 file.seek(0)
+
+            elif file_type == "yaml":
+                if data is None:
+                    raise ValueError("Data cannot be None for yaml file")
+                file = io.BytesIO(yaml.safe_dump(data).encode("utf-8"))
 
             self.client.upload_fileobj(file, STORAGE_CONST.BUCKET_NAME, file_path)
 
@@ -114,8 +127,11 @@ class S3Handler:
             elif file_type == "pkl.gz":
                 return pd.read_pickle(file, compression="gzip")
 
+            elif file_type == "yaml":
+                return yaml.safe_load(file)
+
             else:
-                raise ValueError("Unsupported file type. Use 'json' or 'pkl' or 'pkl.gz'.")
+                raise ValueError("Unsupported file type. Use 'json' or 'pkl' or 'pkl.gz' or 'yaml'.")
 
         except json.JSONDecodeError:
             print(f"Warning: {file_path} is not a valid JSON file.")

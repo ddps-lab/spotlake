@@ -25,8 +25,8 @@ available_locations = None
 
 
 def generate_time_to_desired_count_map():
-    start_time = datetime.strptime("15:00", "%H:%M")
-    end_time = datetime.strptime("14:50", "%H:%M")
+    start_time = datetime.strptime("00:00", "%H:%M")
+    end_time = datetime.strptime("23:50", "%H:%M")
     desired_counts = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
     time_to_desired_count = {}
     current_time = start_time

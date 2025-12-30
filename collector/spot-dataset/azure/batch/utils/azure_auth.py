@@ -1,0 +1,79 @@
+import requests
+import time
+import boto3
+from azure.identity import ClientSecretCredential
+from azure.core.exceptions import ClientAuthenticationError
+
+# DynamoDB Setup
+session = boto3.Session()
+dynamodb = session.resource('dynamodb', region_name='us-east-1')
+DynamoDB_NAME = "AzureAuth"
+
+class DynamoDB:
+    def __init__(self, table):
+        self.table = dynamodb.Table(table)
+
+    def get_item(self, key):
+        try:
+            return self.table.get_item(Key={'id': key})['Item']['data']
+        except Exception as e:
+            print(f"Error getting item {key} from DynamoDB: {e}")
+            raise e
+
+    def put_item(self, id, data):
+        try:
+            self.table.put_item(Item={'id': id, 'data': data})
+        except Exception as e:
+            print(f"Error putting item {id} to DynamoDB: {e}")
+            raise e
+
+DB_AzureAuth = DynamoDB(DynamoDB_NAME)
+
+def get_token():
+    now = int(time.time())
+
+    expire = DB_AzureAuth.get_item('expire')
+    if expire - 300 > now:
+        access_token = DB_AzureAuth.get_item('access_token')
+        return access_token
+
+    realm = DB_AzureAuth.get_item('realm')
+    client_id = DB_AzureAuth.get_item('client_id')
+    refresh_token = DB_AzureAuth.get_item('refresh_token')
+
+    data = requests.post(f'https://login.microsoftonline.com/{realm}/oauth2/v2.0/token', data={'client_id': client_id, 'grant_type': 'refresh_token', 'client_info': '1',
+                         'claims': '{"access_token": {"xms_cc": {"values": ["CP1"]}}}', 'refresh_token': refresh_token, 'scope': 'https://management.core.windows.net//.default offline_access openid profile'}).json()
+
+    access_token = data['access_token']
+    refresh_token = data['refresh_token']
+    expires_in = data['expires_in']
+
+    DB_AzureAuth.put_item('access_token', access_token)
+    DB_AzureAuth.put_item('refresh_token', refresh_token)
+    DB_AzureAuth.put_item('expire', now + expires_in)
+
+    return access_token
+
+
+def get_sps_token_and_subscriptions(availability_zones=True):
+    if availability_zones is True:
+        auth_data = DB_AzureAuth.get_item('login_auth_az_true')
+    else:
+        auth_data = DB_AzureAuth.get_item('login_auth_az_false')
+
+    tenant_id = auth_data['tenant_id']
+    client_id = auth_data['client_id']
+    client_secret = auth_data['client_secret']
+    subscriptions = auth_data['subscriptions'].split(",")
+
+
+    if not all([tenant_id, client_id, client_secret, subscriptions]):
+        raise ValueError("Missing required environment variables: TENANT_ID, CLIENT_ID, CLIENT_SECRET, or SUBSCRIPTIONS")
+
+    try:
+        credential = ClientSecretCredential(tenant_id, client_id, client_secret)
+        sps_token = credential.get_token("https://management.azure.com/.default").token
+    except ClientAuthenticationError as e:
+        raise ValueError(f"Failed to authenticate with Azure: {e}")
+
+    return sps_token, subscriptions

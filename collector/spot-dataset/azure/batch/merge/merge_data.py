@@ -24,20 +24,20 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     if 'time_x' in join_df.columns:
         rename_map['time_x'] = 'PriceEviction_Update_Time'
     if 'time_y' in join_df.columns:
-        rename_map['time_y'] = 'SPS_Update_Time'
+        rename_map['time_y'] = 'Time'
     if 'time' in join_df.columns and 'time_y' not in join_df.columns:
         # Only SPS has time column, so no suffix
-        rename_map['time'] = 'SPS_Update_Time'
+        rename_map['time'] = 'Time'
     
     join_df.rename(columns=rename_map, inplace=True)
     join_df.drop(columns=['id', 'InstanceTypeSPS', 'RegionCodeSPS'], inplace=True, errors='ignore')
 
-    if 'SPS_Update_Time' in join_df.columns and 'PriceEviction_Update_Time' in join_df.columns:
-        join_df['SPS_Update_Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
+    if 'Time' in join_df.columns and 'PriceEviction_Update_Time' in join_df.columns:
+        join_df['Time'].fillna(join_df['PriceEviction_Update_Time'], inplace=True)
     
     # Define expected columns
     columns = ["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-        "DesiredCount", "Score", "SPS_Update_Time", "T2", "T3"]
+        "DesiredCount", "Score", "Time", "T2", "T3"]
 
     if az:
         columns.insert(-4, "AvailabilityZone")  # Insert before Score (4 positions from end)
@@ -60,7 +60,7 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
         "DesiredCount": -1,
         "Score": "N/A",
         "AvailabilityZone": "N/A",
-        "SPS_Update_Time": "N/A",
+        "Time": "N/A",
         "T2": 0,
         "T3": 0
     }, inplace=True)
@@ -209,7 +209,7 @@ def main():
             
             # Detect Changes
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
-            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time', 'T2', 'T3']
+            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'Time', 'T2', 'T3']
             
             changed_df = compare_data.compare_sps(prev_all_data, sps_merged_df, workload_cols, feature_cols)
             

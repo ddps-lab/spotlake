@@ -87,7 +87,7 @@ def update_latest(data, timestamp):
     LATEST_PATH = f'latest_data/{filename}'
 
     data['id'] = data.index+1
-    data['time'] = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    # Note: 'Time' column is already added in merge_data.py before calling this function
     data.to_json(f"/tmp/{filename}", orient="records")
 
     s3 = boto3.resource('s3')

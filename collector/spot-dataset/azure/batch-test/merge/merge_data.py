@@ -237,6 +237,10 @@ def main():
         # Load Previous Data from WRITE_BUCKET (Test)
         prev_all_data = S3.read_file(AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         
+        # Backward compatibility: rename old column name to new
+        if prev_all_data is not None and 'SPS_Update_Time' in prev_all_data.columns:
+            prev_all_data.rename(columns={'SPS_Update_Time': 'Time'}, inplace=True)
+        
         query_success = timestream_success = cloudwatch_success = update_latest_success = save_raw_success = False
         
         # Compare and Process

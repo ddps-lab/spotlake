@@ -63,6 +63,9 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
         "T2": 0,
         "T3": 0
     }, inplace=True)
+    
+    # Convert Score to integer (0-10 range, no decimals needed)
+    join_df["Score"] = pd.to_numeric(join_df["Score"], errors='coerce').astype("Int64")
 
     join_df = join_df[
         ~((join_df["OndemandPrice"] == -1) &

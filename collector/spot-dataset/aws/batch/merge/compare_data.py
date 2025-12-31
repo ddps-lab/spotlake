@@ -4,12 +4,7 @@ import numpy as np
 import warnings
 
 # ------ import user module ------
-try:
-    from slack_msg_sender import send_slack_message
-except ImportError:
-    warnings.warn("slack_msg_sender not found. Slack notifications will be disabled.")
-    def send_slack_message(msg):
-        print(f"[SLACK] {msg}")
+from utility.slack_msg_sender import send_slack_message
 
 # compare previous collected workload with current collected workload
 # return changed workload

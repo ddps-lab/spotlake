@@ -185,6 +185,9 @@ def main():
 
         def get_next_credential(self):
             with self.lock:
+                if self.current_index >= self.max_index:
+                    raise IndexError("No more credentials available in the current set.")
+                
                 credential = self.credentials.iloc[self.current_index]
                 # Use modulo to wrap index back to 0 when it reaches max
                 self.current_index = (self.current_index + 1) % self.max_index

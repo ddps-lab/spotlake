@@ -231,6 +231,36 @@ def update_latest(all_data_dataframe):
         return False
 
 
+def update_latest_azure_json(all_data_dataframe, timestamp):
+    """
+    Generate latest_azure.json in AWS-compatible format.
+    This provides consistency with AWS which uses a single latest_aws.json file.
+    """
+    try:
+        # Create a copy with id and time columns
+        data = all_data_dataframe.copy()
+        data['id'] = data.index + 1
+        data['time'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Convert to JSON
+        json_data = data.to_dict(orient="records")
+        
+        # Upload to S3 at the same path as Lambda uses
+        S3.upload_file(
+            json_data,
+            "latest_data/latest_azure.json",  # AWS-compatible path
+            "json",
+            set_public_read=True
+        )
+        
+        print(f"Successfully uploaded latest_azure.json with {len(data)} records")
+        return True
+        
+    except Exception as e:
+        print(f"update_latest_azure_json failed. error: {e}")
+        return False
+
+
 def save_raw(all_data_dataframe, time_utc, az, data_type=None):
     try:
         s3_dir_name = time_utc.strftime("%Y/%m/%d")

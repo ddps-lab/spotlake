@@ -272,11 +272,15 @@ def main():
             Logger.info("First run or no previous data. Skipping comparison.")
             # Treat all as new?
             update_latest_success = upload_data.update_latest(sps_merged_df)
+            upload_data.update_latest_azure_json(sps_merged_df, timestamp_utc)
             save_raw_success = upload_data.save_raw(sps_merged_df, timestamp_utc, az=True, data_type='desired_count_1' if desired_count==1 else 'multi')
             return
 
         # Upload Results
         update_latest_success = upload_data.update_latest(sps_merged_df)
+        
+        # Also generate AWS-compatible latest_azure.json
+        upload_data.update_latest_azure_json(sps_merged_df, timestamp_utc)
         
         data_type = 'desired_count_1' if desired_count == 1 else 'multi'
         save_raw_success = upload_data.save_raw(sps_merged_df, timestamp_utc, az=True, data_type=data_type)

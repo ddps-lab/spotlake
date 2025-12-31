@@ -6,6 +6,7 @@ import pickle, gzip
 import io
 import argparse
 import json
+import time
 import concurrent.futures
 
 # ------ import user module ------
@@ -48,6 +49,8 @@ def get_ondemand_price():
         print(f"Collecting on-demand price for region: {region}")
         local_data = {"Region": [], "InstanceType": [], "OndemandPrice": []}
         try:
+            # Add delay to avoid rate limiting
+            time.sleep(0.5)
             price_infos = get_ondemand_price_region(region, pricing_client)
             for price_info in price_infos:
                 instance_type = json.loads(price_info)['product']['attributes']['instanceType']
@@ -65,7 +68,8 @@ def get_ondemand_price():
             print(f"Error collecting on-demand price for region {region}: {e}")
             return None
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    # Reduced from 10 to 3 to avoid AWS Pricing API rate limits
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         future_to_region = {executor.submit(process_region, region): region for region in regions}
         for future in concurrent.futures.as_completed(future_to_region):
             result = future.result()

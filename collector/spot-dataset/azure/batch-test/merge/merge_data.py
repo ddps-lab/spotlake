@@ -252,9 +252,26 @@ def main():
         # Load Previous Data from WRITE_BUCKET (Test)
         prev_all_data = S3.read_file(AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         
-        # Backward compatibility: rename old column name to new
-        if prev_all_data is not None and 'SPS_Update_Time' in prev_all_data.columns:
-            prev_all_data.rename(columns={'SPS_Update_Time': 'Time'}, inplace=True)
+        # CRITICAL: Filter prev_all_data to latest timestamp
+        # Multiple timestamps in prev_all_data cause Cartesian product in merge
+        if prev_all_data is not None and not prev_all_data.empty:
+            Logger.info(f"Loaded prev_all_data: {len(prev_all_data)} rows")
+            
+            # Check for Time column (current) or SPS_Update_Time (legacy)
+            time_col = None
+            if 'Time' in prev_all_data.columns:
+                time_col = 'Time'
+            elif 'SPS_Update_Time' in prev_all_data.columns:
+                time_col = 'SPS_Update_Time'
+                prev_all_data.rename(columns={'SPS_Update_Time': 'Time'}, inplace=True)
+            
+            if time_col or 'Time' in prev_all_data.columns:
+                latest_prev_time = prev_all_data['Time'].max()
+                time_range = f"{prev_all_data['Time'].min()} to {latest_prev_time}"
+                Logger.info(f"prev_all_data time range: {time_range}")
+                
+                prev_all_data = prev_all_data[prev_all_data['Time'] == latest_prev_time].copy()
+                Logger.info(f"Filtered prev_all_data to latest timestamp. Rows: {len(prev_all_data)}")
         
         query_success = timestream_success = cloudwatch_success = update_latest_success = save_raw_success = False
         

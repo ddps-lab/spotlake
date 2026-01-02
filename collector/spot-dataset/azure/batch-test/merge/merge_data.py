@@ -73,6 +73,17 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
           (join_df["Savings"] == -1) &
           (join_df["IF"] == -1))
     ]
+    
+    # Remove Gov regions (additional safety layer)
+    join_df = join_df[
+        ~join_df['Region'].astype(str).str.contains('gov', case=False, na=False)
+    ]
+    
+    # Remove rows without valid SPS data (IF/Price only combinations)
+    # Score=-1 AND AvailabilityZone=N/A means no SPS placement data
+    join_df = join_df[
+        ~((join_df["Score"] == -1) & (join_df["AvailabilityZone"] == "N/A"))
+    ]
 
     return join_df
 
@@ -272,6 +283,16 @@ def main():
                 
                 prev_all_data = prev_all_data[prev_all_data['Time'] == latest_prev_time].copy()
                 Logger.info(f"Filtered prev_all_data to latest timestamp. Rows: {len(prev_all_data)}")
+            
+            # Remove Gov regions from prev_all_data
+            if 'Region' in prev_all_data.columns:
+                gov_count = prev_all_data['Region'].astype(str).str.contains('gov', case=False, na=False).sum()
+                if gov_count > 0:
+                    Logger.info(f"Removing {gov_count} Gov region rows from prev_all_data")
+                    prev_all_data = prev_all_data[
+                        ~prev_all_data['Region'].astype(str).str.contains('gov', case=False, na=False)
+                    ]
+                    Logger.info(f"After Gov filter: {len(prev_all_data)} rows")
         
         query_success = timestream_success = cloudwatch_success = update_latest_success = save_raw_success = False
         

@@ -212,8 +212,7 @@ def upload_timestream(data, time_datetime):
 
 def update_latest(all_data_dataframe):
     try:
-        # Add id column efficiently without full copy
-        all_data_dataframe = all_data_dataframe.copy()
+        # Match Lambda behavior: modify original directly (no copy)
         all_data_dataframe['id'] = all_data_dataframe.index + 1
 
         # Filter and add id in one step

@@ -1,10 +1,14 @@
-import os
-import boto3
-import pickle
-import time
-import pandas as pd
+```python
 import sys
+import os
+import pandas as pd
+import boto3
+import time
+import json
+import pickle
+import gzip
 from datetime import datetime
+import concurrent.futures
 
 # Add parent directory to path to import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -162,10 +166,9 @@ def upload_timestream(data, time_datetime):
 
         time_value = str(int(round(time_datetime.timestamp() * 1000)))
 
-        records = []
-        counter = 0
+        # Prepare all records first
+        all_records = []
         for idx, row in data.iterrows():
-
             dimensions = []
             for column in ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']:
                 dimensions.append({'Name': column, 'Value': str(row[column])})
@@ -195,18 +198,39 @@ def upload_timestream(data, time_datetime):
                     'Type': value_type
                 })
 
-            records.append(submit_data)
-            counter += 1
-            if len(records) == 100:
-                submit_batch(records, counter, 0)
-                records = []
+            all_records.append(submit_data)
 
-        if len(records) != 0:
-            submit_batch(records, counter, 0)
+        # Split into batches of 100
+        all_batches = []
+        batch = []
+        for record in all_records:
+            batch.append(record)
+            if len(batch) == 100:
+                all_batches.append(batch)
+                batch = []
+        
+        if batch:  # Add remaining records
+            all_batches.append(batch)
+        
+        Logger.info(f"Uploading {len(all_records)} records in {len(all_batches)} batches using 10 threads")
+        
+        # Submit batches in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(submit_batch, batch, i, 0) for i, batch in enumerate(all_batches)]
+            
+            # Wait for all to complete and check for errors
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    Logger.error(f"Error submitting batch: {e}")
+                    # Continue with other batches even if one fails
+        
+        Logger.info("Timestream upload completed")
         return True
 
     except Exception as e:
-        print(f"upload_timestream failed. error: {e}")
+        Logger.error(f"upload_timestream failed. error: {e}")
         return False
 
 

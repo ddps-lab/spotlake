@@ -162,9 +162,21 @@ def main():
 
     try:
         # Load Data from WRITE_BUCKET (Test)
-        sps_df = S3.read_file(sps_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
+        sps_df = S3.read_file(sps_key, 'pkl.gz')
         if sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
+        
+        Logger.info(f"Loaded SPS: {len(sps_df)} rows")
+        
+        # CRITICAL: Filter to latest timestamp only
+        # SPS files may contain historical data causing massive row explosion
+        if 'time' in sps_df.columns:
+            latest_time = sps_df['time'].max()
+            time_range = f"{sps_df['time'].min()} to {latest_time}"
+            Logger.info(f"SPS time range: {time_range}")
+            
+            sps_df = sps_df[sps_df['time'] == latest_time].copy()
+            Logger.info(f"Filtered SPS to latest timestamp. Rows: {len(sps_df)}")
         
         # NOTE: SPS has both 'Region' (region name) and 'RegionCodeSPS' (region code)
         # Lambda keeps Region as region NAME for merging

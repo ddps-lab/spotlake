@@ -252,6 +252,7 @@ def main():
             
             # T2/T3 Calculation
             sps_merged_df = compare_data.compare_max_instance(prev_all_data, sps_merged_df, desired_count)
+            Logger.info(f"T2/T3 calculation complete. Result rows: {len(sps_merged_df)}")
             
             # Detect Changes
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
@@ -268,6 +269,12 @@ def main():
                 timestream_success = True
                 
             cloudwatch_success = upload_data.upload_cloudwatch(sps_merged_df, timestamp_utc)
+            
+            # Free prev_all_data memory explicitly
+            del prev_all_data
+            import gc
+            gc.collect()
+            Logger.info("Memory cleanup complete")
         else:
             Logger.info("First run or no previous data. Skipping comparison.")
             # Treat all as new?

@@ -17,9 +17,10 @@ session = boto3.session.Session(region_name='us-west-2')
 # Update latest_azure.json in S3
 def update_latest_price_saving_if(data, time_datetime):
     try:
+        # Copy once at start to avoid mutating caller's DataFrame
+        data = data.copy()
         data['id'] = data.index + 1
         data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
-        data = data.copy()
 
         data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
         data['Savings'] = data['Savings'].fillna(-1)
@@ -138,9 +139,9 @@ def submit_batch(records, counter, recursive):
 def upload_timestream(data, time_datetime):
     Logger.info("Executing upload_timestream!")
     try:
-        data = data.copy()
+        # Copy only selected columns to reduce memory
         data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-            "DesiredCount", "AvailabilityZone", "Score", "Time", "T2", "T3"]]
+            "DesiredCount", "AvailabilityZone", "Score", "Time", "T2", "T3"]].copy()
 
         fill_values = {
             "InstanceTier": 'N/A',
@@ -211,8 +212,11 @@ def upload_timestream(data, time_datetime):
 
 def update_latest(all_data_dataframe):
     try:
+        # Add id column efficiently without full copy
+        all_data_dataframe = all_data_dataframe.copy()
         all_data_dataframe['id'] = all_data_dataframe.index + 1
 
+        # Filter and add id in one step
         dataframe_desired_count_1_df = all_data_dataframe[all_data_dataframe["DesiredCount"].isin([1, -1])].copy()
         dataframe_desired_count_1_df['id'] = dataframe_desired_count_1_df.index + 1
         desired_count_1_json_data = dataframe_desired_count_1_df.to_dict(orient="records")
@@ -237,10 +241,11 @@ def update_latest_azure_json(all_data_dataframe, timestamp):
     This provides consistency with AWS which uses a single latest_aws.json file.
     """
     try:
-        # Create a copy with id and time columns
-        data = all_data_dataframe.copy()
-        data['id'] = data.index + 1
-        data['time'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        # Create copy with new columns efficiently using assign
+        data = all_data_dataframe.assign(
+            id=all_data_dataframe.index + 1,
+            time=timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        )
         
         # Convert to JSON
         json_data = data.to_dict(orient="records")

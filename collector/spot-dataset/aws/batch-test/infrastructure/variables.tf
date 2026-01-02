@@ -33,5 +33,5 @@ variable "image_uri" {
 variable "job_role_arn" {
   description = "IAM Role ARN for Batch Jobs (if existing)"
   type        = string
-  default     = ""
+  default     = null
 }

@@ -33,5 +33,14 @@ variable "image_uri" {
 variable "job_role_arn" {
   description = "IAM Role ARN for Batch Jobs (if existing)"
   type        = string
-  default     = ""
+  default     = null
+}
+
+
+# Slack Webhook URL for failure notifications
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Batch job failure notifications"
+  type        = string
+  sensitive   = true
+  default     = null
 }

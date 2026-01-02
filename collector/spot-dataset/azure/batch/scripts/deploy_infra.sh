@@ -59,27 +59,33 @@ if [ "$MISSING_ARGS" = true ]; then
 fi
 
 echo "Deploying Infrastructure..."
-cd collector/spot-dataset/aws/batch/infrastructure
+cd collector/spot-dataset/azure/batch/infrastructure
 
 echo "Initializing Terraform..."
 terraform init
 
 echo "Applying Terraform..."
-TF_VARS="-var \"vpc_id=$VPC_ID\" \\
-    -var \"subnet_ids=$SUBNET_IDS\" \\
-    -var \"security_group_ids=$SECURITY_GROUP_IDS\" \\
-    -var \"image_uri=$IMAGE_URI\" \\
-    -var \"aws_region=$AWS_REGION\" \\
-    -var \"s3_bucket=$S3_BUCKET\""
 
 # Add Slack webhook if provided
 if [ -n "$SLACK_WEBHOOK_URL" ]; then
     echo "Batch failure monitoring will be enabled"
-    TF_VARS="$TF_VARS -var \"slack_webhook_url=$SLACK_WEBHOOK_URL\""
+    terraform apply -auto-approve \
+        -var "vpc_id=$VPC_ID" \
+        -var "subnet_ids=$SUBNET_IDS" \
+        -var "security_group_ids=$SECURITY_GROUP_IDS" \
+        -var "image_uri=$IMAGE_URI" \
+        -var "aws_region=$AWS_REGION" \
+        -var "s3_bucket=$S3_BUCKET" \
+        -var "slack_webhook_url=$SLACK_WEBHOOK_URL"
 else
     echo "Batch failure monitoring disabled (no webhook URL provided)"
+    terraform apply -auto-approve \
+        -var "vpc_id=$VPC_ID" \
+        -var "subnet_ids=$SUBNET_IDS" \
+        -var "security_group_ids=$SECURITY_GROUP_IDS" \
+        -var "image_uri=$IMAGE_URI" \
+        -var "aws_region=$AWS_REGION" \
+        -var "s3_bucket=$S3_BUCKET"
 fi
-
-eval "terraform apply -auto-approve $TF_VARS"
 
 echo "Deployment Complete."

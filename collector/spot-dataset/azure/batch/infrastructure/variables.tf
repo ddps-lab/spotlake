@@ -29,3 +29,12 @@ variable "image_uri" {
   description = "Docker Image URI for Batch Jobs"
   type        = string
 }
+
+# Slack Webhook URL for failure notifications (optional)
+# If not provided, monitoring infrastructure will not be deployed
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Batch job failure notifications (optional)"
+  type        = string
+  sensitive   = true
+  default     = null
+}

@@ -29,3 +29,12 @@ variable "security_group_ids" {
   description = "List of security group IDs for Batch Compute Environment"
   type        = list(string)
 }
+
+# Slack Webhook URL for failure notifications (optional)
+# If not provided, monitoring infrastructure will not be deployed
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Batch job failure notifications (optional)"
+  type        = string
+  sensitive   = true
+  default     = null
+}

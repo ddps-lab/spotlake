@@ -208,7 +208,13 @@ def main():
             price_saving_if_df = pd.DataFrame(columns=['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF'])
 
         # Merge with SPS
+        Logger.info(f"[MERGE DEBUG] Before merge_if_saving_price_sps_df:")
+        Logger.info(f"  price_saving_if_df: {len(price_saving_if_df)} rows")
+        Logger.info(f"  sps_df: {len(sps_df)} rows")
+        
         sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True)
+        
+        Logger.info(f"[MERGE DEBUG] After merge_if_saving_price_sps_df: {len(sps_merged_df)} rows")
 
         # Load Previous Data
         prev_all_data = S3.read_file(AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH, 'pkl.gz')
@@ -240,8 +246,22 @@ def main():
         if prev_all_data is not None and not prev_all_data.empty:
             prev_all_data.drop(columns=['id'], inplace=True, errors='ignore')
             
+            # Check merge key dtypes
+            Logger.info(f"[MERGE DEBUG] Before compare_max_instance:")
+            Logger.info(f"  sps_merged_df: {len(sps_merged_df)} rows")
+            Logger.info(f"  prev_all_data: {len(prev_all_data)} rows")
+            Logger.info(f"  sps_merged_df key dtypes: InstanceType={sps_merged_df['InstanceType'].dtype}, Region={sps_merged_df['Region'].dtype}, AZ={sps_merged_df['AvailabilityZone'].dtype}, DC={sps_merged_df['DesiredCount'].dtype}")
+            Logger.info(f"  prev_all_data key dtypes: InstanceType={prev_all_data['InstanceType'].dtype}, Region={prev_all_data['Region'].dtype}, AZ={prev_all_data['AvailabilityZone'].dtype}, DC={prev_all_data['DesiredCount'].dtype}")
+            
+            # Check for duplicates in merge keys
+            sps_dup_count = sps_merged_df.duplicated(subset=['InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']).sum()
+            prev_dup_count = prev_all_data.duplicated(subset=['InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']).sum()
+            Logger.info(f"  sps_merged_df duplicate keys: {sps_dup_count}")
+            Logger.info(f"  prev_all_data duplicate keys: {prev_dup_count}")
+            
             # T2/T3 Calculation
             sps_merged_df = compare_data.compare_max_instance(prev_all_data, sps_merged_df, desired_count)
+            Logger.info(f"[MERGE DEBUG] After compare_max_instance: {len(sps_merged_df)} rows")
             Logger.info(f"T2/T3 calculation complete. Result rows: {len(sps_merged_df)}")
             
             # Detect Changes

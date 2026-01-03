@@ -206,17 +206,47 @@ def main():
         # `collect_if` output has dummy price cols, we should likely drop them before merging or use them if price data is missing?
         # Valid `collect_price` data is better.
         
+        # Lambda Logic: Join on armRegionName (Price Code) == Region (IF Code)
+        # This ensures IF values are preserved instead of being lost to NaN
         if not price_df.empty and not if_df.empty:
-            # Drop dummy cols from IF before merge to avoid suffixes
-            if_df_clean = if_df[['InstanceTier', 'InstanceType', 'Region', 'IF']]
-            price_saving_if_df = pd.merge(price_df, if_df_clean, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
+            price_saving_if_df = pd.merge(
+                price_df, 
+                if_df,
+                left_on=['InstanceType', 'InstanceTier', 'armRegionName'],
+                right_on=['InstanceType', 'InstanceTier', 'Region'],
+                how='outer'
+            )
+            
+            # Select columns and rename
+            # Region_x is Price Region Name ("East US"), Region_y is IF Region Code ("eastus")
+            # We keep Region_x (Name) for user-friendly output
+            price_saving_if_df = price_saving_if_df[[
+                'InstanceTier', 'InstanceType', 'Region_x', 'armRegionName', 
+                'OndemandPrice_x', 'SpotPrice_x', 'Savings_x', 'IF'
+            ]]
+            
+            # Filter rows where SpotPrice is NaN (Lambda logic)
+            price_saving_if_df = price_saving_if_df[~price_saving_if_df['SpotPrice_x'].isna()]
+            
+            # Rename columns to standard names
+            price_saving_if_df.rename(columns={
+                'Region_x': 'Region',
+                'OndemandPrice_x': 'OndemandPrice',
+                'SpotPrice_x': 'SpotPrice',
+                'Savings_x': 'Savings'
+            }, inplace=True)
+            
         elif not price_df.empty:
-            price_saving_if_df = price_df
+            price_saving_if_df = price_df.copy()
             price_saving_if_df['IF'] = -1
         elif not if_df.empty:
-            price_saving_if_df = if_df
+            price_saving_if_df = if_df.copy()
         else:
-            price_saving_if_df = pd.DataFrame(columns=['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF'])
+            price_saving_if_df = pd.DataFrame(columns=[
+                'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 
+                'SpotPrice', 'Savings', 'IF'
+            ])
+
 
         # Merge with SPS
         Logger.info(f"[MERGE DEBUG] Before merge_if_saving_price_sps_df:")

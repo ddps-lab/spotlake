@@ -241,19 +241,23 @@ def main():
             # ------ 멀티쓰레드 실행 모드 (매핑 기반) ------
             tc_mapping = workload_credential_mapping[tc_key]
             
+            # YAML 로드 시 key 타입이 int 또는 str일 수 있으므로 통일
+            # tc_mapping의 key를 int로 변환
+            tc_mapping_int_keys = {int(k): v for k, v in tc_mapping.items()}
+            
             def process_scenario_with_mapping(idx, scenario, credential_index, target_capacity):
                 """매핑된 credential을 사용하여 시나리오 처리"""
                 credential = credentials.iloc[credential_index]
                 args = (credential, scenario, target_capacity)
                 return query_sps(args)
             
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 future_to_idx = {
                     executor.submit(
                         process_scenario_with_mapping, 
                         idx, 
                         scenario, 
-                        tc_mapping[idx],  # int key 사용
+                        tc_mapping_int_keys[idx],  # int key 사용
                         target_capacity
                     ): idx 
                     for idx, scenario in enumerate(workload)
@@ -267,6 +271,11 @@ def main():
                         message = f"Error processing scenario: {e}"
                         print(message)
                         raise e
+            
+            # 멀티쓰레드 모드에서도 사용한 credential 범위 갱신
+            # 매핑에서 최대 credential index + 1을 사용
+            max_used_credential_index = max(tc_mapping_int_keys.values())
+            current_credential_index = max_used_credential_index + 1
 
         sps_df = pd.concat(df_list, axis=0, ignore_index=True)
     except Exception as e:

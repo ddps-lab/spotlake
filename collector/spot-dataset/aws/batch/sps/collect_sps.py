@@ -249,7 +249,7 @@ def main():
                 args = (credential, scenario, target_capacity)
                 return query_sps(args)
             
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 future_to_idx = {
                     executor.submit(
                         process_scenario_with_mapping, 

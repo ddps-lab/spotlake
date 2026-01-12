@@ -61,7 +61,7 @@ resource "aws_cloudwatch_event_rule" "batch_job_failure" {
     detail-type = ["Batch Job State Change"]
     detail = {
       status = ["FAILED"]
-      jobQueue = [aws_batch_job_queue.collection_queue.arn]
+      jobQueue = [aws_batch_job_queue.spot_job_queue.arn]
     }
   })
 }

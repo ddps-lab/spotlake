@@ -35,3 +35,12 @@ variable "job_role_arn" {
   type        = string
   default     = null
 }
+
+
+# Slack Webhook URL for failure notifications
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Batch job failure notifications"
+  type        = string
+  sensitive   = true
+  default     = null
+}

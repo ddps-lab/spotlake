@@ -54,7 +54,6 @@ def write_metadata(s3_client, bucket_name, s3_key, metadata):
 
 def main():
     # ------ Setting Constants ------
-    # ------ Setting Constants ------
     BUCKET_NAME = "spotlake"
     READ_BUCKET_NAME = "spotlake"
     WRITE_BUCKET_NAME = "spotlake-test"
@@ -62,6 +61,9 @@ def main():
     CREDENTIAL_FILE_PATH = "credential/credential_3699.csv"
     LOG_GROUP_NAME = "Collection-Data-Count"
     LOG_STREAM_NAME = "AWS-Count"
+    
+    # ------ Workload-Credential Mapping File Path ------
+    WORKLOAD_CREDENTIAL_MAPPING_S3_KEY = f"{S3_PATH_PREFIX}/localfile/workload_credential_mapping.yaml"
     
     # ------ Setting Client ------
     session = boto3.session.Session()
@@ -119,6 +121,12 @@ def main():
     target_capacity_index = target_capacity_index % len(target_capacities)
     target_capacity = target_capacities[target_capacity_index]
 
+    # ------ Load Workload-Credential Mapping ------
+    workload_credential_mapping = read_metadata(
+        s3_client, WRITE_BUCKET_NAME, WORKLOAD_CREDENTIAL_MAPPING_S3_KEY,
+        default_value={}
+    )
+
     # ------ Load Workload File -------
     start_time = datetime.now(timezone.utc)
     workload = None
@@ -152,6 +160,11 @@ def main():
             metadata["workload_date"] = date
             
             write_metadata(s3_client, WRITE_BUCKET_NAME, SPS_METADATA_S3_KEY, metadata)
+            
+            # 날짜 변경 시 매핑 파일 초기화
+            workload_credential_mapping = {}
+            write_metadata(s3_client, WRITE_BUCKET_NAME, WORKLOAD_CREDENTIAL_MAPPING_S3_KEY, workload_credential_mapping)
+            print("날짜 변경으로 인해 workload-credential 매핑 파일을 초기화했습니다.")
         else:
             print("workload 날짜가 동일합니다. index를 유지합니다.")
     except Exception as e:
@@ -175,50 +188,14 @@ def main():
     end_time = datetime.now(timezone.utc)
     print(f"Load credential and workload time : {(end_time - start_time).total_seconds():.4f} ms")
 
-    # ------ Thread-safe Credential Provider ------
-    class CredentialProvider:
-        def __init__(self, credentials_df, start_index):
-            self.lock = threading.Lock()
-            self.credentials = credentials_df
-            self.current_index = start_index
-            self.max_index = len(credentials_df)
-
-        def get_next_credential(self):
-            with self.lock:
-                if self.current_index >= self.max_index:
-                    raise IndexError("No more credentials available in the current set.")
-                
-                credential = self.credentials.iloc[self.current_index]
-                # Use modulo to wrap index back to 0 when it reaches max
-                self.current_index = (self.current_index + 1) % self.max_index
-                return credential
-
-        def get_current_index(self):
-            with self.lock:
-                return self.current_index
-
-    credential_provider = CredentialProvider(credentials, current_credential_index)
-
-    # ------ Worker Function for Parallel Execution ------
-    def process_scenario(scenario, target_capacity, credential_provider):
-        while True:
-            try:
-                credential = credential_provider.get_next_credential()
-                args = (credential, scenario, target_capacity)
-                df = query_sps(args)
-                return df
-            except IndexError:
-                raise Exception("Ran out of credentials during processing")
-            except botocore.exceptions.ClientError as e:
-                if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
-                    print(f"MaxConfigLimitExceeded for credential. Retrying with next credential.")
-                    continue
-                else:
-                    print(f"ClientError in process_scenario: {e}")
-                    raise e
-            except Exception as e:
-                print(f"Error in process_scenario: {e}")
-                raise e
+    # ------ Determine if this is first collection for current Target Capacity ------
+    tc_key = str(target_capacity)
+    is_first_collection = tc_key not in workload_credential_mapping
+    
+    if is_first_collection:
+        print(f"Target Capacity {target_capacity}에 대한 첫 수집입니다. 순차 실행 모드로 진행합니다.")
+    else:
+        print(f"Target Capacity {target_capacity}에 대한 매핑이 존재합니다. 멀티쓰레드 실행 모드로 진행합니다.")
 
     # ------ Start Query Per Target Capacity ------
     start_time = datetime.now(timezone.utc)
@@ -226,19 +203,70 @@ def main():
 
     try:
         df_list = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_scenario = {executor.submit(process_scenario, scenario, target_capacity, credential_provider): scenario for scenario in workload}
-            
-            for future in concurrent.futures.as_completed(future_to_scenario):
-                try:
-                    df = future.result()
-                    df_list.append(df)
-                except Exception as e:
-                    message = f"Error processing scenario: {e}"
-                    print(message)
-                    raise e
         
-        current_credential_index = credential_provider.get_current_index()
+        if is_first_collection:
+            # ------ 순차 실행 모드 (첫 수집) ------
+            current_mapping = {}
+            for idx, scenarios in enumerate(workload):
+                while True:
+                    try:
+                        credential = credentials.iloc[current_credential_index]
+                        args = (credential, scenarios, target_capacity)
+                        # 매핑 기록 (성공한 credential index 기록)
+                        current_mapping[idx] = current_credential_index
+                        current_credential_index += 1
+                        df = query_sps(args)
+                        df_list.append(df)
+                        break
+                    except botocore.exceptions.ClientError as e:
+                        if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
+                            print(f"MaxConfigLimitExceeded for credential index {current_credential_index - 1}. Retrying with next credential.")
+                            # 실패한 경우 다음 credential로 재시도 (매핑은 성공한 것만 기록)
+                            current_mapping[idx] = current_credential_index
+                            current_credential_index += 1
+                            continue
+                        else:
+                            print(f"ClientError: {e}")
+                            raise e
+                    except Exception as e:
+                        print(f"Error in sequential processing: {e}")
+                        raise e
+            
+            # 매핑 저장
+            workload_credential_mapping[tc_key] = current_mapping
+            write_metadata(s3_client, WRITE_BUCKET_NAME, WORKLOAD_CREDENTIAL_MAPPING_S3_KEY, workload_credential_mapping)
+            print(f"Target Capacity {target_capacity}에 대한 매핑을 저장했습니다. (총 {len(current_mapping)}개 항목)")
+        
+        else:
+            # ------ 멀티쓰레드 실행 모드 (매핑 기반) ------
+            tc_mapping = workload_credential_mapping[tc_key]
+            
+            def process_scenario_with_mapping(idx, scenario, credential_index, target_capacity):
+                """매핑된 credential을 사용하여 시나리오 처리"""
+                credential = credentials.iloc[credential_index]
+                args = (credential, scenario, target_capacity)
+                return query_sps(args)
+            
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+                future_to_idx = {
+                    executor.submit(
+                        process_scenario_with_mapping, 
+                        idx, 
+                        scenario, 
+                        tc_mapping[idx],  # int key 사용
+                        target_capacity
+                    ): idx 
+                    for idx, scenario in enumerate(workload)
+                }
+                
+                for future in concurrent.futures.as_completed(future_to_idx):
+                    try:
+                        df = future.result()
+                        df_list.append(df)
+                    except Exception as e:
+                        message = f"Error processing scenario: {e}"
+                        print(message)
+                        raise e
 
         sps_df = pd.concat(df_list, axis=0, ignore_index=True)
     except Exception as e:

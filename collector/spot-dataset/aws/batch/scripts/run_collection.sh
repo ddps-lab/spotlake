@@ -102,7 +102,8 @@ if [ $STATUS_SPS -eq 0 ] && [ $STATUS_IF -eq 0 ] && [ $STATUS_PRICE -eq 0 ]; the
         MONTH=$(echo "$TIMESTAMP" | cut -d'-' -f2)
         DAY=$(echo "$TIMESTAMP" | cut -d'-' -f3 | cut -d'T' -f1 | cut -d' ' -f1)
         
-        MONITORING_BASE_PATH="s3://spotlake/rawdata/aws/monitoring/${YEAR}/${MONTH}/${DAY}"
+        MONITORING_BASE_PATH="s3://spotlake/rawdata/aws/monitoring"
+        DATE_PATH="${YEAR}/${MONTH}/${DAY}"
         
         # Get instance type using EC2 Instance Metadata Service (IMDSv2)
         IMDS_TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null || echo "")
@@ -117,10 +118,14 @@ if [ $STATUS_SPS -eq 0 ] && [ $STATUS_IF -eq 0 ] && [ $STATUS_PRICE -eq 0 ]; the
         echo "Timestamp: $TIMESTAMP" > "$INSTANCE_TYPE_FILE"
         echo "Instance Type: $INSTANCE_TYPE" >> "$INSTANCE_TYPE_FILE"
         
+        # Compress CSV files with gzip
+        gzip -f "$MEMORY_FILE"
+        MEMORY_FILE_GZ="${MEMORY_FILE}.gz"
+        
         echo "Uploading stats to S3..."
-        aws s3 cp "$EXECUTION_FILE" "${MONITORING_BASE_PATH}/executionTime/"
-        aws s3 cp "$MEMORY_FILE" "${MONITORING_BASE_PATH}/memory/"
-        aws s3 cp "$INSTANCE_TYPE_FILE" "${MONITORING_BASE_PATH}/instanceType/"
+        aws s3 cp "$EXECUTION_FILE" "${MONITORING_BASE_PATH}/executionTime/${DATE_PATH}/"
+        aws s3 cp "$MEMORY_FILE_GZ" "${MONITORING_BASE_PATH}/memory/${DATE_PATH}/"
+        aws s3 cp "$INSTANCE_TYPE_FILE" "${MONITORING_BASE_PATH}/instanceType/${DATE_PATH}/"
     else
         echo "Error: /tmp/sps_key.txt not found. SPS collection might have failed to write the key."
         exit 1

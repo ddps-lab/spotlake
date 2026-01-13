@@ -26,7 +26,7 @@ while getopts "v:s:g:i:r:b:p:w:" opt; do
         i) IMAGE_URI="$OPTARG" ;;
         r) AWS_REGION="$OPTARG" ;;
         b) S3_BUCKET="$OPTARG" ;;
-        p) export AWS_PROFILE="$OPTARG" ;;
+        p) AWS_PROFILE="$OPTARG" ;;
         w) SLACK_WEBHOOK_URL="$OPTARG" ;;
         *) usage ;;
     esac
@@ -58,6 +58,12 @@ if [ "$MISSING_ARGS" = true ]; then
     usage
 fi
 
+# Set AWS profile for all subsequent AWS CLI and Terraform commands
+if [ -n "$AWS_PROFILE" ]; then
+    export AWS_PROFILE="$AWS_PROFILE"
+    echo "Using AWS Profile: $AWS_PROFILE"
+fi
+
 echo "Deploying Infrastructure..."
 cd collector/spot-dataset/aws/batch-test/infrastructure
 
@@ -66,26 +72,34 @@ terraform init
 
 echo "Applying Terraform..."
 
+# Build terraform variables
+TF_VARS=(
+    -var "vpc_id=$VPC_ID"
+    -var "subnet_ids=$SUBNET_IDS"
+    -var "security_group_ids=$SECURITY_GROUP_IDS"
+    -var "image_uri=$IMAGE_URI"
+    -var "aws_region=$AWS_REGION"
+    -var "s3_bucket=$S3_BUCKET"
+)
+
 # Add Slack webhook if provided
 if [ -n "$SLACK_WEBHOOK_URL" ]; then
     echo "Batch failure monitoring will be enabled"
-    terraform apply -auto-approve \
-        -var "vpc_id=$VPC_ID" \
-        -var "subnet_ids=$SUBNET_IDS" \
-        -var "security_group_ids=$SECURITY_GROUP_IDS" \
-        -var "image_uri=$IMAGE_URI" \
-        -var "aws_region=$AWS_REGION" \
-        -var "s3_bucket=$S3_BUCKET" \
-        -var "slack_webhook_url=$SLACK_WEBHOOK_URL"
+    
+    # Check if Lambda already exists (created by another batch deployment)
+    if aws lambda get-function --function-name batch-failure-notifier &>/dev/null; then
+        echo "Found existing batch-failure-notifier Lambda - will reuse"
+        TF_VARS+=(-var "use_existing_lambda=true")
+    else
+        echo "No existing Lambda found - will create new one"
+        TF_VARS+=(-var "use_existing_lambda=false")
+    fi
+    
+    TF_VARS+=(-var "slack_webhook_url=$SLACK_WEBHOOK_URL")
 else
     echo "Batch failure monitoring disabled (no webhook URL provided)"
-    terraform apply -auto-approve \
-        -var "vpc_id=$VPC_ID" \
-        -var "subnet_ids=$SUBNET_IDS" \
-        -var "security_group_ids=$SECURITY_GROUP_IDS" \
-        -var "image_uri=$IMAGE_URI" \
-        -var "aws_region=$AWS_REGION" \
-        -var "s3_bucket=$S3_BUCKET"
 fi
+
+terraform apply -auto-approve "${TF_VARS[@]}"
 
 echo "Deployment Complete."

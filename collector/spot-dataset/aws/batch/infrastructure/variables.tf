@@ -44,3 +44,10 @@ variable "slack_webhook_url" {
   sensitive   = true
   default     = null
 }
+
+# Use existing Lambda function (shared monitoring)
+variable "use_existing_lambda" {
+  description = "Whether to use existing batch-failure-notifier Lambda (auto-detected by deploy script)"
+  type        = bool
+  default     = false
+}

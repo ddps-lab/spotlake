@@ -1,16 +1,35 @@
 # ------ Batch Job Failure Monitoring (Optional) ------
 # Only deployed if slack_webhook_url is provided
-# Set SLACK_WEBHOOK_URL environment variable or pass -var to enable
+# Automatically reuses existing Lambda if already created by another batch deployment
 
 locals {
   # Enable monitoring only if webhook URL is provided
   enable_monitoring = var.slack_webhook_url != null && var.slack_webhook_url != ""
+  
+  # Determine if we should create new Lambda or use existing
+  create_lambda = local.enable_monitoring && !var.use_existing_lambda
+  use_lambda    = local.enable_monitoring && var.use_existing_lambda
+  
+  # Get Lambda ARN (either from new resource or existing data source)
+  lambda_arn = local.create_lambda ? aws_lambda_function.batch_failure_notifier[0].arn : (
+    local.use_lambda ? data.aws_lambda_function.existing[0].arn : null
+  )
+  lambda_function_name = local.create_lambda ? aws_lambda_function.batch_failure_notifier[0].function_name : (
+    local.use_lambda ? data.aws_lambda_function.existing[0].function_name : null
+  )
 }
 
-# ------ Lambda Resources (created only if monitoring enabled) ------
+# ------ Data source for existing Lambda (when reusing) ------
+
+data "aws_lambda_function" "existing" {
+  count         = local.use_lambda ? 1 : 0
+  function_name = "batch-failure-notifier"
+}
+
+# ------ Lambda Resources (created only if monitoring enabled AND Lambda doesn't exist) ------
 
 resource "aws_iam_role" "batch_notifier_lambda_role" {
-  count = local.enable_monitoring ? 1 : 0
+  count = local.create_lambda ? 1 : 0
   name  = "batch-failure-notifier-role"
 
   assume_role_policy = jsonencode({
@@ -26,13 +45,13 @@ resource "aws_iam_role" "batch_notifier_lambda_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
-  count      = local.enable_monitoring ? 1 : 0
+  count      = local.create_lambda ? 1 : 0
   role       = aws_iam_role.batch_notifier_lambda_role[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRule"
 }
 
 resource "aws_lambda_function" "batch_failure_notifier" {
-  count         = local.enable_monitoring ? 1 : 0
+  count         = local.create_lambda ? 1 : 0
   filename      = "${path.module}/lambda/batch_failure_notifier.zip"
   function_name = "batch-failure-notifier"
   role          = aws_iam_role.batch_notifier_lambda_role[0].arn
@@ -60,7 +79,7 @@ resource "aws_cloudwatch_event_rule" "batch_job_failure" {
     source      = ["aws.batch"]
     detail-type = ["Batch Job State Change"]
     detail = {
-      status = ["FAILED"]
+      status   = ["FAILED"]
       jobQueue = [aws_batch_job_queue.azure_collector_queue.arn]
     }
   })
@@ -70,14 +89,14 @@ resource "aws_cloudwatch_event_target" "batch_failure_to_lambda" {
   count     = local.enable_monitoring ? 1 : 0
   rule      = aws_cloudwatch_event_rule.batch_job_failure[0].name
   target_id = "BatchFailureNotifierLambda"
-  arn       = aws_lambda_function.batch_failure_notifier[0].arn
+  arn       = local.lambda_arn
 }
 
 resource "aws_lambda_permission" "allow_eventbridge" {
   count         = local.enable_monitoring ? 1 : 0
   statement_id  = "AllowExecutionFromEventBridge_${aws_cloudwatch_event_rule.batch_job_failure[0].name}"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.batch_failure_notifier[0].function_name
+  function_name = local.lambda_function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.batch_job_failure[0].arn
 }

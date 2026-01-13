@@ -97,10 +97,10 @@ if [ $STATUS_SPS -eq 0 ] && [ $STATUS_IF -eq 0 ] && [ $STATUS_PRICE -eq 0 ]; the
         echo "Merge & Upload Duration (sec): $MERGE_DURATION" >> "$EXECUTION_FILE"
         
         # Upload to S3 with date-based path structure
-        # Extract date components from TIMESTAMP (format: "YYYY-MM-DD HH:MM:SS")
+        # Extract date components from TIMESTAMP (supports "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SSZ" formats)
         YEAR=$(echo "$TIMESTAMP" | cut -d'-' -f1)
         MONTH=$(echo "$TIMESTAMP" | cut -d'-' -f2)
-        DAY=$(echo "$TIMESTAMP" | cut -d'-' -f3 | cut -d' ' -f1)
+        DAY=$(echo "$TIMESTAMP" | cut -d'-' -f3 | cut -d'T' -f1 | cut -d' ' -f1)
         
         MONITORING_BASE_PATH="s3://spotlake-test/rawdata/aws/monitoring/${YEAR}/${MONTH}/${DAY}"
         

@@ -184,9 +184,12 @@ def main():
             except ValueError:
                 timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     else:
-        # Default to next day as per original logic
-        timestamp = start_time.replace(minute=((start_time.minute // 10) * 10), second=0) + timedelta(days=1)
-        
+        # Default to now, to be incremented
+        timestamp = start_time.replace(minute=((start_time.minute // 10) * 10), second=0)
+
+    # Always generate workload for the next day
+    timestamp = timestamp + timedelta(days=1)
+    
     S3_DIR_NAME = timestamp.strftime('%Y/%m/%d')
     print(f"Generating workload for date: {S3_DIR_NAME}")
     

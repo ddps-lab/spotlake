@@ -92,11 +92,10 @@ def get_binpacked_workload(filedate):
     # Upload raw workloads to monitoring path
     # Original: monitoring/{filedate}/workloads.pkl
     
-    S3_PATH_PREFIX = "rawdata/aws"
     BUCKET_NAME = "spotlake"
-    
-    monitoring_key = f"{S3_PATH_PREFIX}/monitoring/{filedate}/workloads.pkl"
-         
+
+    monitoring_key = f"monitoring/{filedate}/workloads.pkl"
+
     print(f"Uploading raw workloads to {monitoring_key}...")
     s3_resource.Object(BUCKET_NAME, monitoring_key).put(Body=pickle.dumps(workloads))
     

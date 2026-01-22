@@ -346,9 +346,10 @@ def main():
 
         # Upload Results
         update_latest_success = upload_data.update_latest(sps_merged_df)
-        
-        # latest_azure.json is now uploaded by update_latest function
-        
+
+        # Upload latest_azure.json (AWS-compatible format)
+        upload_data.update_latest_azure_json(sps_merged_df, timestamp_utc)
+
         data_type = 'desired_count_1' if desired_count == 1 else 'multi'
         save_raw_success = upload_data.save_raw(sps_merged_df, timestamp_utc, az=True, data_type=data_type)
         

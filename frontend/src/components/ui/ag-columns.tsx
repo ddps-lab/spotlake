@@ -23,22 +23,32 @@ export type GCPData = {
 }
 
 export type AzureData = {
-  id: string
+  id: number
   InstanceTier: string
   InstanceType: string
   Region: string
+  AvailabilityZone: string
   OndemandPrice: number
   SpotPrice: number
+  Savings: number
   IF: number
-  Score: string
-  AvailabilityZone: string
-  SPS_Update_Time: string
+  Score: number
+  DesiredCount: number
+  T2: number
+  T3: number
+  Time: string
 }
 
 const formatNumber = (params: any) => {
   const num = params.value
   if (num === -1 || num === "-1" || num === undefined || num === null) return "N/A"
   return num
+}
+
+const formatSavings = (params: any) => {
+  const num = params.value
+  if (num === -1 || num === "-1" || num === undefined || num === null) return "N/A"
+  return String(Math.round(num))
 }
 
 const calculateSavings = (params: any) => {
@@ -81,12 +91,12 @@ const formatDate = (params: any) => {
 }
 
 export const awsColDefs: ColDef<AWSData>[] = [
-  { field: "InstanceType", valueFormatter: formatNumber },
+  { field: "InstanceType", headerName: "Type", valueFormatter: formatNumber },
   { field: "Region", valueFormatter: formatNumber },
   { field: "AZ", headerName: "AZ", valueFormatter: formatNumber },
   { field: "SPS", headerName: "Availability", valueFormatter: formatNumber },
-  { field: "T2", valueFormatter: formatNumber, width: 80, maxWidth: 100 },
-  { field: "T3", valueFormatter: formatNumber, width: 80, maxWidth: 100 },
+  { field: "T2", valueFormatter: formatNumber, width: 70, maxWidth: 100 },
+  { field: "T3", valueFormatter: formatNumber, width: 70, maxWidth: 100 },
   { field: "IF", headerName: "Interruption Ratio", valueFormatter: formatNumber },
   { field: "SpotPrice", headerName: "SpotPrice ($)", valueFormatter: formatNumber },
   { 
@@ -109,17 +119,15 @@ export const gcpColDefs: ColDef<GCPData>[] = [
 ]
 
 export const azureColDefs: ColDef<AzureData>[] = [
-  { field: "InstanceTier", valueFormatter: formatNumber },
-  { field: "InstanceType", valueFormatter: formatNumber },
+  { field: "InstanceTier", headerName: "Tier", valueFormatter: formatNumber, width: 60, maxWidth: 100 },
+  { field: "InstanceType", headerName: "Type", valueFormatter: formatNumber },
   { field: "Region", valueFormatter: formatNumber },
-  { field: "OndemandPrice", valueFormatter: formatNumber },
+  { field: "AvailabilityZone", headerName: "AZ", valueFormatter: formatNumber, width: 40, maxWidth: 80 },
   { field: "SpotPrice", valueFormatter: formatNumber },
-  { field: "IF", headerName: "IF", valueFormatter: formatNumber },
-  { 
-    headerName: "Savings (%)", 
-    valueGetter: calculateSavings 
-  },
+  { field: "Savings", headerName: "Savings (%)", valueFormatter: formatSavings },
+  { field: "IF", headerName: "IF", valueFormatter: formatNumber, width: 60, maxWidth: 100 },
   { field: "Score", headerName: "Availability", valueFormatter: formatNumber },
-  { field: "AvailabilityZone", headerName: "AZ", valueFormatter: formatNumber },
-  { field: "SPS_Update_Time", headerName: "Date", valueFormatter: formatDate },
+  { field: "T2", valueFormatter: formatNumber, width: 70, maxWidth: 100 },
+  { field: "T3", valueFormatter: formatNumber, width: 70, maxWidth: 100 },
+  { field: "Time", headerName: "Date", valueFormatter: formatDate },
 ]

@@ -1,8 +1,10 @@
 # Azure SpotLake Collector (Batch Implementation)
 
+[English](README.md) | [Korean](README_kr.md)
+
 This directory contains the Azure Spot Instance data collector implementation for AWS Batch (conceptually Azure Batch, but utilizing similar containerized architecture). It is designed to collect Spot Placement Scores (SPS), Spot Prices, and Instance Family (IF) data, merge them, and upload the results to data stores (Timestream, S3).
 
-## 📂 Directory Structure
+## Directory Structure
 
 ```graphql
 azure/batch/
@@ -39,7 +41,7 @@ azure/batch/
 └── Dockerfile                  # Container definition for the collector
 ```
 
-## 🔄 Data Collection Workflow
+## Data Collection Workflow
 
 The collection process is orchestrated by `scripts/run_collection.sh` and runs in two main phases: **Parallel Collection** and **Merge & Upload**.
 
@@ -76,7 +78,7 @@ graph TD
     Outputs --> S3Final[S3: rawdata/azure/localfile]
 ```
 
-## 🧩 Component Details
+## Component Details
 
 ### 1. SPS Collector (`sps/`)
 *   **`collect_sps.py`**: The entry point. It handles:
@@ -101,7 +103,7 @@ graph TD
     *   **Change Detection**: Compares current dataset with the previous run's dataset to identify changes.
     *   **Upload**: Sends data to Amazon Timestream, S3 (raw & latest), and CloudWatch Logs.
 
-## 🏗 Infrastructure (IaC)
+## Infrastructure (IaC)
 
 The `infrastructure/` directory contains Terraform code to deploy the AWS Batch environment required to run this Azure container.
 
@@ -115,7 +117,7 @@ The `infrastructure/` directory contains Terraform code to deploy the AWS Batch 
     *   `batch_job_role`: Grants the container access to S3, Timestream, DynamoDB (for Azure Auth), and SSM.
     *   `ecs_instance_role`: For the underlying EC2 instances.
 
-## 📜 Deployment Scripts
+## Deployment Scripts
 
 The `scripts/` directory provides utilities to automate the build and deployment lifecycle.
 
@@ -173,7 +175,7 @@ Deletes a specific image tag from the ECR repository.
 *   `-r`: AWS Region
 *   `-t`: Image Tag (default: `latest`)
 
-## 🛠 Local Usage
+## Local Usage
 
 To run the full pipeline locally (assuming you have necessary Python env or use the container):
 
@@ -187,7 +189,7 @@ The following environment variables (or DynamoDB entries) are expected:
 *   `error_notification_slack_webhook_url`: For Slack alerts (SSM or Env).
 *   **DynamoDB "AzureAuth"**: Stores `TenantId`, `ClientId`, `ClientSecret`, `SubscriptionId` for Azure Authentication.
 
-## 💾 State Management (S3)
+## State Management (S3)
 
 New implementation uses `utils/constants.py` to define S3 paths (replacing legacy `const_config.py`).
 *   **Raw Data**: `s3://spotlake/rawdata/azure/{sps|spot_price|spot_if}/{YYYY}/{MM}/{DD}/...`

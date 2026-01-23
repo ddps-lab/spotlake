@@ -29,7 +29,7 @@ class AzureCollector:
         self.S3_LATEST_PRICE_SAVING_IF_GZIP_SAVE_PATH = "latest_data/azure/price_saving_if.pkl.gz"
         self.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH = "latest_data/azure/all_data_az_true.pkl.gz"
 
-        self.S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH = "latest_data/azure/sorted_desired_count_1_az_true.json"
+        self.S3_LATEST_JSON_SAVE_PATH = "latest_data/latest_azure.json"
         self.S3_QUERY_SELECTOR_SAVE_PATH = "query-selector/azure/query_selector.json"
 
 class Storage:

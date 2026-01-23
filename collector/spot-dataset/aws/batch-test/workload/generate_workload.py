@@ -98,16 +98,15 @@ def get_binpacked_workload(filedate):
     # The original code used os.environ.get('S3_BUCKET') and hardcoded paths.
     # I will use S3_PATH_PREFIX if set, else root.
     
-    S3_PATH_PREFIX = "rawdata/aws"
     BUCKET_NAME = "spotlake-test"
-    
-    monitoring_key = f"{S3_PATH_PREFIX}/monitoring/{filedate}/workloads.pkl"
-         
+
+    monitoring_key = f"monitoring/{filedate}/workloads.pkl"
+
     print(f"Uploading raw workloads to {monitoring_key}...")
     s3_resource.Object(BUCKET_NAME, monitoring_key).put(Body=pickle.dumps(workloads))
     
     end_time = datetime.now(timezone.utc)
-    print(f"Upload time used for minitoring is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+    print(f"Upload time used for monitoring is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
     print("Starting bin packing...")
     result_binpacked = {}
@@ -184,9 +183,12 @@ def main():
             except ValueError:
                 timestamp = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M")
     else:
-        # Default to next day as per original logic
-        timestamp = start_time.replace(minute=((start_time.minute // 10) * 10), second=0) + timedelta(days=1)
-        
+        # Default to now, to be incremented
+        timestamp = start_time.replace(minute=((start_time.minute // 10) * 10), second=0)
+
+    # Always generate workload for the next day
+    timestamp = timestamp + timedelta(days=1)
+    
     S3_DIR_NAME = timestamp.strftime('%Y/%m/%d')
     print(f"Generating workload for date: {S3_DIR_NAME}")
     

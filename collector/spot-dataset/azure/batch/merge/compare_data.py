@@ -4,8 +4,8 @@ import numpy as np
 # compare previous collected workload with current collected workload
 # return changed workload
 def compare_sps(previous_df, current_df, workload_cols, feature_cols):
-    previous_df = previous_df.copy().astype(object)
-    current_df = current_df.copy().astype(object)
+    previous_df = previous_df.copy()
+    current_df = current_df.copy()
 
     fill_values = {
         'OndemandPrice': -1,
@@ -13,7 +13,7 @@ def compare_sps(previous_df, current_df, workload_cols, feature_cols):
         'IF': -1,
         'DesiredCount': -1,
         'AvailabilityZone': 'N/A',
-        'Score': 'N/A',
+        'Score': -1,
         'Time': 'N/A'
     }
     previous_df = previous_df.fillna(fill_values)
@@ -85,8 +85,8 @@ def compare_max_instance(previous_df, new_df, target_capacity):
     if target_capacity == 1:
         merged_df["Score"] = merged_df["Score"].combine_first(merged_df["Score_prev"])
     
-    merged_df["Score"] = pd.to_numeric(merged_df["Score"], errors='coerce')
-    merged_df["Score_prev"] = pd.to_numeric(merged_df["Score_prev"], errors='coerce')
+    merged_df["Score"] = pd.to_numeric(merged_df["Score"], errors='coerce').fillna(-1)
+    merged_df["Score_prev"] = pd.to_numeric(merged_df["Score_prev"], errors='coerce').fillna(-1)
     merged_df["T3"] = pd.to_numeric(merged_df["T3"], errors='coerce').fillna(0)
     merged_df["T3_prev"] = pd.to_numeric(merged_df["T3_prev"], errors='coerce').fillna(0)
     merged_df["T2"] = pd.to_numeric(merged_df["T2"], errors='coerce').fillna(0)

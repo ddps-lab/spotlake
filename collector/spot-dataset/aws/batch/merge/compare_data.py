@@ -4,12 +4,7 @@ import numpy as np
 import warnings
 
 # ------ import user module ------
-try:
-    from slack_msg_sender import send_slack_message
-except ImportError:
-    warnings.warn("slack_msg_sender not found. Slack notifications will be disabled.")
-    def send_slack_message(msg):
-        print(f"[SLACK] {msg}")
+from utility.slack_msg_sender import send_slack_message
 
 # compare previous collected workload with current collected workload
 # return changed workload
@@ -100,6 +95,11 @@ def compare_max_instance(previous_df, new_df, target_capacity):
         how="left",
         suffixes=("", "_prev")
     )
+
+    # Fill NaN values for _prev columns (new workloads that don't exist in previous data)
+    merged_df["T3_prev"] = merged_df["T3_prev"].fillna(0)
+    merged_df["T2_prev"] = merged_df["T2_prev"].fillna(0)
+    merged_df["SPS_prev"] = merged_df["SPS_prev"].fillna(merged_df["SPS"])
 
     # Fix SPS when single node SPS
     if target_capacity == 1:

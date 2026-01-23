@@ -1,10 +1,13 @@
-import os
-import boto3
-import pickle
-import time
-import pandas as pd
 import sys
+import os
+import pandas as pd
+import boto3
+import time
+import json
+import pickle
+import gzip
 from datetime import datetime
+import concurrent.futures
 
 # Add parent directory to path to import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,9 +20,10 @@ session = boto3.session.Session(region_name='us-west-2')
 # Update latest_azure.json in S3
 def update_latest_price_saving_if(data, time_datetime):
     try:
+        # Copy once at start to avoid mutating caller's DataFrame
+        data = data.copy()
         data['id'] = data.index + 1
         data = data[['id', 'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
-        data = data.copy()
 
         data['OndemandPrice'] = data['OndemandPrice'].fillna(-1)
         data['Savings'] = data['Savings'].fillna(-1)
@@ -138,9 +142,9 @@ def submit_batch(records, counter, recursive):
 def upload_timestream(data, time_datetime):
     Logger.info("Executing upload_timestream!")
     try:
-        data = data.copy()
+        # Copy only selected columns to reduce memory
         data = data[["InstanceTier", "InstanceType", "Region", "OndemandPrice", "SpotPrice", "Savings", "IF",
-            "DesiredCount", "AvailabilityZone", "Score", "Time", "T2", "T3"]]
+            "DesiredCount", "AvailabilityZone", "Score", "Time", "T2", "T3"]].copy()
 
         fill_values = {
             "InstanceTier": 'N/A',
@@ -161,10 +165,9 @@ def upload_timestream(data, time_datetime):
 
         time_value = str(int(round(time_datetime.timestamp() * 1000)))
 
-        records = []
-        counter = 0
+        # Prepare all records first
+        all_records = []
         for idx, row in data.iterrows():
-
             dimensions = []
             for column in ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']:
                 dimensions.append({'Name': column, 'Value': str(row[column])})
@@ -194,18 +197,39 @@ def upload_timestream(data, time_datetime):
                     'Type': value_type
                 })
 
-            records.append(submit_data)
-            counter += 1
-            if len(records) == 100:
-                submit_batch(records, counter, 0)
-                records = []
+            all_records.append(submit_data)
 
-        if len(records) != 0:
-            submit_batch(records, counter, 0)
+        # Split into batches of 100
+        all_batches = []
+        batch = []
+        for record in all_records:
+            batch.append(record)
+            if len(batch) == 100:
+                all_batches.append(batch)
+                batch = []
+        
+        if batch:  # Add remaining records
+            all_batches.append(batch)
+        
+        Logger.info(f"Uploading {len(all_records)} records in {len(all_batches)} batches using 10 threads")
+        
+        # Submit batches in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(submit_batch, batch, i, 0) for i, batch in enumerate(all_batches)]
+            
+            # Wait for all to complete and check for errors
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    Logger.error(f"Error submitting batch: {e}")
+                    # Continue with other batches even if one fails
+        
+        Logger.info("Timestream upload completed")
         return True
 
     except Exception as e:
-        print(f"upload_timestream failed. error: {e}")
+        Logger.error(f"upload_timestream failed. error: {e}")
         return False
 
 
@@ -213,17 +237,26 @@ def update_latest(all_data_dataframe):
     try:
         all_data_dataframe['id'] = all_data_dataframe.index + 1
 
-        dataframe_desired_count_1_df = all_data_dataframe[all_data_dataframe["DesiredCount"].isin([1, -1])].copy()
-        dataframe_desired_count_1_df['id'] = dataframe_desired_count_1_df.index + 1
-        desired_count_1_json_data = dataframe_desired_count_1_df.to_dict(orient="records")
+        json_data = all_data_dataframe.to_dict(orient="records")
 
-        desired_count_1_json_path = f"{AZURE_CONST.S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH}"
+        json_path = f"{AZURE_CONST.S3_LATEST_JSON_SAVE_PATH}"
         pkl_gzip_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}"
 
-        # FE 노출용 json, ["DesiredCount"].isin([1, -1])
-        S3.upload_file(desired_count_1_json_data, desired_count_1_json_path, "json", set_public_read=True)
-        # Full data pkl.gz, data 비교용
-        S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
+        # Parallel upload: json and pkl.gz
+        def upload_json():
+            S3.upload_file(json_data, json_path, "json", set_public_read=True)
+
+        def upload_pkl_gz():
+            S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(upload_json),
+                executor.submit(upload_pkl_gz)
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()  # Raise exception if any
+
         return True
 
     except Exception as e:

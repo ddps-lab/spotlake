@@ -3,7 +3,7 @@ set -e
 
 # Default values
 REGION="us-west-2"
-REPO_NAME="spotlake-azure-batch-test"
+REPO_NAME="spotlake-batch-test"
 
 usage() {
     echo "Usage: $0 [-r <aws_region>] [-p <aws_profile>] [-a <access_key_id>] [-s <secret_access_key>]"

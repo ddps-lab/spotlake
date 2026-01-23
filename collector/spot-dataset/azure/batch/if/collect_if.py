@@ -87,6 +87,12 @@ def load_if():
 
         eviction_df = eviction_df[
             ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+        
+        # Filter out Gov regions (align with Price collection)
+        FILTER_LOCATIONS = ['GOV', 'DoD', 'China', 'Germany']
+        eviction_df = eviction_df[
+            ~eviction_df['Region'].str.split().str[0].str.upper().isin(FILTER_LOCATIONS)
+        ]
 
         return eviction_df
 

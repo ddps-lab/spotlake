@@ -1,13 +1,22 @@
-# Azure Batch Collector Dockerfile
+# Unified Docker Image for AWS and Azure Batch Collectors
 FROM python:3.12-slim
 
-# Install system dependencies
+ARG AWS_ACCESS_KEY_ID
+ARG AWS_SECRET_ACCESS_KEY
+
+ENV AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+ENV AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+
+WORKDIR /app
+
+# Install system dependencies (procps for memory monitoring in test environments)
 RUN apt-get update && apt-get install -y \
     curl \
     unzip \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Install AWS CLI (for S3 and Batch interactions if needed)
+# Install AWS CLI based on architecture
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
     URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"; \
@@ -21,34 +30,43 @@ RUN ARCH=$(uname -m) && \
     ./aws/install && \
     rm -rf awscliv2.zip aws
 
-# Install Python dependencies
-# Added azure-identity, azure-core, scikit-learn (for KMeans in SPS)
-# boto3, pandas, numpy, pyyaml, requests are standard
+# Download and install spotinfo (for AWS) based on architecture
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+    URL="https://github.com/alexei-led/spotinfo/releases/download/2.2.0/spotinfo_linux_amd64"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+    URL="https://github.com/alexei-led/spotinfo/releases/download/2.2.0/spotinfo_linux_arm64"; \
+    else \
+    echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    curl -L $URL -o /usr/local/bin/spotinfo && \
+    chmod +x /usr/local/bin/spotinfo
+
+# Install Python dependencies (for both AWS and Azure)
 RUN pip install --no-cache-dir \
     boto3 \
     pandas \
     numpy \
     pyyaml \
+    ortools \
     requests \
     azure-identity \
     azure-core \
     scikit-learn
 
-# Copy application code
-# Assuming build context is the project root (spotlake/)
-# We copy the entire azure/batch directory to /app/collector/spot-dataset/azure/batch
-COPY collector/spot-dataset/azure/batch /app/collector/spot-dataset/azure/batch
+# Copy utility module (shared by both AWS and Azure)
+COPY utility /app/utility
 
-# Make scripts executable
+# Copy AWS collector code
+COPY collector/spot-dataset/aws/batch /app/collector/spot-dataset/aws/batch
+RUN chmod +x /app/collector/spot-dataset/aws/batch/scripts/run_collection.sh
+
+# Copy Azure collector code
+COPY collector/spot-dataset/azure/batch /app/collector/spot-dataset/azure/batch
 RUN chmod +x /app/collector/spot-dataset/azure/batch/scripts/run_collection.sh
 
-# Set PYTHONPATH to include /app so imports work (e.g. from utils)
-# Our modules are in collector/spot-dataset/azure/batch
-# Scripts import 'utils' assuming parent dir is in path?
-# No, scripts do sys.path.append(os.path.dirname(os.path.dirname(...))) but strictly setting PYTHONPATH is safer.
-ENV PYTHONPATH=/app/collector/spot-dataset/azure/batch
+# Set PYTHONPATH to include /app so imports work
+ENV PYTHONPATH=/app
 
-WORKDIR /app
-
-# Default entrypoint
+# Default entrypoint (can be overridden)
 CMD ["python3", "--version"]

@@ -1,4 +1,4 @@
-# Stage 2: Final image
+# Unified Docker Image for AWS and Azure Batch Collectors (Test Environment)
 FROM python:3.12-slim
 
 ARG AWS_ACCESS_KEY_ID
@@ -9,7 +9,7 @@ ENV AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (procps for memory monitoring in test environments)
 RUN apt-get update && apt-get install -y \
     curl \
     unzip \
@@ -19,18 +19,30 @@ RUN apt-get update && apt-get install -y \
 # Install AWS CLI based on architecture
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "x86_64" ]; then \
-        URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"; \
+    URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"; \
     elif [ "$ARCH" = "aarch64" ]; then \
-        URL="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip"; \
+    URL="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip"; \
     else \
-        echo "Unsupported architecture: $ARCH" && exit 1; \
+    echo "Unsupported architecture: $ARCH" && exit 1; \
     fi && \
     curl "$URL" -o "awscliv2.zip" && \
     unzip awscliv2.zip && \
     ./aws/install && \
     rm -rf awscliv2.zip aws
 
-# Install Python dependencies
+# Download and install spotinfo (for AWS) based on architecture
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+    URL="https://github.com/alexei-led/spotinfo/releases/download/2.2.0/spotinfo_linux_amd64"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+    URL="https://github.com/alexei-led/spotinfo/releases/download/2.2.0/spotinfo_linux_arm64"; \
+    else \
+    echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    curl -L $URL -o /usr/local/bin/spotinfo && \
+    chmod +x /usr/local/bin/spotinfo
+
+# Install Python dependencies (for both AWS and Azure)
 RUN pip install --no-cache-dir \
     boto3 \
     pandas \
@@ -38,12 +50,18 @@ RUN pip install --no-cache-dir \
     pyyaml \
     ortools \
     requests \
-    scikit-learn \
     azure-identity \
-    azure-core
+    azure-core \
+    scikit-learn
 
-# Copy application code
-# Assuming build context is the project root (spotlake/)
+# Copy utility module (shared by both AWS and Azure)
+COPY utility /app/utility
+
+# Copy AWS test collector code
+COPY collector/spot-dataset/aws/batch-test /app/collector/spot-dataset/aws/batch-test
+RUN chmod +x /app/collector/spot-dataset/aws/batch-test/scripts/run_collection.sh
+
+# Copy Azure test collector code
 COPY collector/spot-dataset/azure/batch-test /app/collector/spot-dataset/azure/batch-test
 RUN chmod +x /app/collector/spot-dataset/azure/batch-test/scripts/run_collection.sh
 

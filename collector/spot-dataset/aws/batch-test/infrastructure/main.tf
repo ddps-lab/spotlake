@@ -193,7 +193,7 @@ resource "aws_iam_instance_profile" "ecs_instance_role" {
 
 # 1. Shared Compute Environment
 resource "aws_batch_compute_environment" "spot_compute_env" {
-  name = "spotlake-compute-env-test"
+  name = "spotlake-aws-compute-env-test"
 
   compute_resources {
     type = "SPOT"
@@ -220,7 +220,7 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
 }
 
 resource "aws_batch_job_queue" "spot_job_queue" {
-  name     = "spotlake-job-queue-test"
+  name     = "spotlake-aws-job-queue-test"
   state    = "ENABLED"
   priority = 1
   
@@ -234,7 +234,7 @@ resource "aws_batch_job_queue" "spot_job_queue" {
 
 # Consolidated Collection Job
 resource "aws_batch_job_definition" "collection_job" {
-  name = "spotlake-collection-job-test"
+  name = "spotlake-aws-collection-job-test"
   type = "container"
 
   container_properties = jsonencode({
@@ -258,7 +258,7 @@ resource "aws_batch_job_definition" "collection_job" {
 
 # Workload Generation Job
 resource "aws_batch_job_definition" "workload_job" {
-  name = "spotlake-workload-job-test"
+  name = "spotlake-aws-workload-job-test"
   type = "container"
 
   container_properties = jsonencode({

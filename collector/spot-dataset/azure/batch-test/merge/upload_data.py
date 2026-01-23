@@ -1,4 +1,3 @@
-```python
 import sys
 import os
 import pandas as pd
@@ -243,10 +242,21 @@ def update_latest(all_data_dataframe):
         json_path = f"{AZURE_CONST.S3_LATEST_JSON_SAVE_PATH}"
         pkl_gzip_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}"
 
-        # FE 노출용 json
-        S3.upload_file(json_data, json_path, "json", set_public_read=True)
-        # Full data pkl.gz, data 비교용
-        S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
+        # Parallel upload: json and pkl.gz
+        def upload_json():
+            S3.upload_file(json_data, json_path, "json", set_public_read=True)
+
+        def upload_pkl_gz():
+            S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(upload_json),
+                executor.submit(upload_pkl_gz)
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()  # Raise exception if any
+
         return True
 
     except Exception as e:

@@ -4,7 +4,9 @@ import argparse
 import boto3
 import pickle
 import gzip
+import gc
 import pandas as pd
+import concurrent.futures
 from datetime import datetime, timezone, timedelta
 
 # Add parent directory to path to import utils
@@ -172,38 +174,56 @@ def main():
     price_key = f"{AZURE_CONST.S3_RAW_DATA_PATH}/spot_price/{date_path}/{time_str}_spot_price.pkl.gz"
 
     try:
-        # Load Data from WRITE_BUCKET (Test)
-        sps_df = S3.read_file(sps_key, 'pkl.gz')
+        # Load Data in parallel from WRITE_BUCKET (Test)
+        Logger.info("Loading S3 data files in parallel...")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            sps_future = executor.submit(S3.read_file, sps_key, 'pkl.gz')
+            if_future = executor.submit(S3.read_file, if_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
+            price_future = executor.submit(S3.read_file, price_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
+            prev_all_data_future = executor.submit(
+                S3.read_file,
+                AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH,
+                'pkl.gz',
+                bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME
+            )
+
+            sps_df = sps_future.result()
+            if_df = if_future.result()
+            price_df = price_future.result()
+            prev_all_data = prev_all_data_future.result()
+
+        Logger.info("S3 data files loaded in parallel")
+
         if sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
-        
+
         Logger.info(f"Loaded SPS: {len(sps_df)} rows")
-        
+
         # CRITICAL: Filter to latest timestamp only
         # SPS files may contain historical data causing massive row explosion
         if 'time' in sps_df.columns:
             latest_time = sps_df['time'].max()
             time_range = f"{sps_df['time'].min()} to {latest_time}"
             Logger.info(f"SPS time range: {time_range}")
-            
+
             sps_df = sps_df[sps_df['time'] == latest_time].copy()
             Logger.info(f"Filtered SPS to latest timestamp. Rows: {len(sps_df)}")
-        
+
         # NOTE: SPS has both 'Region' (region name) and 'RegionCodeSPS' (region code)
         # Lambda keeps Region as region NAME for merging
         # Do NOT replace Region - it must stay as name to match price_saving_if_df
-        
+
         # Strip potential whitespace and lower case keys
         for col in ['InstanceTier', 'InstanceType', 'Region']:
              if col in sps_df.columns:
                  sps_df[col] = sps_df[col].astype(str).str.strip().str.lower()
 
-        print("DEBUG: SPS DF Head (Normalized):") 
+        print("DEBUG: SPS DF Head (Normalized):")
         print(sps_df[['InstanceTier', 'InstanceType', 'Region']].head())
         print("DEBUG: SPS Unique Regions (Top 5):", sps_df['Region'].unique()[:5])
         print("DEBUG: SPS Unique InstanceTypes (Top 5):", sps_df['InstanceType'].unique()[:5])
-             
-        if_df = S3.read_file(if_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
+
         if if_df is not None:
             # Strip potential whitespace and lower case keys
             for col in ['InstanceTier', 'InstanceType', 'Region']:
@@ -215,7 +235,6 @@ def main():
             print("DEBUG: IF Unique Regions (Top 5):", if_df['Region'].unique()[:5])
             print("DEBUG: IF Unique InstanceTypes (Top 5):", if_df['InstanceType'].unique()[:5])
 
-        price_df = S3.read_file(price_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
         if price_df is not None:
              # Strip potential whitespace and lower case keys
             for col in ['InstanceTier', 'InstanceType', 'Region', 'armRegionName']:
@@ -260,9 +279,7 @@ def main():
         print(f"\nDEBUG: After Merge - Result shape: {sps_merged_df.shape}")
         print(f"  Sample with IF/Score: {sps_merged_df[['InstanceType', 'Region', 'IF', 'Score', 'DesiredCount']].head(3)}")
 
-        # Load Previous Data from WRITE_BUCKET (Test)
-        prev_all_data = S3.read_file(AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
-        
+        # Process prev_all_data (already loaded in parallel above)
         # CRITICAL: Filter prev_all_data to latest timestamp
         # Multiple timestamps in prev_all_data cause Cartesian product in merge
         if prev_all_data is not None and not prev_all_data.empty:
@@ -324,33 +341,62 @@ def main():
             
             changed_df = compare_data.compare_sps(prev_all_data, sps_merged_df, workload_cols, feature_cols)
             
-            if changed_df is not None and not changed_df.empty:
-                query_success = upload_data.query_selector(changed_df)
-                timestream_success = upload_data.upload_timestream(changed_df, timestamp_utc)
-            else:
-                Logger.info("No changes detections.")
-                query_success = True
-                timestream_success = True
-                
-            cloudwatch_success = upload_data.upload_cloudwatch(sps_merged_df, timestamp_utc)
-            
-            # Free prev_all_data memory explicitly
+            # Free prev_all_data memory before parallel uploads
             del prev_all_data
-            import gc
             gc.collect()
             Logger.info("Memory cleanup complete")
+
+            # Parallel upload: all upload tasks run concurrently
+            data_type = 'desired_count_1' if desired_count == 1 else 'multi'
+
+            Logger.info("Starting parallel upload phase...")
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                futures = {}
+
+                # Always run these
+                futures['cloudwatch'] = executor.submit(upload_data.upload_cloudwatch, sps_merged_df, timestamp_utc)
+                futures['update_latest'] = executor.submit(upload_data.update_latest, sps_merged_df)
+                futures['save_raw'] = executor.submit(upload_data.save_raw, sps_merged_df, timestamp_utc, True, data_type)
+
+                # Only if there are changes
+                if changed_df is not None and not changed_df.empty:
+                    futures['query_selector'] = executor.submit(upload_data.query_selector, changed_df)
+                    futures['timestream'] = executor.submit(upload_data.upload_timestream, changed_df, timestamp_utc)
+                else:
+                    Logger.info("No changes detected. Skipping query_selector and timestream.")
+
+                # Collect results
+                results = {}
+                for name, future in futures.items():
+                    try:
+                        results[name] = future.result()
+                    except Exception as e:
+                        Logger.error(f"{name} failed: {e}")
+                        results[name] = False
+
+            cloudwatch_success = results.get('cloudwatch', False)
+            update_latest_success = results.get('update_latest', False)
+            save_raw_success = results.get('save_raw', False)
+            query_success = results.get('query_selector', True)  # True if skipped
+            timestream_success = results.get('timestream', True)  # True if skipped
+
+            Logger.info("Parallel upload phase completed")
+
         else:
             Logger.info("First run or no previous data. Skipping comparison.")
-            update_latest_success = upload_data.update_latest(sps_merged_df)
-            save_raw_success = upload_data.save_raw(sps_merged_df, timestamp_utc, az=True, data_type='desired_count_1' if desired_count==1 else 'multi')
+
+            # Parallel upload for first run
+            data_type = 'desired_count_1' if desired_count == 1 else 'multi'
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                update_future = executor.submit(upload_data.update_latest, sps_merged_df)
+                save_raw_future = executor.submit(upload_data.save_raw, sps_merged_df, timestamp_utc, True, data_type)
+
+                update_latest_success = update_future.result()
+                save_raw_success = save_raw_future.result()
             return
 
-        # Upload Results
-        update_latest_success = upload_data.update_latest(sps_merged_df)
-
-        data_type = 'desired_count_1' if desired_count == 1 else 'multi'
-        save_raw_success = upload_data.save_raw(sps_merged_df, timestamp_utc, az=True, data_type=data_type)
-        
         Logger.info(f"Merge Execution Completed. UpdateLatest:{update_latest_success}, SaveRaw:{save_raw_success}, Timestream:{timestream_success}, CloudWatch:{cloudwatch_success}")
 
     except Exception as e:

@@ -96,6 +96,11 @@ def compare_max_instance(previous_df, new_df, target_capacity):
         suffixes=("", "_prev")
     )
 
+    # Fill NaN values for _prev columns (new workloads that don't exist in previous data)
+    merged_df["T3_prev"] = merged_df["T3_prev"].fillna(0)
+    merged_df["T2_prev"] = merged_df["T2_prev"].fillna(0)
+    merged_df["SPS_prev"] = merged_df["SPS_prev"].fillna(merged_df["SPS"])
+
     # Fix SPS when single node SPS
     if target_capacity == 1:
         merged_df["SPS"] = merged_df["SPS"].combine_first(merged_df["SPS_prev"])

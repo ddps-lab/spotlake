@@ -236,56 +236,21 @@ def upload_timestream(data, time_datetime):
 
 def update_latest(all_data_dataframe):
     try:
-        # Match Lambda behavior: modify original directly (no copy)
         all_data_dataframe['id'] = all_data_dataframe.index + 1
 
-        # Filter and add id in one step
-        dataframe_desired_count_1_df = all_data_dataframe[all_data_dataframe["DesiredCount"].isin([1, -1])].copy()
-        dataframe_desired_count_1_df['id'] = dataframe_desired_count_1_df.index + 1
-        desired_count_1_json_data = dataframe_desired_count_1_df.to_dict(orient="records")
+        json_data = all_data_dataframe.to_dict(orient="records")
 
-        desired_count_1_json_path = f"{AZURE_CONST.S3_LATEST_DESIRED_COUNT_1_DATA_AVAILABILITYZONE_TRUE_SAVE_PATH}"
+        json_path = f"{AZURE_CONST.S3_LATEST_JSON_SAVE_PATH}"
         pkl_gzip_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}"
 
-        # FE 노출용 json, ["DesiredCount"].isin([1, -1])
-        S3.upload_file(desired_count_1_json_data, desired_count_1_json_path, "json", set_public_read=True)
+        # FE 노출용 json
+        S3.upload_file(json_data, json_path, "json", set_public_read=True)
         # Full data pkl.gz, data 비교용
         S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
         return True
 
     except Exception as e:
         print(f"update_latest failed. error: {e}")
-        return False
-
-
-def update_latest_azure_json(all_data_dataframe, timestamp):
-    """
-    Generate latest_azure.json in AWS-compatible format.
-    This provides consistency with AWS which uses a single latest_aws.json file.
-    """
-    try:
-        # Create copy with new columns efficiently using assign
-        data = all_data_dataframe.assign(
-            id=all_data_dataframe.index + 1,
-            time=timestamp.strftime('%Y-%m-%d %H:%M:%S')
-        )
-        
-        # Convert to JSON
-        json_data = data.to_dict(orient="records")
-        
-        # Upload to S3 at the same path as Lambda uses
-        S3.upload_file(
-            json_data,
-            "latest_data/latest_azure.json",  # AWS-compatible path
-            "json",
-            set_public_read=True
-        )
-        
-        print(f"Successfully uploaded latest_azure.json with {len(data)} records")
-        return True
-        
-    except Exception as e:
-        print(f"update_latest_azure_json failed. error: {e}")
         return False
 
 

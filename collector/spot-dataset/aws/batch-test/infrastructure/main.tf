@@ -102,6 +102,7 @@ resource "aws_iam_policy" "batch_job_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # Primary bucket (read) and test bucket (write)
       {
         Effect = "Allow"
         Action = [
@@ -112,7 +113,22 @@ resource "aws_iam_policy" "batch_job_policy" {
         ]
         Resource = [
           "arn:aws:s3:::${var.s3_bucket}",
-          "arn:aws:s3:::${var.s3_bucket}/*"
+          "arn:aws:s3:::${var.s3_bucket}/*",
+          "arn:aws:s3:::${var.s3_bucket}-test",
+          "arn:aws:s3:::${var.s3_bucket}-test/*"
+        ]
+      },
+      # TITANS Hot/Warm tier bucket (parquet storage)
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.titans_bucket}",
+          "arn:aws:s3:::${var.titans_bucket}/*"
         ]
       },
       {

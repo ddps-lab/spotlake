@@ -115,6 +115,19 @@ resource "aws_iam_policy" "batch_job_policy" {
           "arn:aws:s3:::${var.s3_bucket}/*"
         ]
       },
+      # TITANS Hot/Warm tier bucket (parquet storage)
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.titans_bucket}",
+          "arn:aws:s3:::${var.titans_bucket}/*"
+        ]
+      },
       {
         Effect = "Allow"
         Action = [

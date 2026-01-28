@@ -195,6 +195,9 @@ def main():
     else:
         print(f"Target Capacity {target_capacity}에 대한 매핑이 존재합니다. 멀티쓰레드 실행 모드로 진행합니다.")
 
+    # ------ Set Credential Range ------
+    credential_range_end = 1800 if init_credential_index == 0 else len(credentials)
+
     # ------ Start Query Per Target Capacity ------
     start_time = datetime.now(timezone.utc)
     start_credential_index = current_credential_index
@@ -210,18 +213,20 @@ def main():
                     try:
                         credential = credentials.iloc[current_credential_index]
                         args = (credential, scenarios, target_capacity)
-                        # 매핑 기록 (성공한 credential index 기록)
+                        df = query_sps(args)
+                        # 성공한 경우에만 매핑 기록 및 index 증가
                         current_mapping[idx] = current_credential_index
                         current_credential_index += 1
-                        df = query_sps(args)
+                        if current_credential_index >= credential_range_end:
+                            current_credential_index = init_credential_index
                         df_list.append(df)
                         break
                     except botocore.exceptions.ClientError as e:
                         if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
-                            print(f"MaxConfigLimitExceeded for credential index {current_credential_index - 1}. Retrying with next credential.")
-                            # 실패한 경우 다음 credential로 재시도 (매핑은 성공한 것만 기록)
-                            current_mapping[idx] = current_credential_index
+                            print(f"MaxConfigLimitExceeded for credential index {current_credential_index}. Retrying with next credential.")
                             current_credential_index += 1
+                            if current_credential_index >= credential_range_end:
+                                current_credential_index = init_credential_index
                             continue
                         else:
                             print(f"ClientError: {e}")

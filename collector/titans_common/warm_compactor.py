@@ -1,4 +1,21 @@
-"""Warm tier incremental compactor (Multi-provider support)."""
+"""Warm tier incremental compactor (Multi-provider support).
+
+Deletion policy: Deferred deletion.
+  Files scheduled for deletion are recorded in manifest's `pending_deletions`
+  and physically deleted on the NEXT compaction cycle (~10 min later).
+  This guarantees that in-flight queries never encounter missing files.
+
+Idempotency: last_processed_time (single datetime).
+  Hot files arrive in strict chronological order from a single-writer collector.
+  A file is skipped if its timestamp <= last_processed_time.
+
+  IMPORTANT: This design assumes:
+    1. Single writer (one collector process at a time)
+    2. Strictly ordered arrival (10-min interval batches)
+    3. No backfill of past timestamps
+  If any of these assumptions change (e.g., multi-writer or backfill),
+  a key-based deduplication mechanism must be reintroduced.
+"""
 from __future__ import annotations
 
 import io
@@ -15,7 +32,6 @@ import polars as pl
 from .config import get_config, ProviderConfig
 
 DEFAULT_M = 8
-PROCESSED_KEYS_CAP = 5000  # Monthly max ~4500 Hot files
 
 
 class ConcurrencyConflictError(Exception):
@@ -44,7 +60,8 @@ class WarmCompactor:
     next_file_id: int = 0
     last_hot_idx: int = -1
     manifest_etag: str | None = None
-    processed_keys: set[str] = field(default_factory=set)
+    last_processed_time: datetime | None = None
+    pending_deletions: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         self.config = get_config(self.provider)
@@ -70,7 +87,16 @@ class WarmCompactor:
             data = json.loads(response["Body"].read())
             self.next_file_id = data.get("next_file_id", 0)
             self.last_hot_idx = data.get("last_hot_idx", -1)
-            self.processed_keys = set(data.get("processed_keys", []))
+            self.pending_deletions = list(data.get("pending_deletions", []))
+
+            # last_processed_time: load directly
+            lpt = data.get("last_processed_time")
+            if lpt:
+                try:
+                    self.last_processed_time = datetime.fromisoformat(lpt)
+                except (ValueError, TypeError):
+                    self.last_processed_time = None
+
             for level_str, files in data.get("levels", {}).items():
                 level = int(level_str)
                 self.levels[level] = [
@@ -85,9 +111,6 @@ class WarmCompactor:
 
     def _save_manifest(self):
         """Save manifest.json to S3 (Optimistic Locking)."""
-        # Keep only recent N processed_keys
-        recent_keys = sorted(self.processed_keys)[-PROCESSED_KEYS_CAP:]
-
         data = {
             "m": self.m,
             "provider": self.provider,
@@ -96,7 +119,12 @@ class WarmCompactor:
             "pk_columns": self.config.pk_columns,
             "next_file_id": self.next_file_id,
             "last_hot_idx": self.last_hot_idx,
-            "processed_keys": recent_keys,
+            "last_processed_time": (
+                self.last_processed_time.isoformat()
+                if self.last_processed_time
+                else None
+            ),
+            "pending_deletions": self.pending_deletions,
             "last_updated": datetime.now(timezone.utc).isoformat(),
             "levels": {
                 str(level): [
@@ -112,7 +140,6 @@ class WarmCompactor:
 
         try:
             if self.manifest_etag:
-                # Existing manifest -> overwrite only if ETag matches
                 self.s3_client.put_object(
                     Bucket=self.bucket,
                     Key=key,
@@ -121,7 +148,6 @@ class WarmCompactor:
                     IfMatch=self.manifest_etag,
                 )
             else:
-                # First creation -> create only if file doesn't exist
                 self.s3_client.put_object(
                     Bucket=self.bucket,
                     Key=key,
@@ -136,21 +162,38 @@ class WarmCompactor:
                 )
             raise
 
+    def flush_pending_deletions(self):
+        """Delete files recorded in the previous compaction cycle.
+
+        Called at the START of each cycle, before new compaction.
+        This ensures deleted files remain on S3 for at least one full
+        cycle (~10 min), so in-flight queries never hit missing files.
+        """
+        if not self.pending_deletions:
+            return
+        for key in self.pending_deletions:
+            try:
+                self.s3_client.delete_object(Bucket=self.bucket, Key=key)
+                print(f"[WARM/{self.provider}] Deleted (deferred) {key}")
+            except Exception as e:
+                print(f"[WARM/{self.provider}] Failed to delete {key}: {e}")
+        self.pending_deletions = []
+
     def add_hot_file(self, hot_s3_key: str) -> list[str]:
-        """Add Hot file - idempotency guaranteed + rollback on failure."""
-        # Skip if already processed
-        if hot_s3_key in self.processed_keys:
+        """Add Hot file - idempotency via last_processed_time + rollback on failure."""
+        # Idempotency: skip if already processed
+        file_time = self._parse_time_from_key(hot_s3_key)
+        if self.last_processed_time and file_time and file_time <= self.last_processed_time:
             print(f"[WARM/{self.provider}] Skipping already processed: {hot_s3_key}")
             return []
 
-        self.processed_keys.add(hot_s3_key)
         self.last_hot_idx += 1
         hot_idx = self.last_hot_idx
 
         wf = WarmFile(level=0, hot_range=(hot_idx, hot_idx), filename=hot_s3_key)
         self.levels[0].append(wf)
 
-        # Execute compaction (track created files)
+        # Execute compaction (track created files for rollback)
         created_files = []
         try:
             deleted_files, created_files = self._compact_with_tracking(0)
@@ -163,10 +206,31 @@ class WarmCompactor:
                     pass
             raise
 
-        # Save manifest
+        # Defer deletion: record for next cycle instead of deleting now
+        self.pending_deletions.extend(deleted_files)
+
+        # Update last_processed_time
+        if file_time:
+            self.last_processed_time = file_time
+
+        # Save manifest (includes pending_deletions)
         self._save_manifest()
 
         return deleted_files
+
+    def _parse_time_from_key(self, hot_s3_key: str) -> datetime | None:
+        """Parse timestamp from hot file path.
+
+        e.g., 'test/parquet_cp_hot/aws/2026/01/23/14-20.parquet'
+            → datetime(2026, 1, 23, 14, 20, tzinfo=UTC)
+        """
+        try:
+            parts = hot_s3_key.removesuffix(".parquet").split("/")
+            day = int(parts[-2])
+            hour, minute = map(int, parts[-1].split("-"))
+            return datetime(self.year, self.month, day, hour, minute, tzinfo=timezone.utc)
+        except (ValueError, IndexError):
+            return None
 
     def _compact_with_tracking(self, level: int) -> tuple[list[str], list[str]]:
         """Execute compaction - track created files."""
@@ -182,7 +246,11 @@ class WarmCompactor:
             self.levels[level + 1].append(merged)
 
             for wf in to_merge:
-                if wf.level > 0:
+                if wf.level == 0:
+                    # Hot file: filename is full path (e.g., "test/parquet_cp_hot/...")
+                    deleted_files.append(wf.filename)
+                else:
+                    # Warm file (L1+): prepend warm_prefix
                     deleted_files.append(f"{self.warm_prefix}/{wf.filename}")
 
             sub_deleted, sub_created = self._compact_with_tracking(level + 1)
@@ -233,15 +301,6 @@ class WarmCompactor:
 
         return WarmFile(level=new_level, hot_range=(start_idx, end_idx), filename=filename)
 
-    def cleanup_deleted_files(self, deleted_keys: list[str]):
-        """Delete unnecessary files after compaction."""
-        for key in deleted_keys:
-            try:
-                self.s3_client.delete_object(Bucket=self.bucket, Key=key)
-                print(f"[WARM/{self.provider}] Deleted {key}")
-            except Exception as e:
-                print(f"[WARM/{self.provider}] Failed to delete {key}: {e}")
-
 
 def run_compaction(
     hot_s3_key: str,
@@ -263,14 +322,15 @@ def run_compaction(
         provider=provider,
     )
 
+    # 1. Delete files from previous cycle (deferred deletion)
+    compactor.flush_pending_deletions()
+
+    # 2. Add hot file + compact (new deletions recorded in pending_deletions)
     deleted_files = compactor.add_hot_file(hot_s3_key)
 
     elapsed = time.time() - start_time
     if elapsed > timeout_seconds:
         print(f"[WARN] Compaction took {elapsed:.1f}s, exceeds {timeout_seconds}s limit")
-
-    if deleted_files:
-        compactor.cleanup_deleted_files(deleted_files)
 
     total_files = sum(len(files) for files in compactor.levels.values())
     print(f"[WARM/{provider}] Current warm files: {total_files}")

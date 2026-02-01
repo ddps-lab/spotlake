@@ -97,6 +97,8 @@ interface QuerySectionProps {
   setLoading: (loading: boolean) => void
 }
 
+const TITANS_ENDPOINT = "https://l641q7r2rb.execute-api.us-west-2.amazonaws.com"
+
 export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionProps) {
   const url = "https://d26bk4799jlxhe.cloudfront.net/query-api/"
   const [instance, setInstance] = useState<string[]>([])
@@ -338,35 +340,63 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
 
     if (searchFilter.start_date <= searchFilter.end_date) {
       setLoading(true)
-      const params = {
-        TableName: vendor.toLowerCase(),
-        ...(vendor === "AWS" && {
-          AZ: searchFilter.az === "ALL" ? "*" : searchFilter.az,
-        }),
-        Region: searchFilter.region === "ALL" ? "*" : searchFilter.region,
-        InstanceType: searchFilter.instance === "ALL" ? "*" : searchFilter.instance,
-        ...(vendor === "AZURE" && {
-          InstanceTier: "*",
-          AvailabilityZone: searchFilter.az === "ALL" ? "*" : searchFilter.az,
-        }),
-        Start: searchFilter.start_date === "" ? "*" : searchFilter.start_date,
-        End: searchFilter.end_date === "" ? "*" : searchFilter.end_date,
-      }
 
       try {
-        const res = await axios.get(url, { params })
-        console.log("Raw axios response:", res)
-        // Check if Data exists (some endpoints might not return Status field)
-        if (res.data.Data || res.data.Status === 200) {
-            const dataToPass = res.data.Data || []
-            console.log("Query API response:", dataToPass)
-            onDataFetch(dataToPass, { 
-              start: searchFilter.start_date, 
-              end: searchFilter.end_date,
-              region: searchFilter.region
-            })
+        if (vendor === "AWS") {
+          // TITANS Polars Lambda (AWS only)
+          const body = {
+            instance_types: searchFilter.instance === "ALL" ? ["all"] : [searchFilter.instance],
+            regions: searchFilter.region === "ALL" ? ["all"] : [searchFilter.region],
+            azs: searchFilter.az === "ALL" ? ["all"] : [searchFilter.az],
+            start: searchFilter.start_date,
+            end: searchFilter.end_date,
+            strategy: "unified",
+          }
+          const resp = await fetch(`${TITANS_ENDPOINT}/query`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+          if (!resp.ok) {
+            const errText = await resp.text()
+            alert("TITANS query error: " + errText.slice(0, 200))
+            return
+          }
+          // Decompress gzip response
+          const blob = await resp.blob()
+          const ds = new DecompressionStream("gzip")
+          const decompressed = blob.stream().pipeThrough(ds)
+          const text = await new Response(decompressed).text()
+          const data = JSON.parse(text)
+          console.log("TITANS response:", data.result_count, "rows, timing:", data.timing)
+          onDataFetch(data.results || [], {
+            start: searchFilter.start_date,
+            end: searchFilter.end_date,
+            region: searchFilter.region,
+          })
         } else {
+          // GCP/Azure: existing CloudFront TSDB API
+          const params = {
+            TableName: vendor.toLowerCase(),
+            Region: searchFilter.region === "ALL" ? "*" : searchFilter.region,
+            InstanceType: searchFilter.instance === "ALL" ? "*" : searchFilter.instance,
+            ...(vendor === "AZURE" && {
+              InstanceTier: "*",
+              AvailabilityZone: searchFilter.az === "ALL" ? "*" : searchFilter.az,
+            }),
+            Start: searchFilter.start_date === "" ? "*" : searchFilter.start_date,
+            End: searchFilter.end_date === "" ? "*" : searchFilter.end_date,
+          }
+          const res = await axios.get(url, { params })
+          if (res.data.Data || res.data.Status === 200) {
+            onDataFetch(res.data.Data || [], {
+              start: searchFilter.start_date,
+              end: searchFilter.end_date,
+              region: searchFilter.region,
+            })
+          } else {
             alert("Error fetching data: " + res.data.Status)
+          }
         }
       } catch (e) {
         console.error(e)

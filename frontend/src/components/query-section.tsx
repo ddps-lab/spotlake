@@ -99,6 +99,14 @@ interface QuerySectionProps {
 
 const TITANS_ENDPOINT = "https://l641q7r2rb.execute-api.us-west-2.amazonaws.com"
 
+/** Format Date as "YYYY-MM-DD" in local timezone (not UTC). */
+const toLocalDateStr = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
 export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionProps) {
   const url = "https://d26bk4799jlxhe.cloudfront.net/query-api/"
   const [instance, setInstance] = useState<string[]>([])
@@ -122,7 +130,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
 
   const [dateRange, setDateRange] = useState({
     min: "",
-    max: new Date().toISOString().split("T")[0],
+    max: toLocalDateStr(new Date()),
   })
 
   const filterSort = (V: string) => {
@@ -221,8 +229,8 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
       instance: "",
       region: "",
       az: "",
-      start_date: yesterday.toISOString().split("T")[0],
-      end_date: today.toISOString().split("T")[0],
+      start_date: toLocalDateStr(yesterday),
+      end_date: toLocalDateStr(today),
     })
     setAssoRegion(undefined)
     setAssoInstance(undefined)
@@ -236,9 +244,9 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
         const today = new Date()
         tmpMax.setMonth(tmpMax.getMonth() + 1)
         if (tmpMax < today) {
-            setDateRange({ ...dateRange, max: tmpMax.toISOString().split("T")[0] })
+            setDateRange({ ...dateRange, max: toLocalDateStr(tmpMax) })
         } else {
-            setDateRange({ ...dateRange, max: today.toISOString().split("T")[0] })
+            setDateRange({ ...dateRange, max: toLocalDateStr(today) })
         }
     }
 
@@ -326,7 +334,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
     }
   }
 
-  const querySubmit = async () => {
+  const validateQuery = () => {
     const invalidQuery = Object.keys(searchFilter).some((key) => {
         if (key === 'az' && vendor !== 'AWS') return false;
         return !searchFilter[key as keyof typeof searchFilter]
@@ -335,77 +343,111 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
 
     if (invalidQuery || invalidQueryForVendor) {
       alert("The query is invalid. Please check your search option.")
-      return
+      return false
     }
+    if (searchFilter.start_date > searchFilter.end_date) {
+      alert("Invalid date range")
+      return false
+    }
+    return true
+  }
 
-    if (searchFilter.start_date <= searchFilter.end_date) {
-      setLoading(true)
+  /** TITANS Polars Lambda query (AWS) / CloudFront TSDB (GCP, Azure) */
+  const querySubmit = async () => {
+    if (!validateQuery()) return
 
-      try {
-        if (vendor === "AWS") {
-          // TITANS Polars Lambda (AWS only)
-          const body = {
-            instance_types: searchFilter.instance === "ALL" ? ["all"] : [searchFilter.instance],
-            regions: searchFilter.region === "ALL" ? ["all"] : [searchFilter.region],
-            azs: searchFilter.az === "ALL" ? ["all"] : [searchFilter.az],
-            start: searchFilter.start_date,
-            end: searchFilter.end_date,
-            strategy: "unified",
-          }
-          const resp = await fetch(`${TITANS_ENDPOINT}/query`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          })
-          if (!resp.ok) {
-            const errText = await resp.text()
-            alert("TITANS query error: " + errText.slice(0, 200))
-            return
-          }
-          // Decompress gzip response
-          const blob = await resp.blob()
-          const ds = new DecompressionStream("gzip")
-          const decompressed = blob.stream().pipeThrough(ds)
-          const text = await new Response(decompressed).text()
-          const data = JSON.parse(text)
-          console.log("TITANS response:", data.result_count, "rows, timing:", data.timing)
-          onDataFetch(data.results || [], {
-            start: searchFilter.start_date,
-            end: searchFilter.end_date,
-            region: searchFilter.region,
-          })
-        } else {
-          // GCP/Azure: existing CloudFront TSDB API
-          const params = {
-            TableName: vendor.toLowerCase(),
-            Region: searchFilter.region === "ALL" ? "*" : searchFilter.region,
-            InstanceType: searchFilter.instance === "ALL" ? "*" : searchFilter.instance,
-            ...(vendor === "AZURE" && {
-              InstanceTier: "*",
-              AvailabilityZone: searchFilter.az === "ALL" ? "*" : searchFilter.az,
-            }),
-            Start: searchFilter.start_date === "" ? "*" : searchFilter.start_date,
-            End: searchFilter.end_date === "" ? "*" : searchFilter.end_date,
-          }
-          const res = await axios.get(url, { params })
-          if (res.data.Data || res.data.Status === 200) {
-            onDataFetch(res.data.Data || [], {
-              start: searchFilter.start_date,
-              end: searchFilter.end_date,
-              region: searchFilter.region,
-            })
-          } else {
-            alert("Error fetching data: " + res.data.Status)
-          }
+    setLoading(true)
+    try {
+      if (vendor === "AWS") {
+        const body = {
+          instance_types: searchFilter.instance === "ALL" ? ["all"] : [searchFilter.instance],
+          regions: searchFilter.region === "ALL" ? ["all"] : [searchFilter.region],
+          azs: searchFilter.az === "ALL" ? ["all"] : [searchFilter.az],
+          start: searchFilter.start_date,
+          end: searchFilter.end_date,
+          strategy: "unified",
         }
-      } catch (e) {
-        console.error(e)
-        alert("Network error")
-      } finally {
-        setLoading(false)
+        const resp = await fetch(`${TITANS_ENDPOINT}/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        if (!resp.ok) {
+          const errText = await resp.text()
+          alert("TITANS query error: " + errText.slice(0, 200))
+          return
+        }
+        const blob = await resp.blob()
+        const ds = new DecompressionStream("gzip")
+        const decompressed = blob.stream().pipeThrough(ds)
+        const text = await new Response(decompressed).text()
+        const data = JSON.parse(text)
+        console.log("TITANS response:", data.result_count, "rows, timing:", data.timing)
+        // Strip timezone suffix so browser treats as local time (matches TSDB format)
+        const results = (data.results || []).map((r: any) => ({
+          ...r,
+          Time: typeof r.Time === "string"
+            ? r.Time.replace(/[+-]\d{2}:\d{2}$/, "").replace("T", " ")
+            : r.Time,
+        }))
+        onDataFetch(results, {
+          start: searchFilter.start_date,
+          end: searchFilter.end_date,
+          region: searchFilter.region,
+        })
+      } else {
+        await queryCloudFront()
       }
+    } catch (e) {
+      console.error(e)
+      alert("Network error")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Old CloudFront TSDB query (debug: all vendors) */
+  const queryTSDB = async () => {
+    if (!validateQuery()) return
+
+    setLoading(true)
+    try {
+      await queryCloudFront()
+    } catch (e) {
+      console.error(e)
+      alert("Network error")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Shared CloudFront TSDB API call */
+  const queryCloudFront = async () => {
+    const params = {
+      TableName: vendor.toLowerCase(),
+      ...(vendor === "AWS" && {
+        AZ: searchFilter.az === "ALL" ? "*" : searchFilter.az,
+      }),
+      Region: searchFilter.region === "ALL" ? "*" : searchFilter.region,
+      InstanceType: searchFilter.instance === "ALL" ? "*" : searchFilter.instance,
+      ...(vendor === "AZURE" && {
+        InstanceTier: "*",
+        AvailabilityZone: searchFilter.az === "ALL" ? "*" : searchFilter.az,
+      }),
+      Start: searchFilter.start_date === "" ? "*" : searchFilter.start_date,
+      End: searchFilter.end_date === "" ? "*" : searchFilter.end_date,
+    }
+    const res = await axios.get(url, { params })
+    if (res.data.Data || res.data.Status === 200) {
+      const dataToPass = res.data.Data || []
+      console.log("TSDB response:", dataToPass.length, "rows")
+      onDataFetch(dataToPass, {
+        start: searchFilter.start_date,
+        end: searchFilter.end_date,
+        region: searchFilter.region,
+      })
     } else {
-        alert("Invalid date range")
+      alert("Error fetching data: " + res.data.Status)
     }
   }
 
@@ -486,7 +528,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
             onDateChange={(date) => {
               setStartDate(date)
               if (date) {
-                const dateStr = date.toISOString().split("T")[0]
+                const dateStr = toLocalDateStr(date)
                 handleFilterChange("start_date", dateStr)
               }
             }}
@@ -502,7 +544,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
             onDateChange={(date) => {
               setEndDate(date)
               if (date) {
-                const dateStr = date.toISOString().split("T")[0]
+                const dateStr = toLocalDateStr(date)
                 handleFilterChange("end_date", dateStr)
               }
             }}
@@ -512,6 +554,9 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
         </div>
 
         <Button onClick={querySubmit}>Query</Button>
+        {vendor === "AWS" && (
+          <Button variant="outline" onClick={queryTSDB}>TSDB Query</Button>
+        )}
       </CardContent>
     </Card>
   )

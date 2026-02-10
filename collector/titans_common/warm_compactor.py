@@ -138,23 +138,26 @@ class WarmCompactor:
 
         key = f"{self.warm_prefix}/manifest.json"
 
+        body = json.dumps(data, indent=2)
         try:
             if self.manifest_etag:
-                self.s3_client.put_object(
+                response = self.s3_client.put_object(
                     Bucket=self.bucket,
                     Key=key,
-                    Body=json.dumps(data, indent=2),
+                    Body=body,
                     ContentType="application/json",
                     IfMatch=self.manifest_etag,
                 )
             else:
-                self.s3_client.put_object(
+                response = self.s3_client.put_object(
                     Bucket=self.bucket,
                     Key=key,
-                    Body=json.dumps(data, indent=2),
+                    Body=body,
                     ContentType="application/json",
                     IfNoneMatch="*",
                 )
+            # Update ETag so subsequent saves use IfMatch
+            self.manifest_etag = response.get("ETag")
         except ClientError as e:
             if e.response["Error"]["Code"] == "PreconditionFailed":
                 raise ConcurrencyConflictError(
@@ -168,16 +171,23 @@ class WarmCompactor:
         Called at the START of each cycle, before new compaction.
         This ensures deleted files remain on S3 for at least one full
         cycle (~10 min), so in-flight queries never hit missing files.
+
+        Only successfully deleted entries are removed from pending_deletions.
+        Failed entries are retained for retry on the next cycle.
         """
         if not self.pending_deletions:
             return
+        failed = []
         for key in self.pending_deletions:
             try:
                 self.s3_client.delete_object(Bucket=self.bucket, Key=key)
                 print(f"[WARM/{self.provider}] Deleted (deferred) {key}")
             except Exception as e:
-                print(f"[WARM/{self.provider}] Failed to delete {key}: {e}")
-        self.pending_deletions = []
+                print(f"[WARM/{self.provider}] FAILED to delete {key}: {e}")
+                failed.append(key)
+        if failed:
+            print(f"[WARM/{self.provider}] {len(failed)} deletions failed, will retry next cycle")
+        self.pending_deletions = failed
 
     def add_hot_file(self, hot_s3_key: str) -> list[str]:
         """Add Hot file - idempotency via last_processed_time + rollback on failure."""
@@ -223,12 +233,18 @@ class WarmCompactor:
 
         e.g., 'test/parquet_cp_hot/aws/2026/01/23/14-20.parquet'
             → datetime(2026, 1, 23, 14, 20, tzinfo=UTC)
+
+        Parses year/month/day from the key path itself (not self.year/month)
+        to avoid incorrect datetime at month boundaries.
         """
         try:
             parts = hot_s3_key.removesuffix(".parquet").split("/")
+            # parts: [..., YYYY, MM, DD, HH-MM]
+            year = int(parts[-4])
+            month = int(parts[-3])
             day = int(parts[-2])
             hour, minute = map(int, parts[-1].split("-"))
-            return datetime(self.year, self.month, day, hour, minute, tzinfo=timezone.utc)
+            return datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
         except (ValueError, IndexError):
             return None
 
@@ -307,6 +323,7 @@ def run_compaction(
     timestamp: datetime,
     provider: str = "aws",
     timeout_seconds: float = 30.0,
+    s3_client=None,
 ) -> None:
     """Execute compaction after Hot file upload (with time limit)."""
     if timestamp.tzinfo is None:
@@ -320,6 +337,7 @@ def run_compaction(
         year=ts_utc.year,
         month=ts_utc.month,
         provider=provider,
+        s3_client=s3_client,
     )
 
     # 1. Delete files from previous cycle (deferred deletion)

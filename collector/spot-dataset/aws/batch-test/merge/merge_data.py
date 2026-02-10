@@ -260,9 +260,10 @@ def main():
             ts_utc = TIMESTAMP if TIMESTAMP.tzinfo else TIMESTAMP.replace(tzinfo=timezone.utc)
 
             if not combined_df.empty:
-                hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER)
+                titans_s3 = boto3.client("s3")
+                hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER, s3_client=titans_s3)
                 if hot_key:
-                    run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0)
+                    run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
                 print(f"[TITANS/{PROVIDER}/TEST] Successfully uploaded to test environment")
 
         except ConcurrencyConflictError as e:

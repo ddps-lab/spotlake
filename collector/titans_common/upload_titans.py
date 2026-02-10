@@ -14,6 +14,7 @@ def upload_hot_tier(
     changed_df: pd.DataFrame,
     timestamp: datetime,
     provider: str = "aws",
+    s3_client=None,
 ) -> str:
     """Save change points to TITANS Hot tier Parquet.
 
@@ -21,6 +22,7 @@ def upload_hot_tier(
         changed_df: pandas DataFrame (change points or removed records)
         timestamp: Collection time (MUST be timezone-aware, UTC recommended)
         provider: Cloud provider (aws, azure, gcp)
+        s3_client: Optional boto3 S3 client (reuse to avoid per-call overhead)
 
     Returns:
         Uploaded S3 key (empty string if DataFrame is empty)
@@ -55,7 +57,8 @@ def upload_hot_tier(
 
     # 5. S3 Conditional PUT (idempotency guarantee)
     s3_key = _build_s3_key(ts_utc, config)
-    s3_client = boto3.client("s3")
+    if s3_client is None:
+        s3_client = boto3.client("s3")
 
     try:
         # Atomic conditional write with put_object + IfNoneMatch

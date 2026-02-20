@@ -4,8 +4,23 @@ import boto3
 import pickle
 import gzip
 import json
+import os
+import sys
 import pandas as pd
 import argparse
+from pathlib import Path
+
+# ------ TITANS setup ------
+# Add titans_common path (merge -> batch -> aws -> spot-dataset -> collector)
+COLLECTOR_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(COLLECTOR_ROOT))
+
+from titans_common.upload_titans import upload_hot_tier
+from titans_common.warm_compactor import run_compaction, ConcurrencyConflictError
+from titans_common.utils import prepare_for_upload
+
+PROVIDER = "aws"
+TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "1") == "1"
 
 # ------ import user module ------
 from utility.slack_msg_sender import send_slack_message
@@ -233,6 +248,24 @@ def main():
         upload_timestream(removed_df, TIMESTAMP)
         end_time = datetime.now(timezone.utc)
         print(f"Uploading time to TSDB is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+
+        # ------ TITANS Hot tier upload + Warm compaction ------
+        if TITANS_ENABLED:
+            try:
+                combined_df = prepare_for_upload(changed_df, removed_df, pk_columns=workload_cols)
+                ts_utc = TIMESTAMP if TIMESTAMP.tzinfo else TIMESTAMP.replace(tzinfo=timezone.utc)
+
+                if not combined_df.empty:
+                    titans_s3 = boto3.client("s3")
+                    hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER, s3_client=titans_s3)
+                    if hot_key:
+                        run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
+                    print(f"[TITANS/{PROVIDER}/PROD] Successfully uploaded")
+
+            except ConcurrencyConflictError as e:
+                print(f"[TITANS/{PROVIDER}/PROD] Concurrency conflict, will retry next cycle: {e}")
+            except Exception as e:
+                print(f"[TITANS/{PROVIDER}/PROD] Failed (non-fatal): {e}")
 
         # ------ Upload Spotlake Query Selector to S3 ------
         start_time = datetime.now(timezone.utc)

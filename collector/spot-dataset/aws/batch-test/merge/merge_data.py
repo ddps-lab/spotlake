@@ -254,7 +254,10 @@ def main():
         # ------ TITANS Hot tier upload + Warm compaction (Test environment) ------
         try:
             # Merge changed_df + removed_df (with Ceased column alignment)
-            combined_df = prepare_for_upload(changed_df, removed_df)
+            # Note: -1 sentinel values are NOT filtered — same behavior as Timestream's
+            # upload_timestream(data.dropna()). The fillna(-1) values pass through to
+            # TITANS, matching Timestream TSDB semantics.
+            combined_df = prepare_for_upload(changed_df, removed_df, pk_columns=workload_cols)
 
             # Ensure timezone-aware (TIMESTAMP must be timezone-aware)
             ts_utc = TIMESTAMP if TIMESTAMP.tzinfo else TIMESTAMP.replace(tzinfo=timezone.utc)

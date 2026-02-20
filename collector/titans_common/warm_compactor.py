@@ -295,6 +295,20 @@ class WarmCompactor:
         sort_cols = self.config.pk_columns + [self.config.time_column]
         combined = pl.concat(dfs, how="diagonal").sort(sort_cols)
 
+        # Dedup: collector may emit both Ceased=true and Ceased=false for
+        # the same PK+Time. Keep Ceased=false (real values) over Ceased=true.
+        if "Ceased" in combined.columns:
+            before = combined.height
+            combined = (
+                combined
+                .sort(sort_cols + ["Ceased"])
+                .unique(subset=sort_cols, keep="first")
+                .sort(sort_cols)
+            )
+            deduped = before - combined.height
+            if deduped > 0:
+                print(f"[WARM/{self.provider}] Deduplicated {deduped} ceased duplicate rows")
+
         start_idx = min(wf.hot_range[0] for wf in files)
         end_idx = max(wf.hot_range[1] for wf in files)
 

@@ -103,14 +103,14 @@ const formatDate = (params: any) => {
 }
 
 export const awsColDefs: ColDef<AWSData>[] = [
-  { field: "InstanceType", headerName: "Type", headerTooltip: "Instance Type", minWidth: 140, valueFormatter: formatNumber },
-  { field: "Region", headerTooltip: "Region", minWidth: 130, valueFormatter: formatNumber },
-  { field: "AZ", headerName: "AZ", headerTooltip: "Availability Zone", minWidth: 80, valueFormatter: formatNumber },
-  { field: "SPS", headerName: "Availability", headerTooltip: "Spot Placement Score", minWidth: 110, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T2", headerTooltip: "T2", minWidth: 60, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T3", headerTooltip: "T3", minWidth: 60, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "IF", headerName: "Interruption", headerTooltip: "Interruption Ratio", minWidth: 120, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "SpotPrice", headerName: "SpotPrice ($)", headerTooltip: "Spot Price (USD)", minWidth: 110, comparator: naComparator, valueFormatter: formatNumber },
+  { field: "InstanceType", headerName: "Type", headerTooltip: "Instance Type", valueFormatter: formatNumber },
+  { field: "Region", headerTooltip: "Region", valueFormatter: formatNumber },
+  { field: "AZ", headerName: "AZ", headerTooltip: "Availability Zone", valueFormatter: formatNumber },
+  { field: "SPS", headerName: "Availability", headerTooltip: "Spot Placement Score", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T2", headerTooltip: "T2", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T3", headerTooltip: "T3", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "IF", headerName: "Interruption", headerTooltip: "Interruption Ratio", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "SpotPrice", headerName: "SpotPrice ($)", headerTooltip: "Spot Price (USD)", comparator: naComparator, valueFormatter: formatNumber },
   {
     headerName: "Savings (%)",
     headerTooltip: "Savings Percentage",
@@ -118,14 +118,14 @@ export const awsColDefs: ColDef<AWSData>[] = [
     comparator: naComparator,
     valueGetter: calculateSavings
   },
-  { field: "Time", headerName: "Date", headerTooltip: "Timestamp", minWidth: 170, valueFormatter: formatDate },
+  { field: "Time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate },
 ]
 
 export const gcpColDefs: ColDef<GCPData>[] = [
-  { field: "InstanceType", headerTooltip: "Instance Type", minWidth: 140, valueFormatter: formatNumber },
-  { field: "Region", headerTooltip: "Region", minWidth: 130, valueFormatter: formatNumber },
-  { field: "OnDemand Price", headerTooltip: "On-Demand Price", minWidth: 130, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "Spot Price", headerTooltip: "Spot Price", minWidth: 110, comparator: naComparator, valueFormatter: formatNumber },
+  { field: "InstanceType", headerTooltip: "Instance Type", valueFormatter: formatNumber },
+  { field: "Region", headerTooltip: "Region", valueFormatter: formatNumber },
+  { field: "OnDemand Price", headerTooltip: "On-Demand Price", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "Spot Price", headerTooltip: "Spot Price", comparator: naComparator, valueFormatter: formatNumber },
   {
     headerName: "Savings (%)",
     headerTooltip: "Savings Percentage",
@@ -133,19 +133,19 @@ export const gcpColDefs: ColDef<GCPData>[] = [
     comparator: naComparator,
     valueGetter: calculateSavings
   },
-  { field: "time", headerName: "Date", headerTooltip: "Timestamp", minWidth: 170, valueFormatter: formatDate },
+  { field: "time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate },
 ]
 
 export const azureColDefs: ColDef<AzureData>[] = [
-  { field: "InstanceTier", headerName: "Tier", headerTooltip: "Instance Tier", minWidth: 70, valueFormatter: formatNumber },
-  { field: "InstanceType", headerName: "Type", headerTooltip: "Instance Type", minWidth: 140, valueFormatter: formatNumber },
-  { field: "Region", headerTooltip: "Region", minWidth: 130, valueFormatter: formatNumber },
-  { field: "AvailabilityZone", headerName: "AZ", headerTooltip: "Availability Zone", minWidth: 60, valueFormatter: formatNumber },
-  { field: "SpotPrice", headerTooltip: "Spot Price", minWidth: 100, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "Savings", headerName: "Savings (%)", headerTooltip: "Savings Percentage", minWidth: 100, comparator: naComparator, valueFormatter: formatSavings },
-  { field: "IF", headerName: "IF", headerTooltip: "Interruption Frequency", minWidth: 60, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "Score", headerName: "Availability", headerTooltip: "Availability Score", minWidth: 110, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T2", headerTooltip: "T2", minWidth: 60, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T3", headerTooltip: "T3", minWidth: 60, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "Time", headerName: "Date", headerTooltip: "Timestamp", minWidth: 170, valueFormatter: formatDate },
+  { field: "InstanceTier", headerName: "Tier", headerTooltip: "Instance Tier", valueFormatter: formatNumber },
+  { field: "InstanceType", headerName: "Type", headerTooltip: "Instance Type", valueFormatter: formatNumber },
+  { field: "Region", headerTooltip: "Region", valueFormatter: formatNumber },
+  { field: "AvailabilityZone", headerName: "AZ", headerTooltip: "Availability Zone", valueFormatter: formatNumber },
+  { field: "SpotPrice", headerTooltip: "Spot Price", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "Savings", headerName: "Savings (%)", headerTooltip: "Savings Percentage", comparator: naComparator, valueFormatter: formatSavings },
+  { field: "IF", headerName: "IF", headerTooltip: "Interruption Frequency", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "Score", headerName: "Availability", headerTooltip: "Availability Score", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T2", headerTooltip: "T2", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T3", headerTooltip: "T3", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "Time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate },
 ]

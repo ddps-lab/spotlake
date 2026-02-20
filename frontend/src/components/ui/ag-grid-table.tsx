@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { AgGridReact } from "ag-grid-react"
-import { ColDef, ModuleRegistry, themeQuartz, colorSchemeDark } from "ag-grid-community"
+import { ColDef, SizeColumnsToFitGridStrategy, ModuleRegistry, themeQuartz, colorSchemeDark } from "ag-grid-community"
 import { 
   ClientSideRowModelModule, 
   ValidationModule,
@@ -46,12 +46,15 @@ export function AgGridTable<TData>({ rowData, columnDefs }: AgGridTableProps<TDa
 
   const defaultColDef = useMemo<ColDef>(() => {
     return {
-      flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       filter: true,
       sortable: true,
       resizable: true,
     }
+  }, [])
+
+  const autoSizeStrategy = useMemo<SizeColumnsToFitGridStrategy>(() => {
+    return { type: "fitGridWidth" }
   }, [])
 
   const gridTheme = useMemo(() => {
@@ -96,6 +99,9 @@ export function AgGridTable<TData>({ rowData, columnDefs }: AgGridTableProps<TDa
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
+          autoSizeStrategy={autoSizeStrategy}
+          enableCellTextSelection={true}
+          tooltipShowDelay={0}
           pagination={true}
           paginationPageSize={20}
           paginationPageSizeSelector={[10, 20, 50, 100]}

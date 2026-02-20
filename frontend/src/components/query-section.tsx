@@ -97,7 +97,7 @@ interface QuerySectionProps {
   setLoading: (loading: boolean) => void
 }
 
-const TITANS_ENDPOINT = "https://l641q7r2rb.execute-api.us-west-2.amazonaws.com"
+const TITANS_ENDPOINT = "https://5nepzdkzaf.execute-api.us-west-2.amazonaws.com"
 
 /** Format Date as "YYYY-MM-DD" in local timezone (not UTC). */
 const toLocalDateStr = (d: Date) => {

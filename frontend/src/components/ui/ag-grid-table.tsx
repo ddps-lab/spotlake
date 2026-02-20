@@ -1,29 +1,33 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { AgGridReact } from "ag-grid-react"
-import { ColDef, SizeColumnsToFitGridStrategy, ModuleRegistry, themeQuartz, colorSchemeDark } from "ag-grid-community"
-import { 
-  ClientSideRowModelModule, 
+import { ColDef, SizeColumnsToContentStrategy, ModuleRegistry, themeQuartz, colorSchemeDark } from "ag-grid-community"
+import {
+  ClientSideRowModelModule,
   ValidationModule,
   PaginationModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
   CustomFilterModule,
-  CsvExportModule
+  CsvExportModule,
+  ColumnAutoSizeModule,
+  TooltipModule
 } from "ag-grid-community";
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Download } from "lucide-react"
 
 ModuleRegistry.registerModules([
-  ClientSideRowModelModule, 
+  ClientSideRowModelModule,
   ValidationModule,
   PaginationModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
   CustomFilterModule,
-  CsvExportModule
+  CsvExportModule,
+  ColumnAutoSizeModule,
+  TooltipModule
 ]);
 
 interface AgGridTableProps<TData> {
@@ -53,8 +57,8 @@ export function AgGridTable<TData>({ rowData, columnDefs }: AgGridTableProps<TDa
     }
   }, [])
 
-  const autoSizeStrategy = useMemo<SizeColumnsToFitGridStrategy>(() => {
-    return { type: "fitGridWidth" }
+  const autoSizeStrategy = useMemo<SizeColumnsToContentStrategy>(() => {
+    return { type: "fitCellContents" }
   }, [])
 
   const gridTheme = useMemo(() => {

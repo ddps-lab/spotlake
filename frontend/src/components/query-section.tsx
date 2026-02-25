@@ -335,13 +335,13 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
   }
 
   const validateQuery = () => {
+    const hasAZ = vendor === "AWS" || vendor === "AZURE"
     const invalidQuery = Object.keys(searchFilter).some((key) => {
-        if (key === 'az' && vendor !== 'AWS') return false;
+        if (key === 'az' && !hasAZ) return false;
         return !searchFilter[key as keyof typeof searchFilter]
     })
-    const invalidQueryForVendor = vendor === "AWS" && !searchFilter.az
 
-    if (invalidQuery || invalidQueryForVendor) {
+    if (invalidQuery) {
       alert("The query is invalid. Please check your search option.")
       return false
     }
@@ -352,52 +352,52 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
     return true
   }
 
-  /** TITANS Polars Lambda query (AWS) / CloudFront TSDB (GCP, Azure) */
+  /** TITANS Polars Lambda query (all vendors) */
   const querySubmit = async () => {
     if (!validateQuery()) return
 
     setLoading(true)
     try {
-      if (vendor === "AWS") {
-        const body = {
-          instance_types: searchFilter.instance === "ALL" ? ["all"] : [searchFilter.instance],
-          regions: searchFilter.region === "ALL" ? ["all"] : [searchFilter.region],
-          azs: searchFilter.az === "ALL" ? ["all"] : [searchFilter.az],
-          start: searchFilter.start_date,
-          end: searchFilter.end_date,
-          strategy: "unified",
-        }
-        const resp = await fetch(`${TITANS_ENDPOINT}/query`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-        if (!resp.ok) {
-          const errText = await resp.text()
-          alert("TITANS query error: " + errText.slice(0, 200))
-          return
-        }
-        const blob = await resp.blob()
-        const ds = new DecompressionStream("gzip")
-        const decompressed = blob.stream().pipeThrough(ds)
-        const text = await new Response(decompressed).text()
-        const data = JSON.parse(text)
-        console.log("TITANS response:", data.result_count, "rows, timing:", data.timing)
-        // Strip timezone suffix so browser treats as local time (matches TSDB format)
-        const results = (data.results || []).map((r: any) => ({
-          ...r,
-          Time: typeof r.Time === "string"
-            ? r.Time.replace(/[+-]\d{2}:\d{2}$/, "").replace("T", " ")
-            : r.Time,
-        }))
-        onDataFetch(results, {
-          start: searchFilter.start_date,
-          end: searchFilter.end_date,
-          region: searchFilter.region,
-        })
-      } else {
-        await queryCloudFront()
+      const body: Record<string, any> = {
+        provider: vendor.toLowerCase(),
+        instance_types: searchFilter.instance === "ALL" ? ["all"] : [searchFilter.instance],
+        regions: searchFilter.region === "ALL" ? ["all"] : [searchFilter.region],
+        start: searchFilter.start_date,
+        end: searchFilter.end_date,
+        strategy: "unified",
       }
+      // AWS and Azure have AZ; GCP does not
+      if (vendor === "AWS" || vendor === "AZURE") {
+        body.azs = searchFilter.az === "ALL" ? ["all"] : [searchFilter.az]
+      }
+      const resp = await fetch(`${TITANS_ENDPOINT}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!resp.ok) {
+        const errText = await resp.text()
+        alert("TITANS query error: " + errText.slice(0, 200))
+        return
+      }
+      const blob = await resp.blob()
+      const ds = new DecompressionStream("gzip")
+      const decompressed = blob.stream().pipeThrough(ds)
+      const text = await new Response(decompressed).text()
+      const data = JSON.parse(text)
+      console.log("TITANS response:", data.result_count, "rows, timing:", data.timing)
+      // Strip timezone suffix so browser treats as local time (matches TSDB format)
+      const results = (data.results || []).map((r: any) => ({
+        ...r,
+        Time: typeof r.Time === "string"
+          ? r.Time.replace(/[+-]\d{2}:\d{2}$/, "").replace("T", " ")
+          : r.Time,
+      }))
+      onDataFetch(results, {
+        start: searchFilter.start_date,
+        end: searchFilter.end_date,
+        region: searchFilter.region,
+      })
     } catch (e) {
       console.error(e)
       alert("Network error")
@@ -554,9 +554,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
         </div>
 
         <Button onClick={querySubmit}>Query</Button>
-        {vendor === "AWS" && (
-          <Button variant="outline" onClick={queryTSDB}>TSDB Query</Button>
-        )}
+        <Button variant="outline" onClick={queryTSDB}>TSDB Query</Button>
       </CardContent>
     </Card>
   )

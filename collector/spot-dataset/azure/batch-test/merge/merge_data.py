@@ -8,14 +8,27 @@ import gc
 import pandas as pd
 import concurrent.futures
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 # Add parent directory to path to import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# ------ TITANS setup ------
+# Add titans_common path (merge -> batch-test -> azure -> spot-dataset -> collector)
+COLLECTOR_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(COLLECTOR_ROOT))
 
 from utils.common import S3, Logger
 from utils.constants import AZURE_CONST, STORAGE_CONST
 from utils.slack_msg_sender import send_slack_message
 from merge import upload_data, compare_data
+
+from titans_common.upload_titans import upload_hot_tier
+from titans_common.warm_compactor import run_compaction, ConcurrencyConflictError
+from titans_common.utils import prepare_for_upload
+
+PROVIDER = "azure"
+TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "1") == "1"
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
@@ -336,8 +349,8 @@ def main():
             Logger.info(f"T2/T3 calculation complete. Result rows: {len(sps_merged_df)}")
             
             # Detect Changes
-            workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
-            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'Time', 'T2', 'T3']
+            workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']
+            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'T2', 'T3']
             
             changed_df = compare_data.compare_sps(prev_all_data, sps_merged_df, workload_cols, feature_cols)
             
@@ -382,6 +395,25 @@ def main():
             timestream_success = results.get('timestream', True)  # True if skipped
 
             Logger.info("Parallel upload phase completed")
+
+            # ------ TITANS Hot tier upload + Warm compaction ------
+            if TITANS_ENABLED and changed_df is not None and not changed_df.empty:
+                try:
+                    # Azure policy: no Ceased support (no removed_df)
+                    combined_df = prepare_for_upload(changed_df, pd.DataFrame(), pk_columns=['InstanceType', 'Region', 'AvailabilityZone'])
+                    ts_utc = timestamp_utc if timestamp_utc.tzinfo else timestamp_utc.replace(tzinfo=timezone.utc)
+
+                    if not combined_df.empty:
+                        titans_s3 = boto3.client("s3")
+                        hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER, s3_client=titans_s3)
+                        if hot_key:
+                            run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
+                        Logger.info(f"[TITANS/{PROVIDER}] Successfully uploaded")
+
+                except ConcurrencyConflictError as e:
+                    Logger.info(f"[TITANS/{PROVIDER}] Concurrency conflict, will retry next cycle: {e}")
+                except Exception as e:
+                    Logger.error(f"[TITANS/{PROVIDER}] Failed (non-fatal): {e}")
 
         else:
             Logger.info("First run or no previous data. Skipping comparison.")

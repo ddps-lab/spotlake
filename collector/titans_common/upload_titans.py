@@ -81,7 +81,13 @@ def upload_hot_tier(
 
 
 def _normalize_schema(df: pl.DataFrame, config: ProviderConfig) -> pl.DataFrame:
-    """Normalize schema (including dtype casting)."""
+    """Normalize schema (including dtype casting and column renaming)."""
+    # 0. Apply column renames (e.g., AvailabilityZone → AZ)
+    if config.column_rename:
+        rename_map = {k: v for k, v in config.column_rename.items() if k in df.columns}
+        if rename_map:
+            df = df.rename(rename_map)
+
     schema = config.schema_dtypes
 
     # 1. Cast each column dtype

@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import boto3
 import requests
@@ -13,6 +14,23 @@ from compare_data import compare
 from const_config import GcpCollector, Storage
 import json
 import botocore
+from pathlib import Path
+
+# ------ TITANS setup ------
+# Add titans_common path (lambda -> gcp -> spot-dataset -> collector)
+COLLECTOR_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(COLLECTOR_ROOT))
+
+try:
+    from titans_common.upload_titans import upload_hot_tier
+    from titans_common.warm_compactor import run_compaction, ConcurrencyConflictError
+    from titans_common.utils import prepare_for_upload
+    TITANS_AVAILABLE = True
+except ImportError:
+    TITANS_AVAILABLE = False
+
+PROVIDER = "gcp"
+TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1"  # Default OFF until Polars packaging resolved
 
 STORAGE_CONST = Storage()
 GCP_CONST = GcpCollector()
@@ -534,6 +552,33 @@ def lambda_handler(event, context):
         # Upload data to Timestream
         upload_timestream(changed_df, timestamp)
         upload_timestream(removed_df, timestamp)
+
+        # ------ TITANS Hot tier upload + Warm compaction ------
+        if TITANS_ENABLED and TITANS_AVAILABLE:
+            try:
+                # GCP column name normalization for TITANS
+                titans_changed = changed_df.rename(columns={
+                    'OnDemand Price': 'OndemandPrice',
+                    'Spot Price': 'SpotPrice',
+                })
+                titans_removed = removed_df.rename(columns={
+                    'OnDemand Price': 'OndemandPrice',
+                    'Spot Price': 'SpotPrice',
+                })
+                combined_df = prepare_for_upload(titans_changed, titans_removed, pk_columns=['InstanceType', 'Region'])
+                ts_utc = timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp
+
+                if not combined_df.empty:
+                    titans_s3 = boto3.client("s3")
+                    hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER, s3_client=titans_s3)
+                    if hot_key:
+                        run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
+                    print(f"[TITANS/{PROVIDER}] Successfully uploaded")
+
+            except ConcurrencyConflictError as e:
+                print(f"[TITANS/{PROVIDER}] Concurrency conflict, will retry next cycle: {e}")
+            except Exception as e:
+                print(f"[TITANS/{PROVIDER}] Failed (non-fatal): {e}")
 
         end_time = time.time()
         print(f"Total time taken: {end_time - start_time} seconds")

@@ -386,13 +386,24 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
       const text = await new Response(decompressed).text()
       const data = JSON.parse(text)
       console.log("TITANS response:", data.result_count, "rows, timing:", data.timing)
-      // Strip timezone suffix so browser treats as local time (matches TSDB format)
-      const results = (data.results || []).map((r: any) => ({
-        ...r,
-        Time: typeof r.Time === "string"
-          ? r.Time.replace(/[+-]\d{2}:\d{2}$/, "").replace("T", " ")
-          : r.Time,
-      }))
+      // Normalize TITANS column names to match AG Grid definitions (TSDB format)
+      const results = (data.results || []).map((r: any) => {
+        const stripTZ = (t: any) =>
+          typeof t === "string" ? t.replace(/[+-]\d{2}:\d{2}$/, "").replace("T", " ") : t
+        if (vendor === "AZURE") {
+          return { ...r, AvailabilityZone: r.AZ, Time: stripTZ(r.Time) }
+        }
+        if (vendor === "GCP") {
+          return {
+            ...r,
+            "OnDemand Price": r.OndemandPrice,
+            "Spot Price": r.SpotPrice,
+            time: stripTZ(r.Time),
+          }
+        }
+        // AWS: column names already match
+        return { ...r, Time: stripTZ(r.Time) }
+      })
       onDataFetch(results, {
         start: searchFilter.start_date,
         end: searchFilter.end_date,

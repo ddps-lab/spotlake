@@ -73,8 +73,7 @@ def _make_pl_dtypes():
         "azure": {
             # Cold tier (convert.py bigint_columns): Score=Int64, T2=Int64, T3=Int64
             # Cold tier: DesiredCount=Float64, Savings=Float64
-            # Hot/warm-only (not in cold): InstanceTier=Utf8
-            "InstanceTier": pl.Utf8, "DesiredCount": pl.Float64,
+            "DesiredCount": pl.Float64,
             "Score": pl.Int64, "T3": pl.Int64, "T2": pl.Int64,
             "IF": pl.Float64, "OndemandPrice": pl.Float64,
             "SpotPrice": pl.Float64, "Savings": pl.Float64,
@@ -106,8 +105,8 @@ PROVIDER_CONFIGS = {
     ),
     "azure": ProviderConfig(
         name="azure",
-        pk_columns=["InstanceType", "Region", "AZ"],
-        value_columns=["InstanceTier", "DesiredCount", "Score", "T3", "T2", "IF", "OndemandPrice", "SpotPrice", "Savings"],
+        pk_columns=["InstanceTier", "InstanceType", "Region", "AZ"],
+        value_columns=["DesiredCount", "Score", "T3", "T2", "IF", "OndemandPrice", "SpotPrice", "Savings"],
         score_column="Score",
         column_rename={"AvailabilityZone": "AZ"},
     ),

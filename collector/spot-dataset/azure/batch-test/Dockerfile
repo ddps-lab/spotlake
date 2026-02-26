@@ -47,6 +47,7 @@ RUN pip install --no-cache-dir \
     boto3 \
     pandas \
     numpy \
+    polars \
     pyyaml \
     ortools \
     requests \
@@ -56,6 +57,9 @@ RUN pip install --no-cache-dir \
 
 # Copy utility module (shared by both AWS and Azure)
 COPY utility /app/utility
+
+# Copy TITANS common module
+COPY collector/titans_common /app/collector/titans_common
 
 # Copy AWS test collector code
 COPY collector/spot-dataset/aws/batch-test /app/collector/spot-dataset/aws/batch-test

@@ -28,7 +28,7 @@ from titans_common.warm_compactor import run_compaction, ConcurrencyConflictErro
 from titans_common.utils import prepare_for_upload
 
 PROVIDER = "azure"
-TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "1") == "1"
+TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')

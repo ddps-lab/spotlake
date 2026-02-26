@@ -20,7 +20,7 @@ from titans_common.warm_compactor import run_compaction, ConcurrencyConflictErro
 from titans_common.utils import prepare_for_upload
 
 PROVIDER = "aws"
-TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "1") == "1"
+TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
 
 # ------ import user module ------
 from utility.slack_msg_sender import send_slack_message

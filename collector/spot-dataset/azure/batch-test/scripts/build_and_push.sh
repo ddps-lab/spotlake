@@ -49,11 +49,10 @@ aws ecr describe-repositories --repository-names "${REPO_NAME}" --region "${REGI
 echo "Logging in to ECR..."
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
 
-# Build Docker image
-echo "Building Docker image..."
-# Note: Path to Dockerfile is relative to build context (project root)
-# The context is the project root, so we point to the Dockerfile in azure/batch-test
+# Build Docker image (ARM64 for Graviton instances)
+echo "Building Docker image for ARM64..."
 docker build \
+    --platform linux/arm64 \
     --build-arg AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
     --build-arg AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
     -t "$REPO_NAME" \

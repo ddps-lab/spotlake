@@ -4,20 +4,22 @@ set -e
 # Default values
 AWS_REGION="us-west-2"
 S3_BUCKET="spotlake-test"
+TITANS_BUCKET="titans-spotlake-data"
 
 usage() {
-    echo "Usage: $0 -v <vpc_id> -s <subnet_ids> -g <security_group_ids> -i <image_uri> [-r <aws_region>] [-b <s3_bucket>] [-p <aws_profile>]"
+    echo "Usage: $0 -v <vpc_id> -s <subnet_ids> -g <security_group_ids> -i <image_uri> [-r <aws_region>] [-b <s3_bucket>] [-t <titans_bucket>] [-p <aws_profile>]"
     echo "  -v: VPC ID"
     echo "  -s: Subnet IDs (JSON format, e.g., '[\"subnet-1\", \"subnet-2\"]')"
     echo "  -g: Security Group IDs (JSON format, e.g., '[\"sg-1\"]')"
     echo "  -i: Docker Image URI"
     echo "  -r: AWS Region (default: us-west-2)"
     echo "  -b: S3 Bucket Name (default: spotlake-test)"
+    echo "  -t: TITANS Bucket Name (default: titans-spotlake-data)"
     echo "  -p: AWS Profile (optional, uses default if not set)"
     exit 1
 }
 
-while getopts "v:s:g:i:r:b:p:" opt; do
+while getopts "v:s:g:i:r:b:t:p:" opt; do
     case $opt in
         v) VPC_ID="$OPTARG" ;;
         s) SUBNET_IDS="$OPTARG" ;;
@@ -25,6 +27,7 @@ while getopts "v:s:g:i:r:b:p:" opt; do
         i) IMAGE_URI="$OPTARG" ;;
         r) AWS_REGION="$OPTARG" ;;
         b) S3_BUCKET="$OPTARG" ;;
+        t) TITANS_BUCKET="$OPTARG" ;;
         p) export AWS_PROFILE="$OPTARG" ;;
         *) usage ;;
     esac
@@ -71,6 +74,7 @@ terraform destroy -auto-approve \
     -var "security_group_ids=$SECURITY_GROUP_IDS" \
     -var "image_uri=$IMAGE_URI" \
     -var "aws_region=$AWS_REGION" \
-    -var "s3_bucket=$S3_BUCKET"
+    -var "s3_bucket=$S3_BUCKET" \
+    -var "titans_bucket=$TITANS_BUCKET"
 
 echo "Destruction Complete."

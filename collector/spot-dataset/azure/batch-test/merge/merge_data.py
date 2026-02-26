@@ -192,7 +192,7 @@ def main():
         Logger.info("Loading S3 data files in parallel...")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            sps_future = executor.submit(S3.read_file, sps_key, 'pkl.gz')
+            sps_future = executor.submit(S3.read_file, sps_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
             if_future = executor.submit(S3.read_file, if_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
             price_future = executor.submit(S3.read_file, price_key, 'pkl.gz', bucket_name=STORAGE_CONST.WRITE_BUCKET_NAME)
             prev_all_data_future = executor.submit(

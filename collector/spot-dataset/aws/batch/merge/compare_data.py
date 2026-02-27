@@ -34,8 +34,8 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 prev_idx += 1
                 continue
             else:
-                send_slack_message(f"{prev_workload}, {curr_workload} workload error")
-                print(f"{prev_workload}, {curr_workload} workload error")
+                send_slack_message(f"{prev_workload} workload error (current array exhausted)")
+                print(f"{prev_workload} workload error (current array exhausted)")
                 raise Exception("workload error")
         elif prev_idx == len(previous_indices):
             curr_workload = current_values[curr_idx][0]
@@ -44,8 +44,8 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 curr_idx += 1
                 continue
             else:
-                send_slack_message(f"{prev_workload}, {curr_workload} workload error")
-                print(f"{prev_workload}, {curr_workload} workload error")
+                send_slack_message(f"{curr_workload} workload error (previous array exhausted)")
+                print(f"{curr_workload} workload error (previous array exhausted)")
                 raise Exception("workload error")
             
         prev_workload = previous_values[prev_idx][0]

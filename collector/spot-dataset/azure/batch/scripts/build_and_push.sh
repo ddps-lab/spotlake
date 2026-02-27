@@ -55,6 +55,7 @@ echo "Building Docker image..."
 # We assume this script is run from project root or references correct paths.
 # Based on existing script logic: `collector/spot-dataset/azure/batch/Dockerfile`
 docker build \
+    --platform linux/arm64 \
     --build-arg AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
     --build-arg AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
     -t "$REPO_NAME" \

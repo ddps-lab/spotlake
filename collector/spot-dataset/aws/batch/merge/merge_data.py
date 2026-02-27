@@ -250,7 +250,7 @@ def main():
         print(f"Uploading time to TSDB is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
         # ------ TITANS Hot tier upload + Warm compaction ------
-        print(f"Preparing data for TITANS upload. Changed rows: {len(changed_df)}, Removed rows: {len(removed_df)}")
+        print(f"TITANS_FLAG : {TITANS_ENABLED} Preparing data for TITANS upload. Changed rows: {len(changed_df)}, Removed rows: {len(removed_df)}")
         if TITANS_ENABLED:
             try:
                 combined_df = prepare_for_upload(changed_df, removed_df, pk_columns=workload_cols)

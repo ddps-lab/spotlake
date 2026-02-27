@@ -330,7 +330,7 @@ def main():
         # Compare and Process
         if prev_all_data is not None and not prev_all_data.empty:
             prev_all_data.drop(columns=['id'], inplace=True, errors='ignore')
-            
+
             # Check merge key dtypes
             Logger.info(f"[MERGE DEBUG] Before compare_max_instance:")
             Logger.info(f"  sps_merged_df: {len(sps_merged_df)} rows")

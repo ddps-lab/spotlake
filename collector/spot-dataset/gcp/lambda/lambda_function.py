@@ -522,13 +522,9 @@ def lambda_handler(event, context):
         # Upload data to CloudWatch
         upload_cloudwatch(df_final, timestamp)
 
-        # Update latest data in S3
-        update_latest(df_final, timestamp)
-
-        # Save raw data to S3
-        save_raw(df_final, timestamp)
-
-        # Compare with previous data
+        # Load previous data BEFORE updating latest
+        # (Fix: previously update_latest ran first, overwriting the file that was
+        #  then read as "previous" data — causing compare to always return empty)
         s3 = boto3.resource('s3')
         try:
             obj = s3.Object(STORAGE_CONST.BUCKET_NAME, GCP_CONST.S3_LATEST_DATA_SAVE_PATH)
@@ -541,6 +537,13 @@ def lambda_handler(event, context):
             else:
                 raise
 
+        # Update latest data in S3
+        update_latest(df_final, timestamp)
+
+        # Save raw data to S3
+        save_raw(df_final, timestamp)
+
+        # Compare with previous data
         workload_cols = ['InstanceType', 'Region']
         feature_cols = ['OnDemand Price', 'Spot Price']
 

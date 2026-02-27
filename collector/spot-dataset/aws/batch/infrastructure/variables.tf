@@ -52,6 +52,12 @@ variable "slack_webhook_url" {
 }
 
 # Use existing Lambda function (shared monitoring)
+variable "titans_enabled" {
+  description = "Enable TITANS Hot/Warm tier upload (0=off, 1=on)"
+  type        = string
+  default     = "1"
+}
+
 variable "use_existing_lambda" {
   description = "Whether to use existing batch-failure-notifier Lambda (auto-detected by deploy script)"
   type        = bool

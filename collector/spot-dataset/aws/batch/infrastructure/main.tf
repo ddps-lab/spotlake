@@ -257,7 +257,8 @@ resource "aws_batch_job_definition" "collection_job" {
     jobRoleArn = aws_iam_role.batch_job_role.arn
     environment = [
       { name = "S3_BUCKET", value = var.s3_bucket },
-      { name = "AWS_REGION", value = var.aws_region }
+      { name = "AWS_REGION", value = var.aws_region },
+      { name = "TITANS_ENABLED", value = var.titans_enabled }
     ]
     resourceRequirements = [
       { type = "VCPU", value = "1" },

@@ -142,8 +142,8 @@ resource "aws_iam_policy" "batch_job_policy" {
             "dynamodb:Scan"
         ]
         Resource = [
-            "arn:aws:dynamodb:${var.aws_region}:*:table/AzureAuth",
-            "arn:aws:dynamodb:${var.aws_region}:*:table/azure"
+            "arn:aws:dynamodb:${var.dynamodb_region}:*:table/AzureAuth",
+            "arn:aws:dynamodb:${var.dynamodb_region}:*:table/azure"
         ]
       },
       {

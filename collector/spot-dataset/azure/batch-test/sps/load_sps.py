@@ -203,7 +203,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
                                 "T2": desired_count if map_score_to_int(score.get("score")) >= 2 else 0
                             }
                             if availability_zones is True:
-                                score_data["AvailabilityZone"] = score.get("availabilityZone", "N/A")
+                                score_data["AvailabilityZone"] = score.get("availabilityZone", "Single")
 
                             results.append(score_data)
 

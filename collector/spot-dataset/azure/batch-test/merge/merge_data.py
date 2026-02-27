@@ -365,6 +365,14 @@ def main():
 
             Logger.info("Starting parallel upload phase...")
 
+            # Deduplicate sps_merged_df before saving to latest (prevents cascading duplication)
+            before_dedup = len(sps_merged_df)
+            sps_merged_df = sps_merged_df.drop_duplicates(
+                subset=["InstanceType", "Region", "AvailabilityZone", "InstanceTier"]
+            )
+            if len(sps_merged_df) < before_dedup:
+                Logger.info(f"[DEDUP] Removed {before_dedup - len(sps_merged_df)} duplicate rows before upload ({before_dedup} -> {len(sps_merged_df)})")
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {}
 
@@ -421,6 +429,11 @@ def main():
 
             # Parallel upload for first run
             data_type = 'desired_count_1' if desired_count == 1 else 'multi'
+
+            # Deduplicate sps_merged_df before saving to latest
+            sps_merged_df = sps_merged_df.drop_duplicates(
+                subset=["InstanceType", "Region", "AvailabilityZone", "InstanceTier"]
+            )
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
                 update_future = executor.submit(upload_data.update_latest, sps_merged_df)

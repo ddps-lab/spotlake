@@ -76,8 +76,8 @@ def compare_max_instance(previous_df, new_df, target_capacity):
 
     merged_df = pd.merge(
         new_df,
-        previous_df[["InstanceType", "Region", "AvailabilityZone", "Score", "T3", "T2"]],
-        on=["InstanceType", "Region", "AvailabilityZone"],
+        previous_df[["InstanceTier", "InstanceType", "Region", "AvailabilityZone", "Score", "T3", "T2"]],
+        on=["InstanceTier", "InstanceType", "Region", "AvailabilityZone"],
         how="left",
         suffixes=("", "_prev")
     )

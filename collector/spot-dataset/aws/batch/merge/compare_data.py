@@ -135,7 +135,7 @@ def compare_max_instance(previous_df, new_df, target_capacity):
 
     # Convert to int
     for col in ["SPS", "T2", "T3"]:
-        merged_df[col] = merged_df[col].astype("Int64")
+        merged_df[col] = merged_df[col].astype("int64")
     
     # Drop unnecessary columns
     merged_df.drop(columns=["T3_prev", "T2_prev", "SPS_prev"], inplace=True)

@@ -239,13 +239,25 @@ def main():
         # Lambda Logic: Join on armRegionName (Price Code) == Region (IF Code)
         # This ensures IF values are preserved instead of being lost to NaN
         if not price_df.empty and not if_df.empty:
+            # Case-insensitive merge: IF API (Resource Graph) returns lowercase,
+            # Price API (Retail Prices) returns mixed case (e.g., NC24ads_A100_v4)
+            price_df['_merge_type'] = price_df['InstanceType'].str.lower()
+            price_df['_merge_tier'] = price_df['InstanceTier'].str.lower()
+            if_df['_merge_type'] = if_df['InstanceType'].str.lower()
+            if_df['_merge_tier'] = if_df['InstanceTier'].str.lower()
+
             price_saving_if_df = pd.merge(
-                price_df, 
+                price_df,
                 if_df,
-                left_on=['InstanceType', 'InstanceTier', 'armRegionName'],
-                right_on=['InstanceType', 'InstanceTier', 'Region'],
+                left_on=['_merge_type', '_merge_tier', 'armRegionName'],
+                right_on=['_merge_type', '_merge_tier', 'Region'],
                 how='outer'
             )
+
+            # Use Price's original casing, fall back to IF's if Price is missing
+            price_saving_if_df['InstanceType'] = price_saving_if_df['InstanceType_x'].fillna(price_saving_if_df['InstanceType_y'])
+            price_saving_if_df['InstanceTier'] = price_saving_if_df['InstanceTier_x'].fillna(price_saving_if_df['InstanceTier_y'])
+            price_saving_if_df.drop(columns=['_merge_type', '_merge_tier', 'InstanceType_x', 'InstanceType_y', 'InstanceTier_x', 'InstanceTier_y'], inplace=True)
             
             # Select columns and rename
             # Region_x is Price Region Name ("East US"), Region_y is IF Region Code ("eastus")

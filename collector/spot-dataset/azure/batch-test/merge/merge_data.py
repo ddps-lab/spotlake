@@ -104,17 +104,28 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     return join_df
 
 def merge_price_saving_if_df(price_df, if_df):
-    # Lambda Logic: Join on armRegionName (Price Code) == Region (IF Code)
+    # Case-insensitive merge: IF API (Resource Graph) returns lowercase,
+    # Price API (Retail Prices) returns mixed case (e.g., NC24ads_A100_v4)
+    price_df['_merge_type'] = price_df['InstanceType'].str.lower()
+    price_df['_merge_tier'] = price_df['InstanceTier'].str.lower()
+    if_df['_merge_type'] = if_df['InstanceType'].str.lower()
+    if_df['_merge_tier'] = if_df['InstanceTier'].str.lower()
+
     join_df = pd.merge(price_df, if_df,
-                    left_on=['InstanceType', 'InstanceTier', 'armRegionName'],
-                    right_on=['InstanceType', 'InstanceTier', 'Region'],
+                    left_on=['_merge_type', '_merge_tier', 'armRegionName'],
+                    right_on=['_merge_type', '_merge_tier', 'Region'],
                     how='outer')
-    
+
+    # Use Price's original casing, fall back to IF's if Price is missing
+    join_df['InstanceType'] = join_df['InstanceType_x'].fillna(join_df['InstanceType_y'])
+    join_df['InstanceTier'] = join_df['InstanceTier_x'].fillna(join_df['InstanceTier_y'])
+    join_df.drop(columns=['_merge_type', '_merge_tier', 'InstanceType_x', 'InstanceType_y', 'InstanceTier_x', 'InstanceTier_y'], inplace=True)
+
     # Select columns and rename
     # Note: Region_x is Price Region Name ("East US"), Region_y is IF Region Code ("eastus")
     join_df = join_df[['InstanceTier', 'InstanceType', 'Region_x', 'armRegionName', 'OndemandPrice_x', 'SpotPrice_x', 'Savings_x', 'IF']]
-    
-    # Filter rows where SpotPrice is NaN (Lambda logic: join_df[~join_df['SpotPrice_x'].isna()])
+
+    # Filter rows where SpotPrice is NaN (Lambda logic)
     join_df = join_df[~join_df['SpotPrice_x'].isna()]
 
     join_df.rename(columns={'Region_x' : 'Region', 'OndemandPrice_x' : 'OndemandPrice', 'SpotPrice_x' : 'SpotPrice', 'Savings_x' : 'Savings'}, inplace=True)
@@ -227,38 +238,6 @@ def main():
         # NOTE: SPS has both 'Region' (region name) and 'RegionCodeSPS' (region code)
         # Lambda keeps Region as region NAME for merging
         # Do NOT replace Region - it must stay as name to match price_saving_if_df
-
-        # Strip potential whitespace and lower case keys
-        for col in ['InstanceTier', 'InstanceType', 'Region']:
-             if col in sps_df.columns:
-                 sps_df[col] = sps_df[col].astype(str).str.strip().str.lower()
-
-        print("DEBUG: SPS DF Head (Normalized):")
-        print(sps_df[['InstanceTier', 'InstanceType', 'Region']].head())
-        print("DEBUG: SPS Unique Regions (Top 5):", sps_df['Region'].unique()[:5])
-        print("DEBUG: SPS Unique InstanceTypes (Top 5):", sps_df['InstanceType'].unique()[:5])
-
-        if if_df is not None:
-            # Strip potential whitespace and lower case keys
-            for col in ['InstanceTier', 'InstanceType', 'Region']:
-                 if col in if_df.columns:
-                     if_df[col] = if_df[col].astype(str).str.strip().str.lower()
-
-            print("DEBUG: IF DF Head (Normalized):")
-            print(if_df[['InstanceTier', 'InstanceType', 'Region']].head())
-            print("DEBUG: IF Unique Regions (Top 5):", if_df['Region'].unique()[:5])
-            print("DEBUG: IF Unique InstanceTypes (Top 5):", if_df['InstanceType'].unique()[:5])
-
-        if price_df is not None:
-             # Strip potential whitespace and lower case keys
-            for col in ['InstanceTier', 'InstanceType', 'Region', 'armRegionName']:
-                 if col in price_df.columns:
-                     price_df[col] = price_df[col].astype(str).str.strip().str.lower()
-
-            print("DEBUG: Price DF Head (Normalized):")
-            print(price_df[['InstanceTier', 'InstanceType', 'Region']].head())
-            print("DEBUG: Price Unique Regions (Top 5):", price_df['Region'].unique()[:5])
-            print("DEBUG: Price Unique InstanceTypes (Top 5):", price_df['InstanceType'].unique()[:5])
         
         if if_df is None:
              Logger.warning("IF data missing. Proceeding with empty IF columns.")

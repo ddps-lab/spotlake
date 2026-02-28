@@ -106,13 +106,6 @@ def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
 def merge_price_saving_if_df(price_df, if_df):
     # Case-insensitive merge: IF API (Resource Graph) returns lowercase,
     # Price API (Retail Prices) returns mixed case (e.g., NC24ads_A100_v4)
-    print("\n=== [DEBUG] merge_price_saving_if_df ===")
-    print(f"  Price rows: {len(price_df)}, IF rows: {len(if_df)}")
-    print(f"  Price InstanceType casing: {price_df['InstanceType'].head(3).tolist()}")
-    print(f"  Price InstanceTier casing: {price_df['InstanceTier'].unique().tolist()}")
-    print(f"  IF InstanceType casing: {if_df['InstanceType'].head(3).tolist()}")
-    print(f"  IF InstanceTier casing: {if_df['InstanceTier'].unique().tolist()}")
-
     price_df['_merge_type'] = price_df['InstanceType'].str.lower()
     price_df['_merge_tier'] = price_df['InstanceTier'].str.lower()
     if_df['_merge_type'] = if_df['InstanceType'].str.lower()
@@ -123,39 +116,17 @@ def merge_price_saving_if_df(price_df, if_df):
                     right_on=['_merge_type', '_merge_tier', 'Region'],
                     how='outer')
 
-    # Merge stats
-    both = join_df['InstanceType_x'].notna() & join_df['InstanceType_y'].notna()
-    price_only = join_df['InstanceType_x'].notna() & join_df['InstanceType_y'].isna()
-    if_only = join_df['InstanceType_x'].isna() & join_df['InstanceType_y'].notna()
-    print(f"  Merge result: {len(join_df)} rows (both={both.sum()}, price_only={price_only.sum()}, if_only={if_only.sum()})")
-
-    # GPU match check
-    gpu_mask = join_df['_merge_type'].str.contains('a100|h100|v100', na=False)
-    gpu_both = (gpu_mask & both).sum()
-    gpu_total = gpu_mask.sum()
-    print(f"  GPU rows: {gpu_total}, matched: {gpu_both}")
-
     # Use Price's original casing, fall back to IF's if Price is missing
     join_df['InstanceType'] = join_df['InstanceType_x'].fillna(join_df['InstanceType_y'])
     join_df['InstanceTier'] = join_df['InstanceTier_x'].fillna(join_df['InstanceTier_y'])
     join_df.drop(columns=['_merge_type', '_merge_tier', 'InstanceType_x', 'InstanceType_y', 'InstanceTier_x', 'InstanceTier_y'], inplace=True)
 
-    print(f"  Output InstanceType casing: {join_df['InstanceType'].head(3).tolist()}")
-    print(f"  Output InstanceTier casing: {join_df['InstanceTier'].unique().tolist()}")
-
     # Select columns and rename
     # Note: Region_x is Price Region Name ("East US"), Region_y is IF Region Code ("eastus")
     join_df = join_df[['InstanceTier', 'InstanceType', 'Region_x', 'armRegionName', 'OndemandPrice_x', 'SpotPrice_x', 'Savings_x', 'IF']]
 
-    before_filter = len(join_df)
-    # Filter rows where SpotPrice is NaN (Lambda logic)
+    # Filter rows where SpotPrice is NaN (IF-only rows with no Price data)
     join_df = join_df[~join_df['SpotPrice_x'].isna()]
-    print(f"  SpotPrice NaN filter: {before_filter} -> {len(join_df)} (dropped {before_filter - len(join_df)} if-only rows)")
-
-    # IF coverage in final output
-    if_valid = (join_df['IF'] != -1).sum()
-    print(f"  Final IF coverage: {if_valid}/{len(join_df)} ({if_valid/len(join_df)*100:.1f}%)")
-    print("=== [DEBUG] end ===\n")
 
     join_df.rename(columns={'Region_x' : 'Region', 'OndemandPrice_x' : 'OndemandPrice', 'SpotPrice_x' : 'SpotPrice', 'Savings_x' : 'Savings'}, inplace=True)
     return join_df
@@ -276,13 +247,7 @@ def main():
              price_df = pd.DataFrame()
 
         if not price_df.empty and not if_df.empty:
-            print("\nDEBUG: Before Price+IF Merge:")
-            print(f"  Price sample: {price_df[['InstanceType', 'Region', 'armRegionName']].head(2)}")
-            print(f"  IF sample: {if_df[['InstanceType', 'Region']].head(2)}")
-            # Drop dummy cols from IF is not needed if we use merge_price_saving_if_df
-            # Use Lambda-aligned logic
             price_saving_if_df = merge_price_saving_if_df(price_df, if_df)
-            print(f"  Merged sample: {price_saving_if_df[['InstanceType', 'Region']].head(2)}")
             
         elif not price_df.empty:
             price_saving_if_df = price_df
@@ -294,12 +259,7 @@ def main():
             price_saving_if_df = pd.DataFrame(columns=['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF'])
 
         # Merge with SPS
-        print("\nDEBUG: Before SPS Merge:")
-        print(f"  price_saving_if sample: {price_saving_if_df[['InstanceType', 'Region']].head(2)}")
-        print(f"  SPS sample: {sps_df[['InstanceType', 'Region']].head(2)}")
         sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True)
-        print(f"\nDEBUG: After Merge - Result shape: {sps_merged_df.shape}")
-        print(f"  Sample with IF/Score: {sps_merged_df[['InstanceType', 'Region', 'IF', 'Score', 'DesiredCount']].head(3)}")
 
         # Process prev_all_data (already loaded in parallel above)
         # CRITICAL: Filter prev_all_data to latest timestamp

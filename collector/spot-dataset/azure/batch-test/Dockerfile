@@ -71,6 +71,7 @@ RUN chmod +x /app/collector/spot-dataset/azure/batch-test/scripts/run_collection
 
 # Set PYTHONPATH to include /app so imports work
 ENV PYTHONPATH=/app
+ENV PANDAS_FUTURE_INFER_STRING=0
 
 # Default entrypoint (can be overridden)
 CMD ["python3", "--version"]

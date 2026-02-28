@@ -53,7 +53,8 @@ RUN pip install --no-cache-dir \
     requests \
     azure-identity \
     azure-core \
-    scikit-learn
+    scikit-learn \
+    pyarrow
 
 # Copy utility module (shared by both AWS and Azure)
 COPY utility /app/utility

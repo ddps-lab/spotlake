@@ -289,6 +289,8 @@ def main():
                 'SpotPrice', 'Savings', 'IF'
             ])
 
+        del price_df, if_df
+        gc.collect()
 
         # Merge with SPS
         Logger.info(f"[MERGE DEBUG] Before merge_if_saving_price_sps_df:")
@@ -296,7 +298,9 @@ def main():
         Logger.info(f"  sps_df: {len(sps_df)} rows")
         
         sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True)
-        
+        del price_saving_if_df, sps_df
+        gc.collect()
+
         Logger.info(f"[MERGE DEBUG] After merge_if_saving_price_sps_df: {len(sps_merged_df)} rows")
 
         # Process prev_all_data (already loaded in parallel above)
@@ -411,6 +415,9 @@ def main():
 
             Logger.info("Parallel upload phase completed")
 
+            del sps_merged_df
+            gc.collect()
+
             # ------ TITANS Hot tier upload + Warm compaction ------
             if TITANS_ENABLED and changed_df is not None and not changed_df.empty:
                 try:
@@ -429,6 +436,9 @@ def main():
                     Logger.info(f"[TITANS/{PROVIDER}] Concurrency conflict, will retry next cycle: {e}")
                 except Exception as e:
                     Logger.error(f"[TITANS/{PROVIDER}] Failed (non-fatal): {e}")
+
+            del changed_df
+            gc.collect()
 
         else:
             Logger.info("First run or no previous data. Skipping comparison.")

@@ -548,6 +548,13 @@ def lambda_handler(event, context):
         feature_cols = ['OnDemand Price', 'Spot Price']
 
         changed_df, removed_df = compare(df_previous, df_final, workload_cols, feature_cols)
+        ts_utc = timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp.astimezone(timezone.utc)
+
+        # Ceased timestamp semantics: disappearance is observed at current batch time.
+        # removed_df rows come from previous_df, so their Time must be overwritten.
+        if not removed_df.empty and "Time" in removed_df.columns:
+            removed_df = removed_df.copy()
+            removed_df["Time"] = ts_utc.strftime("%Y-%m-%d %H:%M:%S")
 
         # Update changed data
         update_query_selector(changed_df)
@@ -569,7 +576,6 @@ def lambda_handler(event, context):
                     'Spot Price': 'SpotPrice',
                 })
                 combined_df = prepare_for_upload(titans_changed, titans_removed, pk_columns=['InstanceType', 'Region'])
-                ts_utc = timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp
 
                 if not combined_df.empty:
                     titans_s3 = boto3.client("s3")

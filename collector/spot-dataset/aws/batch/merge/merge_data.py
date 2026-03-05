@@ -238,6 +238,14 @@ def main():
         feature_cols = ['SPS', 'T3', 'T2', 'IF', 'SpotPrice', 'OndemandPrice']
 
         changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature_cols)  # compare previous_df and current_df to extract changed rows)
+        ts_utc = TIMESTAMP if TIMESTAMP.tzinfo else TIMESTAMP.replace(tzinfo=timezone.utc)
+
+        # Ceased timestamp semantics: disappearance is observed at current batch time.
+        # removed_df rows come from previous_df, so their Time must be overwritten.
+        if not removed_df.empty and "Time" in removed_df.columns:
+            removed_df = removed_df.copy()
+            removed_df["Time"] = ts_utc.strftime("%Y-%m-%d %H:%M:%S")
+
         end_time = datetime.now(timezone.utc)
         print(f"Compare time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
@@ -254,7 +262,6 @@ def main():
         if TITANS_ENABLED:
             try:
                 combined_df = prepare_for_upload(changed_df, removed_df, pk_columns=workload_cols)
-                ts_utc = TIMESTAMP if TIMESTAMP.tzinfo else TIMESTAMP.replace(tzinfo=timezone.utc)
 
                 if not combined_df.empty:
                     titans_s3 = boto3.client("s3")

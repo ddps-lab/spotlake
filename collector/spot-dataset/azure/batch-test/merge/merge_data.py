@@ -30,6 +30,27 @@ from titans_common.utils import prepare_for_upload
 PROVIDER = "azure"
 os.environ.setdefault("TITANS_ENV", "test")
 TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "1") == "1"
+DEBUG_ARTIFACTS_ENABLED = True
+DEBUG_S3_PREFIX = "rawdata/azure/debug"
+
+
+def upload_debug_dataframe(s3_client, df, timestamp_utc, stage):
+    if not DEBUG_ARTIFACTS_ENABLED or df is None:
+        return
+
+    date_path = timestamp_utc.strftime("%Y/%m/%d")
+    time_str = timestamp_utc.strftime("%H-%M-%S")
+    s3_key = f"{DEBUG_S3_PREFIX}/{stage}/{date_path}/{time_str}.pkl.gz"
+    local_path = f"/tmp/{stage}_{time_str}.pkl.gz"
+
+    debug_df = df.copy()
+    debug_df.to_pickle(local_path, compression='gzip')
+
+    with open(local_path, 'rb') as f:
+        s3_client.upload_fileobj(f, STORAGE_CONST.WRITE_BUCKET_NAME, s3_key)
+
+    os.remove(local_path)
+    Logger.info(f"Uploaded debug artifact: {s3_key}")
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     join_df = pd.merge(price_saving_if_df, sps_df, on=['InstanceTier', 'InstanceType', 'Region'], how='outer')
@@ -258,8 +279,11 @@ def main():
         else:
             price_saving_if_df = pd.DataFrame(columns=['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF'])
 
+        upload_debug_dataframe(s3_client, price_saving_if_df, timestamp_utc, "merge_input_price_saving_if")
+
         # Merge with SPS
         sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True)
+        upload_debug_dataframe(s3_client, sps_merged_df, timestamp_utc, "merge_output_sps_merged")
 
         # Process prev_all_data (already loaded in parallel above)
         # CRITICAL: Filter prev_all_data to latest timestamp

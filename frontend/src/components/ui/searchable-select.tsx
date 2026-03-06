@@ -1,7 +1,7 @@
 "use client"
 
 import { useId, useState } from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,6 +40,10 @@ export function SearchableSelect({
   const filteredOptions = normalizedQuery
     ? options.filter((option) => option.toLowerCase().includes(normalizedQuery))
     : options
+  const resultLabel =
+    filteredOptions.length === 1
+      ? "1 result"
+      : `${filteredOptions.length} results`
 
   return (
     <Popover
@@ -70,12 +74,36 @@ export function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent className="w-[220px] p-0" align="start">
         <div className="border-b p-2">
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={searchPlaceholder}
-            autoFocus
-          />
+          <div className="relative">
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && query) {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  setQuery("")
+                }
+              }}
+              placeholder={searchPlaceholder}
+              autoFocus
+              className="pr-8"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute top-1/2 right-2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Clear search"
+              >
+                <X className="size-4" />
+              </button>
+            ) : null}
+          </div>
+          <div className="mt-2 flex items-center justify-between px-1 text-xs text-muted-foreground">
+            <span>{query ? resultLabel : `${options.length} options`}</span>
+            {query ? <span>Esc to clear</span> : null}
+          </div>
         </div>
         <div
           id={`${inputId}-listbox`}
@@ -108,7 +136,14 @@ export function SearchableSelect({
             })
           ) : (
             <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-              {emptyMessage}
+              <div>{emptyMessage}</div>
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="mt-2 inline-flex items-center rounded-sm text-sm text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+              >
+                Clear search
+              </button>
             </div>
           )}
         </div>

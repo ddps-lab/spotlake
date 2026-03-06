@@ -3,17 +3,10 @@
 import React, { useEffect, useState } from "react"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { DatePicker } from "@/components/ui/date-picker"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 
 
 const AWS_INSTANCE: any = {}
@@ -467,68 +460,44 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
       <CardContent className="flex flex-wrap gap-4 p-1 items-end justify-center">
         <div className="flex flex-col space-y-1.5">
           <Label htmlFor="instance">Instance</Label>
-          <Select
+          <SearchableSelect
+            id="instance"
             value={searchFilter.instance}
-            onValueChange={(val) => handleFilterChange("instance", val)}
-          >
-            <SelectTrigger id="instance" className="w-[180px]">
-              <SelectValue placeholder="Select Instance" />
-            </SelectTrigger>
-            <SelectContent>
-              {(assoInstance || instance).map((e) => (
-                <SelectItem key={e} value={e}>
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onValueChange={(value) => handleFilterChange("instance", value)}
+            options={assoInstance || instance}
+            placeholder="Select Instance"
+            searchPlaceholder="Search instance..."
+            emptyMessage="No instance found."
+          />
         </div>
 
         <div className="flex flex-col space-y-1.5">
           <Label htmlFor="region">Region</Label>
-          <Select
+          <SearchableSelect
+            id="region"
             value={searchFilter.region}
-            onValueChange={(val) => handleFilterChange("region", val)}
+            onValueChange={(value) => handleFilterChange("region", value)}
+            options={assoRegion || region}
+            placeholder="Select Region"
+            searchPlaceholder="Search region..."
+            emptyMessage="No region found."
             disabled={vendor === "AWS" && !searchFilter.instance}
-          >
-            <SelectTrigger id="region" className="w-[180px]">
-              <SelectValue placeholder="Select Region" />
-            </SelectTrigger>
-            <SelectContent>
-              {(assoRegion || region).map((e) => (
-                <SelectItem key={e} value={e}>
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
 
         {(vendor === "AWS" || vendor === "AZURE") && (
           <div className="flex flex-col space-y-1.5">
             <Label htmlFor="az">AZ</Label>
-            <Select
+            <SearchableSelect
+              id="az"
               value={searchFilter.az}
-              onValueChange={(val) => handleFilterChange("az", val)}
+              onValueChange={(value) => handleFilterChange("az", value)}
+              options={vendor === "AZURE" ? ["ALL", "1", "2", "3", "Single"] : assoAZ || az}
+              placeholder="Select AZ"
+              searchPlaceholder="Search AZ..."
+              emptyMessage="No AZ found."
               disabled={vendor === "AWS" && !searchFilter.region}
-            >
-              <SelectTrigger id="az" className="w-[180px]">
-                <SelectValue placeholder="Select AZ" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendor === "AZURE"
-                  ? ["ALL", "1", "2", "3", "Single"].map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))
-                  : (assoAZ || az).map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
         )}
 

@@ -82,6 +82,9 @@ export function SearchableSelect({
                 if (event.key === "Escape" && query) {
                   event.preventDefault()
                   event.stopPropagation()
+                  if ("nativeEvent" in event) {
+                    event.nativeEvent.stopImmediatePropagation()
+                  }
                   setQuery("")
                 }
               }}

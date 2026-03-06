@@ -1,7 +1,11 @@
 # ------ import module ------
 import boto3.session
+from botocore.config import Config
 import pandas as pd
 from datetime import datetime, timedelta, timezone
+
+
+EC2_CLIENT_CONFIG = Config(retries={'max_attempts': 2, 'mode': 'standard'})
 
 
 # get all available regions
@@ -15,7 +19,7 @@ def get_regions(session: boto3.session.Session, region='us-east-1') -> list:
 
 # get spot price by all availability zone in single region
 def get_spot_price_region(session: boto3.session.Session, region: str, start=None, end=None) -> tuple: # type: ignore
-    client = session.client('ec2', region)
+    client = session.client('ec2', region, config=EC2_CLIENT_CONFIG)
     describe_args = {
         'MaxResults': 300,
         'StartTime': start,
@@ -56,7 +60,7 @@ def get_spot_price(region):
 
     # filter to change az-name to az-id
     az_map = dict()
-    ec2 = session.client('ec2', region_name=region)
+    ec2 = session.client('ec2', region_name=region, config=EC2_CLIENT_CONFIG)
     response = ec2.describe_availability_zones()
 
     for val in response['AvailabilityZones']:

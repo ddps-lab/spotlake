@@ -30,6 +30,7 @@ from titans_common.utils import prepare_for_upload
 PROVIDER = "azure"
 os.environ.setdefault("TITANS_ENV", "test")
 TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "1") == "1"
+AZURE_TIMESTREAM_ENABLED = os.environ.get("AZURE_TIMESTREAM_ENABLED", "0") == "1"
 DEBUG_ARTIFACTS_ENABLED = True
 DEBUG_S3_PREFIX = "rawdata/azure/debug"
 
@@ -376,7 +377,10 @@ def main():
                 # Only if there are changes
                 if changed_df is not None and not changed_df.empty:
                     futures['query_selector'] = executor.submit(upload_data.query_selector, changed_df)
-                    futures['timestream'] = executor.submit(upload_data.upload_timestream, changed_df, timestamp_utc)
+                    if AZURE_TIMESTREAM_ENABLED:
+                        futures['timestream'] = executor.submit(upload_data.upload_timestream, changed_df, timestamp_utc)
+                    else:
+                        Logger.info("AZURE_TIMESTREAM_ENABLED=0. Skipping timestream upload.")
                 else:
                     Logger.info("No changes detected. Skipping query_selector and timestream.")
 

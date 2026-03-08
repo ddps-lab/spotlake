@@ -29,6 +29,7 @@ from titans_common.utils import prepare_for_upload
 
 PROVIDER = "azure"
 TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
+AZURE_TIMESTREAM_ENABLED = os.environ.get("AZURE_TIMESTREAM_ENABLED", "0") == "1"
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     # Ensure join keys are present and types match
@@ -394,7 +395,10 @@ def main():
                 # Only if there are changes
                 if changed_df is not None and not changed_df.empty:
                     futures['query_selector'] = executor.submit(upload_data.query_selector, changed_df)
-                    futures['timestream'] = executor.submit(upload_data.upload_timestream, changed_df, timestamp_utc)
+                    if AZURE_TIMESTREAM_ENABLED:
+                        futures['timestream'] = executor.submit(upload_data.upload_timestream, changed_df, timestamp_utc)
+                    else:
+                        Logger.info("AZURE_TIMESTREAM_ENABLED=0. Skipping timestream upload.")
                 else:
                     Logger.info("No changes detected. Skipping query_selector and timestream.")
 

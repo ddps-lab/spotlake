@@ -5,8 +5,10 @@ import boto3
 import pickle
 import gzip
 import gc
+import resource
 import pandas as pd
 import concurrent.futures
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -30,6 +32,25 @@ from titans_common.utils import prepare_for_upload
 PROVIDER = "azure"
 TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
 AZURE_TIMESTREAM_ENABLED = os.environ.get("AZURE_TIMESTREAM_ENABLED", "0") == "1"
+
+
+def _rss_mb() -> float:
+    """Return current process RSS in MiB when available."""
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+
+    # Fallback: ru_maxrss is peak, not current, but still useful.
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+
+
+def _stage_log(stage: str, *, extra: str = "") -> None:
+    suffix = f" {extra}" if extra else ""
+    Logger.info(f"[TITANS/{PROVIDER}] {stage} rss_mb={_rss_mb():.1f}{suffix}")
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     # Ensure join keys are present and types match
@@ -425,20 +446,46 @@ def main():
             # ------ TITANS Hot tier upload + Warm compaction ------
             if TITANS_ENABLED and changed_df is not None and not changed_df.empty:
                 try:
+                    _stage_log("start", extra=f"changed_rows={len(changed_df)}")
+
                     # Azure policy: no Ceased support (no removed_df)
+                    prep_started = time.time()
+                    _stage_log("prepare_for_upload start")
                     combined_df = prepare_for_upload(changed_df, pd.DataFrame(), pk_columns=['InstanceType', 'Region', 'AvailabilityZone'])
+                    _stage_log(
+                        "prepare_for_upload end",
+                        extra=f"elapsed_s={time.time() - prep_started:.2f} combined_rows={len(combined_df)}",
+                    )
                     ts_utc = timestamp_utc if timestamp_utc.tzinfo else timestamp_utc.replace(tzinfo=timezone.utc)
 
                     if not combined_df.empty:
+                        _stage_log("creating titans s3 client")
                         titans_s3 = boto3.client("s3")
+                        hot_started = time.time()
+                        _stage_log("upload_hot_tier start")
                         hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER, s3_client=titans_s3)
+                        _stage_log(
+                            "upload_hot_tier end",
+                            extra=f"elapsed_s={time.time() - hot_started:.2f} hot_key={hot_key}",
+                        )
                         if hot_key:
+                            compact_started = time.time()
+                            _stage_log("run_compaction start", extra=f"hot_key={hot_key}")
                             run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
+                            _stage_log(
+                                "run_compaction end",
+                                extra=f"elapsed_s={time.time() - compact_started:.2f} hot_key={hot_key}",
+                            )
+                        _stage_log("success")
                         Logger.info(f"[TITANS/{PROVIDER}] Successfully uploaded")
+                    else:
+                        _stage_log("skip empty combined_df")
 
                 except ConcurrencyConflictError as e:
+                    _stage_log("concurrency_conflict", extra=f"error={e}")
                     Logger.info(f"[TITANS/{PROVIDER}] Concurrency conflict, will retry next cycle: {e}")
                 except Exception as e:
+                    _stage_log("failure", extra=f"error={e}")
                     Logger.error(f"[TITANS/{PROVIDER}] Failed (non-fatal): {e}")
 
             del changed_df

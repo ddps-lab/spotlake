@@ -20,6 +20,12 @@ from __future__ import annotations
 
 import io
 import json
+import os
+from pathlib import Path
+import resource
+import subprocess
+import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -30,8 +36,33 @@ from botocore.exceptions import ClientError
 import polars as pl
 
 from .config import get_config, ProviderConfig
+from .partitioned_eager_merge import (
+    concat_partition_outputs,
+    materialize_azure_partitions,
+)
 
 DEFAULT_M = 8
+AZURE_PARTITIONED_MIN_LEVEL = int(os.environ.get("TITANS_AZURE_PARTITIONED_MIN_LEVEL", "3"))
+AZURE_PARTITION_PREFIX_LEN = int(os.environ.get("TITANS_AZURE_PARTITION_PREFIX_LEN", "2"))
+AZURE_PARTITION_DEFAULT_PREFIX_LEN = int(os.environ.get("TITANS_AZURE_PARTITION_DEFAULT_PREFIX_LEN", "1"))
+AZURE_PARTITION_SPLIT_PREFIXES = {
+    value.strip()
+    for value in os.environ.get("TITANS_AZURE_PARTITION_SPLIT_PREFIXES", "D,E").split(",")
+    if value.strip()
+}
+
+
+def _rss_mb() -> float:
+    """Return current process RSS in MiB when available."""
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
 
 
 class ConcurrencyConflictError(Exception):
@@ -111,6 +142,10 @@ class WarmCompactor:
 
     def _save_manifest(self):
         """Save manifest.json to S3 (Optimistic Locking)."""
+        print(
+            f"[WARM/{self.provider}] manifest save start "
+            f"rss_mb={_rss_mb():.1f}"
+        )
         data = {
             "m": self.m,
             "provider": self.provider,
@@ -158,6 +193,10 @@ class WarmCompactor:
                 )
             # Update ETag so subsequent saves use IfMatch
             self.manifest_etag = response.get("ETag")
+            print(
+                f"[WARM/{self.provider}] manifest save end "
+                f"rss_mb={_rss_mb():.1f}"
+            )
         except ClientError as e:
             if e.response["Error"]["Code"] == "PreconditionFailed":
                 raise ConcurrencyConflictError(
@@ -191,6 +230,10 @@ class WarmCompactor:
 
     def add_hot_file(self, hot_s3_key: str) -> list[str]:
         """Add Hot file - idempotency via last_processed_time + rollback on failure."""
+        print(
+            f"[WARM/{self.provider}] add_hot_file start "
+            f"hot_key={hot_s3_key} rss_mb={_rss_mb():.1f}"
+        )
         # Idempotency: skip if already processed
         file_time = self._parse_time_from_key(hot_s3_key)
         if self.last_processed_time and file_time and file_time <= self.last_processed_time:
@@ -226,6 +269,11 @@ class WarmCompactor:
         # Save manifest (includes pending_deletions)
         self._save_manifest()
 
+        print(
+            f"[WARM/{self.provider}] add_hot_file end "
+            f"hot_key={hot_s3_key} pending_deletions={len(self.pending_deletions)} rss_mb={_rss_mb():.1f}"
+        )
+
         return deleted_files
 
     def _parse_time_from_key(self, hot_s3_key: str) -> datetime | None:
@@ -254,6 +302,10 @@ class WarmCompactor:
         created_files = []
 
         while len(self.levels[level]) >= self.m:
+            print(
+                f"[WARM/{self.provider}] compact level={level} start "
+                f"queue={len(self.levels[level])} rss_mb={_rss_mb():.1f}"
+            )
             to_merge = self.levels[level][:self.m]
             self.levels[level] = self.levels[level][self.m:]
 
@@ -273,10 +325,25 @@ class WarmCompactor:
             deleted_files.extend(sub_deleted)
             created_files.extend(sub_created)
 
+            print(
+                f"[WARM/{self.provider}] compact level={level} end "
+                f"created={merged.filename} rss_mb={_rss_mb():.1f}"
+            )
+
         return deleted_files, created_files
 
     def _merge_files(self, files: list[WarmFile], new_level: int) -> WarmFile:
         """Merge files to create new Warm file."""
+        if self.provider == "azure" and new_level >= AZURE_PARTITIONED_MIN_LEVEL:
+            return self._merge_files_partitioned(files, new_level)
+
+        start_time = time.time()
+        input_rows = 0
+        print(
+            f"[WARM/{self.provider}] merge start strategy=eager "
+            f"level={new_level} files={len(files)} rss_mb={_rss_mb():.1f}"
+        )
+
         dfs = []
         schema = self.config.schema_dtypes
 
@@ -284,12 +351,18 @@ class WarmCompactor:
             key = wf.filename if wf.level == 0 else f"{self.warm_prefix}/{wf.filename}"
             response = self.s3_client.get_object(Bucket=self.bucket, Key=key)
             df = pl.read_parquet(io.BytesIO(response["Body"].read()))
+            input_rows += df.height
 
             # Ensure dtype consistency
             cast_exprs = [pl.col(c).cast(schema[c]) for c in df.columns if c in schema]
             if cast_exprs:
                 df = df.with_columns(cast_exprs)
             dfs.append(df)
+
+        print(
+            f"[WARM/{self.provider}] merge eager loaded "
+            f"level={new_level} input_rows={input_rows} rss_mb={_rss_mb():.1f}"
+        )
 
         # Merge & sort (Provider-specific PK + Time)
         sort_cols = self.config.pk_columns + [self.config.time_column]
@@ -327,9 +400,128 @@ class WarmCompactor:
             ContentType="application/octet-stream",
         )
 
-        print(f"[WARM/{self.provider}] Created {filename} (L{new_level}, {combined.height} rows)")
+        print(
+            f"[WARM/{self.provider}] Created {filename} (L{new_level}, {combined.height} rows) "
+            f"elapsed_s={time.time() - start_time:.2f} rss_mb={_rss_mb():.1f}"
+        )
 
         return WarmFile(level=new_level, hot_range=(start_idx, end_idx), filename=filename)
+
+    def _merge_files_partitioned(self, files: list[WarmFile], new_level: int) -> WarmFile:
+        """Merge Azure warm files via range partition + subprocess eager merge."""
+        start_time = time.time()
+        print(
+            f"[WARM/{self.provider}] merge start strategy=partitioned "
+            f"level={new_level} files={len(files)} rss_mb={_rss_mb():.1f}"
+        )
+        with tempfile.TemporaryDirectory(prefix=f"warm_merge_{self.provider}_") as tmp:
+            root = Path(tmp)
+            input_dir = root / "inputs"
+            partition_dir = root / "partitions"
+            merged_dir = root / "merged"
+            final_dir = root / "final"
+            input_dir.mkdir(parents=True, exist_ok=True)
+            merged_dir.mkdir(parents=True, exist_ok=True)
+            final_dir.mkdir(parents=True, exist_ok=True)
+
+            local_inputs: list[Path] = []
+            download_started = time.time()
+            for wf in files:
+                key = wf.filename if wf.level == 0 else f"{self.warm_prefix}/{wf.filename}"
+                response = self.s3_client.get_object(Bucket=self.bucket, Key=key)
+                local_path = input_dir / Path(key).name
+                local_path.write_bytes(response["Body"].read())
+                local_inputs.append(local_path)
+            print(
+                f"[WARM/{self.provider}] partitioned download complete "
+                f"level={new_level} files={len(local_inputs)} elapsed_s={time.time() - download_started:.2f} "
+                f"rss_mb={_rss_mb():.1f}"
+            )
+
+            materialize_started = time.time()
+            partitions = materialize_azure_partitions(
+                local_inputs,
+                partition_dir,
+                prefix_len=AZURE_PARTITION_PREFIX_LEN,
+                split_prefixes=AZURE_PARTITION_SPLIT_PREFIXES,
+                default_prefix_len=AZURE_PARTITION_DEFAULT_PREFIX_LEN,
+            )
+            print(
+                f"[WARM/{self.provider}] partitioned materialize complete "
+                f"level={new_level} partitions={len(partitions)} elapsed_s={time.time() - materialize_started:.2f} "
+                f"rss_mb={_rss_mb():.1f}"
+            )
+
+            merge_script = Path(__file__).with_name("partitioned_eager_merge.py")
+            partition_outputs: list[Path] = []
+            total_rows = 0
+            child_env = os.environ.copy()
+            child_env.setdefault("POLARS_MAX_THREADS", "1")
+            child_env.setdefault("RAYON_NUM_THREADS", "1")
+            child_env.setdefault("OMP_NUM_THREADS", "1")
+
+            merge_partitions_started = time.time()
+            total_partitions = len(partitions)
+            for idx, part in enumerate(partitions, start=1):
+                part_dir = partition_dir / part.replace(":", "__")
+                out_path = merged_dir / f"{part.replace(':', '__')}.parquet"
+                part_started = time.time()
+                print(
+                    f"[WARM/{self.provider}] partitioned merge part start "
+                    f"level={new_level} part={idx}/{total_partitions} key={part} rss_mb={_rss_mb():.1f}"
+                )
+                result = subprocess.run(
+                    [sys.executable, str(merge_script), "--partition-dir", str(part_dir), "--output", str(out_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=child_env,
+                )
+                part_rows = 0
+                for line in result.stdout.splitlines():
+                    if line.startswith("rows="):
+                        part_rows = int(line.split("=", 1)[1])
+                        total_rows += part_rows
+                        break
+                print(
+                    f"[WARM/{self.provider}] partitioned merge part end "
+                    f"level={new_level} part={idx}/{total_partitions} key={part} rows={part_rows} "
+                    f"elapsed_s={time.time() - part_started:.2f} rss_mb={_rss_mb():.1f}"
+                )
+                partition_outputs.append(out_path)
+            print(
+                f"[WARM/{self.provider}] partitioned merge complete "
+                f"level={new_level} partitions={total_partitions} total_rows={total_rows} "
+                f"elapsed_s={time.time() - merge_partitions_started:.2f} rss_mb={_rss_mb():.1f}"
+            )
+
+            start_idx = min(wf.hot_range[0] for wf in files)
+            end_idx = max(wf.hot_range[1] for wf in files)
+            filename = f"L{new_level}_{self.next_file_id:04d}_{start_idx:05d}-{end_idx:05d}.parquet"
+            self.next_file_id += 1
+
+            final_path = final_dir / filename
+            concat_started = time.time()
+            concat_partition_outputs(sorted(partition_outputs), final_path)
+            print(
+                f"[WARM/{self.provider}] partitioned concat complete "
+                f"level={new_level} elapsed_s={time.time() - concat_started:.2f} rss_mb={_rss_mb():.1f}"
+            )
+            key = f"{self.warm_prefix}/{filename}"
+            upload_started = time.time()
+            self.s3_client.put_object(
+                Bucket=self.bucket,
+                Key=key,
+                Body=final_path.read_bytes(),
+                ContentType="application/octet-stream",
+            )
+            print(
+                f"[WARM/{self.provider}] Created {filename} "
+                f"(L{new_level}, {total_rows} rows, partitioned) "
+                f"upload_elapsed_s={time.time() - upload_started:.2f} "
+                f"elapsed_s={time.time() - start_time:.2f} rss_mb={_rss_mb():.1f}"
+            )
+            return WarmFile(level=new_level, hot_range=(start_idx, end_idx), filename=filename)
 
 
 def run_compaction(
@@ -345,6 +537,10 @@ def run_compaction(
 
     ts_utc = timestamp.astimezone(timezone.utc)
     start_time = time.time()
+    print(
+        f"[WARM/{provider}] run_compaction start "
+        f"hot_key={hot_s3_key} timestamp={ts_utc.isoformat()} rss_mb={_rss_mb():.1f}"
+    )
 
     compactor = WarmCompactor(
         m=DEFAULT_M,
@@ -365,4 +561,7 @@ def run_compaction(
         print(f"[WARN] Compaction took {elapsed:.1f}s, exceeds {timeout_seconds}s limit")
 
     total_files = sum(len(files) for files in compactor.levels.values())
-    print(f"[WARM/{provider}] Current warm files: {total_files}")
+    print(
+        f"[WARM/{provider}] Current warm files: {total_files} "
+        f"deleted_files={len(deleted_files)} elapsed_s={elapsed:.2f} rss_mb={_rss_mb():.1f}"
+    )

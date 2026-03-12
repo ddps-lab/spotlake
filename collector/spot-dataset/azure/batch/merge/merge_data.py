@@ -2,6 +2,7 @@ import sys
 import os
 import argparse
 import boto3
+import json
 import pickle
 import gzip
 import gc
@@ -51,6 +52,29 @@ def _rss_mb() -> float:
 def _stage_log(stage: str, *, extra: str = "") -> None:
     suffix = f" {extra}" if extra else ""
     Logger.info(f"[TITANS/{PROVIDER}] {stage} rss_mb={_rss_mb():.1f}{suffix}")
+
+
+def _queue_compaction_request(
+    request_path: str,
+    *,
+    hot_key: str,
+    timestamp: datetime,
+    timeout_seconds: float,
+) -> None:
+    """Persist a compaction request for the shell to run in a fresh process."""
+    request_file = Path(request_path)
+    request_file.parent.mkdir(parents=True, exist_ok=True)
+    request_file.write_text(
+        json.dumps(
+            {
+                "provider": PROVIDER,
+                "hot_key": hot_key,
+                "timestamp": timestamp.isoformat(),
+                "timeout_seconds": timeout_seconds,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     # Ensure join keys are present and types match
@@ -469,13 +493,30 @@ def main():
                             extra=f"elapsed_s={time.time() - hot_started:.2f} hot_key={hot_key}",
                         )
                         if hot_key:
-                            compact_started = time.time()
-                            _stage_log("run_compaction start", extra=f"hot_key={hot_key}")
-                            run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
-                            _stage_log(
-                                "run_compaction end",
-                                extra=f"elapsed_s={time.time() - compact_started:.2f} hot_key={hot_key}",
-                            )
+                            request_path = os.environ.get("TITANS_COMPACTION_REQUEST_PATH", "").strip()
+                            if request_path:
+                                _stage_log(
+                                    "run_compaction handoff start",
+                                    extra=f"hot_key={hot_key} request_path={request_path}",
+                                )
+                                _queue_compaction_request(
+                                    request_path,
+                                    hot_key=hot_key,
+                                    timestamp=ts_utc,
+                                    timeout_seconds=30.0,
+                                )
+                                _stage_log(
+                                    "run_compaction handoff end",
+                                    extra=f"hot_key={hot_key} request_path={request_path}",
+                                )
+                            else:
+                                compact_started = time.time()
+                                _stage_log("run_compaction start", extra=f"hot_key={hot_key}")
+                                run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
+                                _stage_log(
+                                    "run_compaction end",
+                                    extra=f"elapsed_s={time.time() - compact_started:.2f} hot_key={hot_key}",
+                                )
                         _stage_log("success")
                         Logger.info(f"[TITANS/{PROVIDER}] Successfully uploaded")
                     else:

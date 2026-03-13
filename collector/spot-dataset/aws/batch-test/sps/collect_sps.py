@@ -101,7 +101,7 @@ def main():
     SPS_METADATA_S3_KEY = f"{S3_PATH_PREFIX}/localfile/sps_metadata.yaml"
 
     metadata = read_metadata(
-        s3_client, WRITE_BUCKET_NAME, SPS_METADATA_S3_KEY,
+        s3_client, READ_BUCKET_NAME, SPS_METADATA_S3_KEY,
         default_value={
             "credential_index": {"init": 0, "current": 0},
             "target_capacity_index": {"init": 0, "current": 0},
@@ -123,7 +123,7 @@ def main():
 
     # ------ Load Workload-Credential Mapping ------
     workload_credential_mapping = read_metadata(
-        s3_client, WRITE_BUCKET_NAME, WORKLOAD_CREDENTIAL_MAPPING_S3_KEY,
+        s3_client, READ_BUCKET_NAME, WORKLOAD_CREDENTIAL_MAPPING_S3_KEY,
         default_value={}
     )
 

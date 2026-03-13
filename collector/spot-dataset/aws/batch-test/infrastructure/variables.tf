@@ -25,6 +25,12 @@ variable "s3_bucket" {
   default     = "spotlake"
 }
 
+variable "titans_bucket" {
+  description = "S3 Bucket for TITANS Hot/Warm tier parquet data"
+  type        = string
+  default     = "titans-spotlake-data"
+}
+
 variable "image_uri" {
   description = "Docker Image URI for Batch Jobs"
   type        = string

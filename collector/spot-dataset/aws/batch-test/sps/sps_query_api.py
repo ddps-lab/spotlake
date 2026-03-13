@@ -61,7 +61,10 @@ def query_sps(args):
                     retries += 1
                 else:
                     raise e
-                
+
+        if retries > max_retries:
+            raise Exception(f"Max retries ({max_retries}) exceeded for {instance_type} in {region_names}")
+
         for score in scores:
             sps_dict["InstanceType"].append(instance_type)
             sps_dict["Region"].append(score["Region"])

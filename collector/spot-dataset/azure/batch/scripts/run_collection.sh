@@ -2,6 +2,8 @@
 set -e
 
 TIMESTAMP=$1
+SAFE_TIMESTAMP=$(printf '%s' "$TIMESTAMP" | tr -c 'A-Za-z0-9_.-' '_')
+COMPACTION_REQUEST_FILE="/tmp/titans_compaction_${SAFE_TIMESTAMP}.json"
 
 # Capture start time
 START_TIME_READABLE=$(date "+%Y-%m-%d %H:%M:%S")
@@ -86,7 +88,15 @@ if [ $STATUS_SPS -eq 0 ] && [ $STATUS_IF -eq 0 ] && [ $STATUS_PRICE -eq 0 ]; the
         echo "Found SPS Key: $SPS_KEY"
         
         echo "Starting Merge Job..."
-        python3 collector/spot-dataset/azure/batch/merge/merge_data.py --sps_key "$SPS_KEY"
+        rm -f "$COMPACTION_REQUEST_FILE"
+        TITANS_COMPACTION_REQUEST_PATH="$COMPACTION_REQUEST_FILE" \
+            python3 collector/spot-dataset/azure/batch/merge/merge_data.py --sps_key "$SPS_KEY"
+
+        if [ -f "$COMPACTION_REQUEST_FILE" ]; then
+            echo "Starting TITANS Warm Compaction Job..."
+            python3 collector/titans_common/run_compaction_request.py --request "$COMPACTION_REQUEST_FILE"
+            rm -f "$COMPACTION_REQUEST_FILE"
+        fi
 
         MERGE_END_TIME_EPOCH=$(date +%s)
         MERGE_DURATION=$((MERGE_END_TIME_EPOCH - COLLECTION_END_TIME_EPOCH))

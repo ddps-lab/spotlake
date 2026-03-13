@@ -240,6 +240,7 @@ def upload_timestream(data, time_datetime):
 
 def update_latest(all_data_dataframe):
     try:
+        all_data_dataframe = all_data_dataframe.copy()
         all_data_dataframe['id'] = all_data_dataframe.index + 1
 
         json_data = all_data_dataframe.to_dict(orient="records")

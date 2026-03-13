@@ -7,6 +7,7 @@ import concurrent.futures
 
 # ------ import user module ------
 from utility.utils import get_region
+from utility.slack_msg_sender import send_slack_message
 
 BUCKET_NAME = "spotlake-test"
 S3_PATH_PREFIX = "rawdata/aws"

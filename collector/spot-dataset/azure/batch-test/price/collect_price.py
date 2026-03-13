@@ -22,6 +22,8 @@ from utils.constants import STORAGE_CONST
 GET_PRICE_URL = "https://prices.azure.com/api/retail/prices?currencyCode='USD'&$filter=serviceName eq 'Virtual Machines' and priceType eq 'Consumption'&$skip="
 FILTER_LOCATIONS = ['GOV', 'DoD', 'China', 'Germany']
 MAX_SKIP = 2000
+DEBUG_ARTIFACTS_ENABLED = True
+DEBUG_S3_PREFIX = "rawdata/azure/debug"
 
 # Globals for threading
 price_list = []
@@ -119,6 +121,25 @@ def preprocessing_price(df):
 
     return join_df
 
+
+def upload_debug_dataframe(s3_client, df, timestamp_utc, stage):
+    if not DEBUG_ARTIFACTS_ENABLED or df is None:
+        return
+
+    date_path = timestamp_utc.strftime("%Y/%m/%d")
+    time_str = timestamp_utc.strftime("%H-%M-%S")
+    s3_key = f"{DEBUG_S3_PREFIX}/{stage}/{date_path}/{time_str}.pkl.gz"
+    local_path = f"/tmp/{stage}_{time_str}.pkl.gz"
+
+    debug_df = df.copy()
+    debug_df.to_pickle(local_path, compression='gzip')
+
+    with open(local_path, 'rb') as f:
+        s3_client.upload_fileobj(f, STORAGE_CONST.WRITE_BUCKET_NAME, s3_key)
+
+    os.remove(local_path)
+    print(f"Uploaded debug artifact: {s3_key}")
+
 def collect_price_with_multithreading():
     global price_list, response_dict, event
     price_list = []
@@ -146,13 +167,13 @@ def collect_price_with_multithreading():
             send_slack_message(f"[Azure Collector]: {i} respones occurred {response_dict[i]} times.")
 
     if not price_list:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
 
     price_df = pd.DataFrame(price_list)
-    savings_df = preprocessing_price(price_df)
-    savings_df = savings_df.drop_duplicates(subset=['InstanceTier', 'InstanceType', 'Region'], keep='first')
+    pre_dedup_df = preprocessing_price(price_df)
+    savings_df = pre_dedup_df.drop_duplicates(subset=['InstanceTier', 'InstanceType', 'Region'], keep='first')
 
-    return savings_df
+    return pre_dedup_df, savings_df
 
 def main():
     parser = argparse.ArgumentParser()
@@ -177,7 +198,7 @@ def main():
     try:
         start_time = datetime.now(timezone.utc)
         
-        savings_df = collect_price_with_multithreading()
+        pre_dedup_df, savings_df = collect_price_with_multithreading()
         
         if savings_df.empty:
             print("No price data collected.")
@@ -188,6 +209,8 @@ def main():
 
         # Save to S3
         s3_client = boto3.client('s3')
+        upload_debug_dataframe(s3_client, pre_dedup_df, timestamp_utc, "price_saving_if_pre_dedup")
+        upload_debug_dataframe(s3_client, savings_df, timestamp_utc, "price_saving_if_post_dedup")
         s3_key = f"{S3_PATH_PREFIX}/{date_path}/{time_str}_spot_price.pkl.gz"
         
         local_path = f"/tmp/{time_str}_spot_price.pkl.gz"

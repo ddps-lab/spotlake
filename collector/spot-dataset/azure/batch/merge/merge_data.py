@@ -2,20 +2,79 @@ import sys
 import os
 import argparse
 import boto3
+import json
 import pickle
 import gzip
 import gc
+import resource
 import pandas as pd
 import concurrent.futures
+import time
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 # Add parent directory to path to import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# ------ TITANS setup ------
+# Add titans_common path (merge -> batch -> azure -> spot-dataset -> collector)
+COLLECTOR_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(COLLECTOR_ROOT))
 
 from utils.common import S3, Logger
 from utils.constants import AZURE_CONST, STORAGE_CONST
 from utils.slack_msg_sender import send_slack_message
 from merge import upload_data, compare_data
+
+from titans_common.upload_titans import upload_hot_tier
+from titans_common.warm_compactor import run_compaction, ConcurrencyConflictError
+from titans_common.utils import prepare_for_upload
+
+PROVIDER = "azure"
+TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
+AZURE_TIMESTREAM_ENABLED = os.environ.get("AZURE_TIMESTREAM_ENABLED", "0") == "1"
+
+
+def _rss_mb() -> float:
+    """Return current process RSS in MiB when available."""
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+
+    # Fallback: ru_maxrss is peak, not current, but still useful.
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+
+
+def _stage_log(stage: str, *, extra: str = "") -> None:
+    suffix = f" {extra}" if extra else ""
+    Logger.info(f"[TITANS/{PROVIDER}] {stage} rss_mb={_rss_mb():.1f}{suffix}")
+
+
+def _queue_compaction_request(
+    request_path: str,
+    *,
+    hot_key: str,
+    timestamp: datetime,
+    timeout_seconds: float,
+) -> None:
+    """Persist a compaction request for the shell to run in a fresh process."""
+    request_file = Path(request_path)
+    request_file.parent.mkdir(parents=True, exist_ok=True)
+    request_file.write_text(
+        json.dumps(
+            {
+                "provider": PROVIDER,
+                "hot_key": hot_key,
+                "timestamp": timestamp.isoformat(),
+                "timeout_seconds": timeout_seconds,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 def merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True):
     # Ensure join keys are present and types match
@@ -226,13 +285,25 @@ def main():
         # Lambda Logic: Join on armRegionName (Price Code) == Region (IF Code)
         # This ensures IF values are preserved instead of being lost to NaN
         if not price_df.empty and not if_df.empty:
+            # Case-insensitive merge: IF API (Resource Graph) returns lowercase,
+            # Price API (Retail Prices) returns mixed case (e.g., NC24ads_A100_v4)
+            price_df['_merge_type'] = price_df['InstanceType'].str.lower()
+            price_df['_merge_tier'] = price_df['InstanceTier'].str.lower()
+            if_df['_merge_type'] = if_df['InstanceType'].str.lower()
+            if_df['_merge_tier'] = if_df['InstanceTier'].str.lower()
+
             price_saving_if_df = pd.merge(
-                price_df, 
+                price_df,
                 if_df,
-                left_on=['InstanceType', 'InstanceTier', 'armRegionName'],
-                right_on=['InstanceType', 'InstanceTier', 'Region'],
+                left_on=['_merge_type', '_merge_tier', 'armRegionName'],
+                right_on=['_merge_type', '_merge_tier', 'Region'],
                 how='outer'
             )
+
+            # Use Price's original casing, fall back to IF's if Price is missing
+            price_saving_if_df['InstanceType'] = price_saving_if_df['InstanceType_x'].fillna(price_saving_if_df['InstanceType_y'])
+            price_saving_if_df['InstanceTier'] = price_saving_if_df['InstanceTier_x'].fillna(price_saving_if_df['InstanceTier_y'])
+            price_saving_if_df.drop(columns=['_merge_type', '_merge_tier', 'InstanceType_x', 'InstanceType_y', 'InstanceTier_x', 'InstanceTier_y'], inplace=True)
             
             # Select columns and rename
             # Region_x is Price Region Name ("East US"), Region_y is IF Region Code ("eastus")
@@ -264,6 +335,8 @@ def main():
                 'SpotPrice', 'Savings', 'IF'
             ])
 
+        del price_df, if_df
+        gc.collect()
 
         # Merge with SPS
         Logger.info(f"[MERGE DEBUG] Before merge_if_saving_price_sps_df:")
@@ -271,7 +344,9 @@ def main():
         Logger.info(f"  sps_df: {len(sps_df)} rows")
         
         sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True)
-        
+        del price_saving_if_df, sps_df
+        gc.collect()
+
         Logger.info(f"[MERGE DEBUG] After merge_if_saving_price_sps_df: {len(sps_merged_df)} rows")
 
         # Process prev_all_data (already loaded in parallel above)
@@ -331,8 +406,8 @@ def main():
             Logger.info(f"T2/T3 calculation complete. Result rows: {len(sps_merged_df)}")
             
             # Detect Changes
-            workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
-            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'Time', 'T2', 'T3']
+            workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']
+            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'T2', 'T3']
             
             changed_df = compare_data.compare_sps(prev_all_data, sps_merged_df, workload_cols, feature_cols)
             
@@ -346,6 +421,14 @@ def main():
 
             Logger.info("Starting parallel upload phase...")
 
+            # Deduplicate sps_merged_df before saving to latest (prevents cascading duplication)
+            before_dedup = len(sps_merged_df)
+            sps_merged_df = sps_merged_df.drop_duplicates(
+                subset=["InstanceType", "Region", "AvailabilityZone", "InstanceTier"]
+            )
+            if len(sps_merged_df) < before_dedup:
+                Logger.info(f"[DEDUP] Removed {before_dedup - len(sps_merged_df)} duplicate rows before upload ({before_dedup} -> {len(sps_merged_df)})")
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 futures = {}
 
@@ -357,7 +440,10 @@ def main():
                 # Only if there are changes
                 if changed_df is not None and not changed_df.empty:
                     futures['query_selector'] = executor.submit(upload_data.query_selector, changed_df)
-                    futures['timestream'] = executor.submit(upload_data.upload_timestream, changed_df, timestamp_utc)
+                    if AZURE_TIMESTREAM_ENABLED:
+                        futures['timestream'] = executor.submit(upload_data.upload_timestream, changed_df, timestamp_utc)
+                    else:
+                        Logger.info("AZURE_TIMESTREAM_ENABLED=0. Skipping timestream upload.")
                 else:
                     Logger.info("No changes detected. Skipping query_selector and timestream.")
 
@@ -378,11 +464,84 @@ def main():
 
             Logger.info("Parallel upload phase completed")
 
+            del sps_merged_df
+            gc.collect()
+
+            # ------ TITANS Hot tier upload + Warm compaction ------
+            if TITANS_ENABLED and changed_df is not None and not changed_df.empty:
+                try:
+                    _stage_log("start", extra=f"changed_rows={len(changed_df)}")
+
+                    # Azure policy: no Ceased support (no removed_df)
+                    prep_started = time.time()
+                    _stage_log("prepare_for_upload start")
+                    combined_df = prepare_for_upload(changed_df, pd.DataFrame(), pk_columns=['InstanceType', 'Region', 'AvailabilityZone'])
+                    _stage_log(
+                        "prepare_for_upload end",
+                        extra=f"elapsed_s={time.time() - prep_started:.2f} combined_rows={len(combined_df)}",
+                    )
+                    ts_utc = timestamp_utc if timestamp_utc.tzinfo else timestamp_utc.replace(tzinfo=timezone.utc)
+
+                    if not combined_df.empty:
+                        _stage_log("creating titans s3 client")
+                        titans_s3 = boto3.client("s3")
+                        hot_started = time.time()
+                        _stage_log("upload_hot_tier start")
+                        hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER, s3_client=titans_s3)
+                        _stage_log(
+                            "upload_hot_tier end",
+                            extra=f"elapsed_s={time.time() - hot_started:.2f} hot_key={hot_key}",
+                        )
+                        if hot_key:
+                            request_path = os.environ.get("TITANS_COMPACTION_REQUEST_PATH", "").strip()
+                            if request_path:
+                                _stage_log(
+                                    "run_compaction handoff start",
+                                    extra=f"hot_key={hot_key} request_path={request_path}",
+                                )
+                                _queue_compaction_request(
+                                    request_path,
+                                    hot_key=hot_key,
+                                    timestamp=ts_utc,
+                                    timeout_seconds=30.0,
+                                )
+                                _stage_log(
+                                    "run_compaction handoff end",
+                                    extra=f"hot_key={hot_key} request_path={request_path}",
+                                )
+                            else:
+                                compact_started = time.time()
+                                _stage_log("run_compaction start", extra=f"hot_key={hot_key}")
+                                run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
+                                _stage_log(
+                                    "run_compaction end",
+                                    extra=f"elapsed_s={time.time() - compact_started:.2f} hot_key={hot_key}",
+                                )
+                        _stage_log("success")
+                        Logger.info(f"[TITANS/{PROVIDER}] Successfully uploaded")
+                    else:
+                        _stage_log("skip empty combined_df")
+
+                except ConcurrencyConflictError as e:
+                    _stage_log("concurrency_conflict", extra=f"error={e}")
+                    Logger.info(f"[TITANS/{PROVIDER}] Concurrency conflict, will retry next cycle: {e}")
+                except Exception as e:
+                    _stage_log("failure", extra=f"error={e}")
+                    Logger.error(f"[TITANS/{PROVIDER}] Failed (non-fatal): {e}")
+
+            del changed_df
+            gc.collect()
+
         else:
             Logger.info("First run or no previous data. Skipping comparison.")
 
             # Parallel upload for first run
             data_type = 'desired_count_1' if desired_count == 1 else 'multi'
+
+            # Deduplicate sps_merged_df before saving to latest
+            sps_merged_df = sps_merged_df.drop_duplicates(
+                subset=["InstanceType", "Region", "AvailabilityZone", "InstanceTier"]
+            )
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
                 update_future = executor.submit(upload_data.update_latest, sps_merged_df)

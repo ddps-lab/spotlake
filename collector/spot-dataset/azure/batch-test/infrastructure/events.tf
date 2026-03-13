@@ -66,7 +66,7 @@ resource "aws_iam_role_policy_attachment" "scheduler_policy_attachment" {
 resource "aws_cloudwatch_event_rule" "collection_schedule" {
   name                = "spotlake-azure-collection-schedule-test"
   description         = "Triggers SpotLake Azure Data Collection (Test) every 10 minutes"
-  schedule_expression = "cron(0/10 * * * ? *)"
+  schedule_expression = "cron(5/10 * * * ? *)"
 }
 
 resource "aws_cloudwatch_event_target" "collection_target" {

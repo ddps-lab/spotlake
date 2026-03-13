@@ -117,6 +117,20 @@ resource "aws_iam_policy" "batch_job_policy" {
           "arn:aws:s3:::spotlake/*"
         ]
       },
+      # TITANS Hot/Warm tier bucket (parquet storage)
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.titans_bucket}",
+          "arn:aws:s3:::${var.titans_bucket}/*"
+        ]
+      },
       {
         Effect = "Allow"
         Action = [
@@ -144,7 +158,7 @@ resource "aws_iam_policy" "batch_job_policy" {
             "dynamodb:Scan"
         ]
         Resource = [
-            "arn:aws:dynamodb:${var.aws_region}:*:table/AzureAuth",
+            "arn:aws:dynamodb:us-east-1:*:table/AzureAuth",
             "arn:aws:dynamodb:${var.aws_region}:*:table/azure-test"
         ]
       },
@@ -255,7 +269,9 @@ resource "aws_batch_job_definition" "collection_job" {
     jobRoleArn = aws_iam_role.batch_job_role.arn
     environment = [
       { name = "S3_BUCKET", value = var.s3_bucket },
-      { name = "AWS_REGION", value = var.aws_region }
+      { name = "AWS_REGION", value = var.aws_region },
+      { name = "TITANS_ENV", value = "test" },
+      { name = "TITANS_ENABLED", value = "1" }
     ]
     resourceRequirements = [
       { type = "VCPU", value = "1" },

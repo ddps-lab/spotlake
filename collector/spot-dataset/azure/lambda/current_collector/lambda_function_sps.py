@@ -182,8 +182,8 @@ def handle_res_df_for_spotlake(price_saving_if_df, sps_df, time_datetime, desire
         prev_availability_zone_true_all_data_df = S3.read_file(
             f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}", 'pkl.gz')
 
-        workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone', 'DesiredCount']
-        feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'SPS_Update_Time', 'T2', 'T3']
+        workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']
+        feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'T2', 'T3']
 
         query_success = timestream_success = cloudwatch_success = \
             update_latest_success = save_raw_success = False

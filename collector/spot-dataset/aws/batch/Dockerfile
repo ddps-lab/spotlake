@@ -52,10 +52,15 @@ RUN pip install --no-cache-dir \
     requests \
     azure-identity \
     azure-core \
-    scikit-learn
+    scikit-learn \
+    polars>=1.37.0 \
+    pyarrow
 
 # Copy utility module (shared by both AWS and Azure)
 COPY utility /app/utility
+
+# Copy titans_common module (TITANS Hot/Warm tier integration)
+COPY collector/titans_common /app/collector/titans_common
 
 # Copy AWS collector code
 COPY collector/spot-dataset/aws/batch /app/collector/spot-dataset/aws/batch
@@ -67,6 +72,7 @@ RUN chmod +x /app/collector/spot-dataset/azure/batch/scripts/run_collection.sh
 
 # Set PYTHONPATH to include /app so imports work
 ENV PYTHONPATH=/app
+ENV PANDAS_FUTURE_INFER_STRING=0
 
 # Default entrypoint (can be overridden)
 CMD ["python3", "--version"]

@@ -47,15 +47,20 @@ RUN pip install --no-cache-dir \
     boto3 \
     pandas \
     numpy \
+    polars \
     pyyaml \
     ortools \
     requests \
     azure-identity \
     azure-core \
-    scikit-learn
+    scikit-learn \
+    pyarrow
 
 # Copy utility module (shared by both AWS and Azure)
 COPY utility /app/utility
+
+# Copy TITANS common module
+COPY collector/titans_common /app/collector/titans_common
 
 # Copy AWS test collector code
 COPY collector/spot-dataset/aws/batch-test /app/collector/spot-dataset/aws/batch-test
@@ -67,6 +72,7 @@ RUN chmod +x /app/collector/spot-dataset/azure/batch-test/scripts/run_collection
 
 # Set PYTHONPATH to include /app so imports work
 ENV PYTHONPATH=/app
+ENV PANDAS_FUTURE_INFER_STRING=0
 
 # Default entrypoint (can be overridden)
 CMD ["python3", "--version"]

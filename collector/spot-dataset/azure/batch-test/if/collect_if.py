@@ -25,10 +25,9 @@ def get_data(sps_token, skip_token, retry=3):
             "https://management.azure.com/providers/Microsoft.ResourceGraph/resources?api-version=2024-04-01",
             headers=headers,
             json={
-                "query": """spotresources\n
-            | where type =~ \"microsoft.compute/skuspotevictionrate/location\"\n
-            | project location = location, props = parse_json(properties)\n
-            | project location = location, skuName = props.skuName, evictionRate = props.evictionRate\n
+                "query": """spotresources
+            | where type =~ "microsoft.compute/skuspotevictionrate/location"
+            | project skuName = tostring(sku.name), location, evictionRate = tostring(properties.evictionRate)
             | where isnotempty(skuName) and isnotempty(evictionRate) and isnotempty(location)
             """,
                 "options": {
@@ -37,8 +36,10 @@ def get_data(sps_token, skip_token, retry=3):
                 }
             }).json()
 
-        if not "data" in data:
-            raise ValueError
+        if "data" not in data:
+            error_detail = data.get("error", {})
+            print(f"[IF] API error: {error_detail}")
+            raise ValueError(f"API error: {error_detail.get('message', data.keys())}")
 
         if len(data['data']) > 0:
             return data
@@ -73,8 +74,9 @@ def load_if():
 
         eviction_df = pd.DataFrame(datas)
 
-        eviction_df['InstanceTier'] = eviction_df['skuName'].str.split('_', n=1, expand=True)[0].str.capitalize()
-        eviction_df['InstanceType'] = eviction_df['skuName'].str.split('_', n=1, expand=True)[1].str.capitalize()
+        sku_split = eviction_df['skuName'].str.split('_', n=1, expand=True)
+        eviction_df['InstanceTier'] = sku_split[0]
+        eviction_df['InstanceType'] = sku_split[1]
 
         frequency_map = {'0-5': 3.0, '5-10': 2.5, '10-15': 2.0, '15-20': 1.5, '20+': 1.0}
         eviction_df = eviction_df.replace({'evictionRate': frequency_map})
@@ -82,20 +84,20 @@ def load_if():
         eviction_df.rename(columns={'evictionRate': 'IF'}, inplace=True)
         eviction_df.rename(columns={'location': 'Region'}, inplace=True)
 
-        # Map Region Code (eastus) to Region Name (East US) to match Price/SPS
-        from utils.common import S3
-        from utils.constants import AZURE_CONST, STORAGE_CONST
-        
-        az_str = "availability-zones-false"
-        # Revert to Legacy Logic: Do not map Region Code to Name here.
-        # Merge logic will handle Code-to-Code join via armRegionName.
-
         eviction_df['OndemandPrice'] = -1.0
         eviction_df['SpotPrice'] = -1.0
         eviction_df['Savings'] = 1.0
 
         eviction_df = eviction_df[
             ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+
+        # Filter out Gov regions (align with Price collection)
+        FILTER_LOCATIONS = ['GOV', 'DoD', 'China', 'Germany']
+        eviction_df = eviction_df[
+            ~eviction_df['Region'].str.split().str[0].str.upper().isin(FILTER_LOCATIONS)
+        ]
+
+        eviction_df = eviction_df.drop_duplicates(subset=['InstanceTier', 'InstanceType', 'Region'])
 
         return eviction_df
 

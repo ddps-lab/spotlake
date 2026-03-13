@@ -25,6 +25,12 @@ variable "s3_bucket" {
   default     = "spotlake"
 }
 
+variable "titans_bucket" {
+  description = "S3 Bucket for TITANS Hot/Warm tier parquet data"
+  type        = string
+  default     = "titans-spotlake-data"
+}
+
 variable "image_uri" {
   description = "Docker Image URI for Batch Jobs"
   type        = string
@@ -33,5 +39,21 @@ variable "image_uri" {
 variable "job_role_arn" {
   description = "IAM Role ARN for Batch Jobs (if existing)"
   type        = string
-  default     = ""
+  default     = null
+}
+
+
+# Slack Webhook URL for failure notifications
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Batch job failure notifications"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+# Use existing Lambda function (shared monitoring)
+variable "use_existing_lambda" {
+  description = "Whether to use existing batch-failure-notifier Lambda (auto-detected by deploy script)"
+  type        = bool
+  default     = false
 }

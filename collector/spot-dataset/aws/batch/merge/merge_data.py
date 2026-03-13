@@ -4,8 +4,25 @@ import boto3
 import pickle
 import gzip
 import json
+import os
+import resource
+import sys
 import pandas as pd
 import argparse
+import time
+from pathlib import Path
+
+# ------ TITANS setup ------
+# Add titans_common path (merge -> batch -> aws -> spot-dataset -> collector)
+COLLECTOR_ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(COLLECTOR_ROOT))
+
+from titans_common.upload_titans import upload_hot_tier
+from titans_common.warm_compactor import run_compaction, ConcurrencyConflictError
+from titans_common.utils import prepare_for_upload
+
+PROVIDER = "aws"
+TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
 
 # ------ import user module ------
 from utility.slack_msg_sender import send_slack_message
@@ -14,6 +31,24 @@ from compare_data import compare, compare_max_instance
 
 class FirstRunError(Exception):
     pass
+
+
+def _rss_mb() -> float:
+    """Return current process RSS in MiB when available."""
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+
+
+def _stage_log(stage: str, *, extra: str = "") -> None:
+    suffix = f" {extra}" if extra else ""
+    print(f"[TITANS/{PROVIDER}] {stage} rss_mb={_rss_mb():.1f}{suffix}")
 
 def main():
     print("Start Merge Data Script")
@@ -223,6 +258,14 @@ def main():
         feature_cols = ['SPS', 'T3', 'T2', 'IF', 'SpotPrice', 'OndemandPrice']
 
         changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature_cols)  # compare previous_df and current_df to extract changed rows)
+        ts_utc = TIMESTAMP if TIMESTAMP.tzinfo else TIMESTAMP.replace(tzinfo=timezone.utc)
+
+        # Ceased timestamp semantics: disappearance is observed at current batch time.
+        # removed_df rows come from previous_df, so their Time must be overwritten.
+        if not removed_df.empty and "Time" in removed_df.columns:
+            removed_df = removed_df.copy()
+            removed_df["Time"] = ts_utc.strftime("%Y-%m-%d %H:%M:%S")
+
         end_time = datetime.now(timezone.utc)
         print(f"Compare time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
 
@@ -233,6 +276,49 @@ def main():
         upload_timestream(removed_df, TIMESTAMP)
         end_time = datetime.now(timezone.utc)
         print(f"Uploading time to TSDB is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+
+        # ------ TITANS Hot tier upload + Warm compaction ------
+        print(f"TITANS_FLAG : {TITANS_ENABLED} Preparing data for TITANS upload. Changed rows: {len(changed_df)}, Removed rows: {len(removed_df)}")
+        if TITANS_ENABLED:
+            try:
+                _stage_log("start", extra=f"changed_rows={len(changed_df)} removed_rows={len(removed_df)}")
+                prep_started = time.time()
+                _stage_log("prepare_for_upload start")
+                combined_df = prepare_for_upload(changed_df, removed_df, pk_columns=workload_cols)
+                _stage_log(
+                    "prepare_for_upload end",
+                    extra=f"elapsed_s={time.time() - prep_started:.2f} combined_rows={len(combined_df)}",
+                )
+
+                if not combined_df.empty:
+                    _stage_log("creating titans s3 client")
+                    titans_s3 = boto3.client("s3")
+                    hot_started = time.time()
+                    _stage_log("upload_hot_tier start")
+                    hot_key = upload_hot_tier(combined_df, ts_utc, provider=PROVIDER, s3_client=titans_s3)
+                    _stage_log(
+                        "upload_hot_tier end",
+                        extra=f"elapsed_s={time.time() - hot_started:.2f} hot_key={hot_key}",
+                    )
+                    if hot_key:
+                        compact_started = time.time()
+                        _stage_log("run_compaction start", extra=f"hot_key={hot_key}")
+                        run_compaction(hot_key, ts_utc, provider=PROVIDER, timeout_seconds=30.0, s3_client=titans_s3)
+                        _stage_log(
+                            "run_compaction end",
+                            extra=f"elapsed_s={time.time() - compact_started:.2f} hot_key={hot_key}",
+                        )
+                    _stage_log("success")
+                    print(f"[TITANS/{PROVIDER}/PROD] Successfully uploaded")
+                else:
+                    _stage_log("skip empty combined_df")
+
+            except ConcurrencyConflictError as e:
+                _stage_log("concurrency_conflict", extra=f"error={e}")
+                print(f"[TITANS/{PROVIDER}/PROD] Concurrency conflict, will retry next cycle: {e}")
+            except Exception as e:
+                _stage_log("failure", extra=f"error={e}")
+                print(f"[TITANS/{PROVIDER}/PROD] Failed (non-fatal): {e}")
 
         # ------ Upload Spotlake Query Selector to S3 ------
         start_time = datetime.now(timezone.utc)

@@ -1,29 +1,33 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { AgGridReact } from "ag-grid-react"
-import { ColDef, ModuleRegistry, themeQuartz, colorSchemeDark } from "ag-grid-community"
-import { 
-  ClientSideRowModelModule, 
+import { ColDef, SizeColumnsToContentStrategy, ModuleRegistry, themeQuartz, colorSchemeDark } from "ag-grid-community"
+import {
+  ClientSideRowModelModule,
   ValidationModule,
   PaginationModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
   CustomFilterModule,
-  CsvExportModule
+  CsvExportModule,
+  ColumnAutoSizeModule,
+  TooltipModule
 } from "ag-grid-community";
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Download } from "lucide-react"
 
 ModuleRegistry.registerModules([
-  ClientSideRowModelModule, 
+  ClientSideRowModelModule,
   ValidationModule,
   PaginationModule,
   TextFilterModule,
   NumberFilterModule,
   DateFilterModule,
   CustomFilterModule,
-  CsvExportModule
+  CsvExportModule,
+  ColumnAutoSizeModule,
+  TooltipModule
 ]);
 
 interface AgGridTableProps<TData> {
@@ -46,12 +50,15 @@ export function AgGridTable<TData>({ rowData, columnDefs }: AgGridTableProps<TDa
 
   const defaultColDef = useMemo<ColDef>(() => {
     return {
-      flex: 1,
-      minWidth: 100,
+      minWidth: 80,
       filter: true,
       sortable: true,
       resizable: true,
     }
+  }, [])
+
+  const autoSizeStrategy = useMemo<SizeColumnsToContentStrategy>(() => {
+    return { type: "fitCellContents" }
   }, [])
 
   const gridTheme = useMemo(() => {
@@ -96,6 +103,9 @@ export function AgGridTable<TData>({ rowData, columnDefs }: AgGridTableProps<TDa
           rowData={rowData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
+          autoSizeStrategy={autoSizeStrategy}
+          enableCellTextSelection={true}
+          tooltipShowDelay={0}
           pagination={true}
           paginationPageSize={20}
           paginationPageSizeSelector={[10, 20, 50, 100]}

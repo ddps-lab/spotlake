@@ -4,12 +4,7 @@ import numpy as np
 import warnings
 
 # ------ import user module ------
-try:
-    from slack_msg_sender import send_slack_message
-except ImportError:
-    warnings.warn("slack_msg_sender not found. Slack notifications will be disabled.")
-    def send_slack_message(msg):
-        print(f"[SLACK] {msg}")
+from utility.slack_msg_sender import send_slack_message
 
 # compare previous collected workload with current collected workload
 # return changed workload
@@ -39,8 +34,8 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 prev_idx += 1
                 continue
             else:
-                send_slack_message(f"{prev_workload}, {curr_workload} workload error")
-                print(f"{prev_workload}, {curr_workload} workload error")
+                send_slack_message(f"{prev_workload} workload error (current array exhausted)")
+                print(f"{prev_workload} workload error (current array exhausted)")
                 raise Exception("workload error")
         elif prev_idx == len(previous_indices):
             curr_workload = current_values[curr_idx][0]
@@ -49,8 +44,8 @@ def compare(previous_df, current_df, workload_cols, feature_cols):
                 curr_idx += 1
                 continue
             else:
-                send_slack_message(f"{prev_workload}, {curr_workload} workload error")
-                print(f"{prev_workload}, {curr_workload} workload error")
+                send_slack_message(f"{curr_workload} workload error (previous array exhausted)")
+                print(f"{curr_workload} workload error (previous array exhausted)")
                 raise Exception("workload error")
             
         prev_workload = previous_values[prev_idx][0]
@@ -101,6 +96,11 @@ def compare_max_instance(previous_df, new_df, target_capacity):
         suffixes=("", "_prev")
     )
 
+    # Fill NaN values for _prev columns (new workloads that don't exist in previous data)
+    merged_df["T3_prev"] = merged_df["T3_prev"].fillna(0)
+    merged_df["T2_prev"] = merged_df["T2_prev"].fillna(0)
+    merged_df["SPS_prev"] = merged_df["SPS_prev"].fillna(merged_df["SPS"])
+
     # Fix SPS when single node SPS
     if target_capacity == 1:
         merged_df["SPS"] = merged_df["SPS"].combine_first(merged_df["SPS_prev"])
@@ -135,7 +135,7 @@ def compare_max_instance(previous_df, new_df, target_capacity):
 
     # Convert to int
     for col in ["SPS", "T2", "T3"]:
-        merged_df[col] = merged_df[col].astype("Int64")
+        merged_df[col] = merged_df[col].astype("int64")
     
     # Drop unnecessary columns
     merged_df.drop(columns=["T3_prev", "T2_prev", "SPS_prev"], inplace=True)

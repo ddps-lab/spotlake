@@ -3,17 +3,10 @@
 import React, { useEffect, useState } from "react"
 import axios from "axios"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { DatePicker } from "@/components/ui/date-picker"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 
 
 const AWS_INSTANCE: any = {}
@@ -97,6 +90,16 @@ interface QuerySectionProps {
   setLoading: (loading: boolean) => void
 }
 
+const TITANS_ENDPOINT = "https://5nepzdkzaf.execute-api.us-west-2.amazonaws.com"
+
+/** Format Date as "YYYY-MM-DD" in local timezone (not UTC). */
+const toLocalDateStr = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
 export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionProps) {
   const url = "https://d26bk4799jlxhe.cloudfront.net/query-api/"
   const [instance, setInstance] = useState<string[]>([])
@@ -120,7 +123,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
 
   const [dateRange, setDateRange] = useState({
     min: "",
-    max: new Date().toISOString().split("T")[0],
+    max: toLocalDateStr(new Date()),
   })
 
   const filterSort = (V: string) => {
@@ -219,8 +222,8 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
       instance: "",
       region: "",
       az: "",
-      start_date: yesterday.toISOString().split("T")[0],
-      end_date: today.toISOString().split("T")[0],
+      start_date: toLocalDateStr(yesterday),
+      end_date: toLocalDateStr(today),
     })
     setAssoRegion(undefined)
     setAssoInstance(undefined)
@@ -234,9 +237,9 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
         const today = new Date()
         tmpMax.setMonth(tmpMax.getMonth() + 1)
         if (tmpMax < today) {
-            setDateRange({ ...dateRange, max: tmpMax.toISOString().split("T")[0] })
+            setDateRange({ ...dateRange, max: toLocalDateStr(tmpMax) })
         } else {
-            setDateRange({ ...dateRange, max: today.toISOString().split("T")[0] })
+            setDateRange({ ...dateRange, max: toLocalDateStr(today) })
         }
     }
 
@@ -324,58 +327,131 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
     }
   }
 
-  const querySubmit = async () => {
+  const validateQuery = () => {
+    const hasAZ = vendor === "AWS" || vendor === "AZURE"
     const invalidQuery = Object.keys(searchFilter).some((key) => {
-        if (key === 'az' && vendor !== 'AWS') return false;
+        if (key === 'az' && !hasAZ) return false;
         return !searchFilter[key as keyof typeof searchFilter]
     })
-    const invalidQueryForVendor = vendor === "AWS" && !searchFilter.az
 
-    if (invalidQuery || invalidQueryForVendor) {
+    if (invalidQuery) {
       alert("The query is invalid. Please check your search option.")
-      return
+      return false
     }
+    if (searchFilter.start_date > searchFilter.end_date) {
+      alert("Invalid date range")
+      return false
+    }
+    return true
+  }
 
-    if (searchFilter.start_date <= searchFilter.end_date) {
-      setLoading(true)
-      const params = {
-        TableName: vendor.toLowerCase(),
-        ...(vendor === "AWS" && {
-          AZ: searchFilter.az === "ALL" ? "*" : searchFilter.az,
-        }),
-        Region: searchFilter.region === "ALL" ? "*" : searchFilter.region,
-        InstanceType: searchFilter.instance === "ALL" ? "*" : searchFilter.instance,
-        ...(vendor === "AZURE" && {
-          InstanceTier: "*",
-          AvailabilityZone: searchFilter.az === "ALL" ? "*" : searchFilter.az,
-        }),
-        Start: searchFilter.start_date === "" ? "*" : searchFilter.start_date,
-        End: searchFilter.end_date === "" ? "*" : searchFilter.end_date,
+  /** TITANS Polars Lambda query (all vendors) */
+  const querySubmit = async () => {
+    if (!validateQuery()) return
+
+    setLoading(true)
+    try {
+      const body: Record<string, any> = {
+        provider: vendor.toLowerCase(),
+        instance_types: searchFilter.instance === "ALL" ? ["all"] : [searchFilter.instance],
+        regions: searchFilter.region === "ALL" ? ["all"] : [searchFilter.region],
+        start: searchFilter.start_date,
+        end: searchFilter.end_date,
+        strategy: "unified",
       }
-
-      try {
-        const res = await axios.get(url, { params })
-        console.log("Raw axios response:", res)
-        // Check if Data exists (some endpoints might not return Status field)
-        if (res.data.Data || res.data.Status === 200) {
-            const dataToPass = res.data.Data || []
-            console.log("Query API response:", dataToPass)
-            onDataFetch(dataToPass, { 
-              start: searchFilter.start_date, 
-              end: searchFilter.end_date,
-              region: searchFilter.region
-            })
-        } else {
-            alert("Error fetching data: " + res.data.Status)
+      // AWS and Azure have AZ; GCP does not
+      if (vendor === "AWS" || vendor === "AZURE") {
+        body.azs = searchFilter.az === "ALL" ? ["all"] : [searchFilter.az]
+      }
+      const resp = await fetch(`${TITANS_ENDPOINT}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!resp.ok) {
+        const errText = await resp.text()
+        alert("TITANS query error: " + errText.slice(0, 200))
+        return
+      }
+      const blob = await resp.blob()
+      const ds = new DecompressionStream("gzip")
+      const decompressed = blob.stream().pipeThrough(ds)
+      const text = await new Response(decompressed).text()
+      const data = JSON.parse(text)
+      console.log("TITANS response:", data.result_count, "rows, timing:", data.timing)
+      // Normalize TITANS column names to match AG Grid definitions (TSDB format)
+      const results = (data.results || []).map((r: any) => {
+        const stripTZ = (t: any) =>
+          typeof t === "string" ? t.replace(/[+-]\d{2}:\d{2}$/, "").replace("T", " ") : t
+        if (vendor === "AZURE") {
+          return { ...r, AvailabilityZone: r.AZ, Time: stripTZ(r.Time) }
         }
-      } catch (e) {
-        console.error(e)
-        alert("Network error")
-      } finally {
-        setLoading(false)
-      }
+        if (vendor === "GCP") {
+          return {
+            ...r,
+            "OnDemand Price": r.OndemandPrice,
+            "Spot Price": r.SpotPrice,
+            time: stripTZ(r.Time),
+          }
+        }
+        // AWS: column names already match
+        return { ...r, Time: stripTZ(r.Time) }
+      })
+      onDataFetch(results, {
+        start: searchFilter.start_date,
+        end: searchFilter.end_date,
+        region: searchFilter.region,
+      })
+    } catch (e) {
+      console.error(e)
+      alert("Network error")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Old CloudFront TSDB query (debug: all vendors) */
+  const queryTSDB = async () => {
+    if (!validateQuery()) return
+
+    setLoading(true)
+    try {
+      await queryCloudFront()
+    } catch (e) {
+      console.error(e)
+      alert("Network error")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /** Shared CloudFront TSDB API call */
+  const queryCloudFront = async () => {
+    const params = {
+      TableName: vendor.toLowerCase(),
+      ...(vendor === "AWS" && {
+        AZ: searchFilter.az === "ALL" ? "*" : searchFilter.az,
+      }),
+      Region: searchFilter.region === "ALL" ? "*" : searchFilter.region,
+      InstanceType: searchFilter.instance === "ALL" ? "*" : searchFilter.instance,
+      ...(vendor === "AZURE" && {
+        InstanceTier: "*",
+        AvailabilityZone: searchFilter.az === "ALL" ? "*" : searchFilter.az,
+      }),
+      Start: searchFilter.start_date === "" ? "*" : searchFilter.start_date,
+      End: searchFilter.end_date === "" ? "*" : searchFilter.end_date,
+    }
+    const res = await axios.get(url, { params })
+    if (res.data.Data || res.data.Status === 200) {
+      const dataToPass = res.data.Data || []
+      console.log("TSDB response:", dataToPass.length, "rows")
+      onDataFetch(dataToPass, {
+        start: searchFilter.start_date,
+        end: searchFilter.end_date,
+        region: searchFilter.region,
+      })
     } else {
-        alert("Invalid date range")
+      alert("Error fetching data: " + res.data.Status)
     }
   }
 
@@ -384,68 +460,44 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
       <CardContent className="flex flex-wrap gap-4 p-1 items-end justify-center">
         <div className="flex flex-col space-y-1.5">
           <Label htmlFor="instance">Instance</Label>
-          <Select
+          <SearchableSelect
+            id="instance"
             value={searchFilter.instance}
-            onValueChange={(val) => handleFilterChange("instance", val)}
-          >
-            <SelectTrigger id="instance" className="w-[180px]">
-              <SelectValue placeholder="Select Instance" />
-            </SelectTrigger>
-            <SelectContent>
-              {(assoInstance || instance).map((e) => (
-                <SelectItem key={e} value={e}>
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onValueChange={(value) => handleFilterChange("instance", value)}
+            options={assoInstance || instance}
+            placeholder="Select Instance"
+            searchPlaceholder="Search instance..."
+            emptyMessage="No instance found."
+          />
         </div>
 
         <div className="flex flex-col space-y-1.5">
           <Label htmlFor="region">Region</Label>
-          <Select
+          <SearchableSelect
+            id="region"
             value={searchFilter.region}
-            onValueChange={(val) => handleFilterChange("region", val)}
+            onValueChange={(value) => handleFilterChange("region", value)}
+            options={assoRegion || region}
+            placeholder="Select Region"
+            searchPlaceholder="Search region..."
+            emptyMessage="No region found."
             disabled={vendor === "AWS" && !searchFilter.instance}
-          >
-            <SelectTrigger id="region" className="w-[180px]">
-              <SelectValue placeholder="Select Region" />
-            </SelectTrigger>
-            <SelectContent>
-              {(assoRegion || region).map((e) => (
-                <SelectItem key={e} value={e}>
-                  {e}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </div>
 
         {(vendor === "AWS" || vendor === "AZURE") && (
           <div className="flex flex-col space-y-1.5">
             <Label htmlFor="az">AZ</Label>
-            <Select
+            <SearchableSelect
+              id="az"
               value={searchFilter.az}
-              onValueChange={(val) => handleFilterChange("az", val)}
+              onValueChange={(value) => handleFilterChange("az", value)}
+              options={vendor === "AZURE" ? ["ALL", "1", "2", "3", "Single"] : assoAZ || az}
+              placeholder="Select AZ"
+              searchPlaceholder="Search AZ..."
+              emptyMessage="No AZ found."
               disabled={vendor === "AWS" && !searchFilter.region}
-            >
-              <SelectTrigger id="az" className="w-[180px]">
-                <SelectValue placeholder="Select AZ" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendor === "AZURE"
-                  ? ["ALL", "1", "2", "3", "Single"].map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))
-                  : (assoAZ || az).map((e) => (
-                      <SelectItem key={e} value={e}>
-                        {e}
-                      </SelectItem>
-                    ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
         )}
 
@@ -456,7 +508,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
             onDateChange={(date) => {
               setStartDate(date)
               if (date) {
-                const dateStr = date.toISOString().split("T")[0]
+                const dateStr = toLocalDateStr(date)
                 handleFilterChange("start_date", dateStr)
               }
             }}
@@ -472,7 +524,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
             onDateChange={(date) => {
               setEndDate(date)
               if (date) {
-                const dateStr = date.toISOString().split("T")[0]
+                const dateStr = toLocalDateStr(date)
                 handleFilterChange("end_date", dateStr)
               }
             }}
@@ -482,6 +534,7 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
         </div>
 
         <Button onClick={querySubmit}>Query</Button>
+        <Button variant="outline" onClick={queryTSDB}>TSDB Query</Button>
       </CardContent>
     </Card>
   )

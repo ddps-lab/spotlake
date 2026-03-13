@@ -115,6 +115,20 @@ resource "aws_iam_policy" "batch_job_policy" {
           "arn:aws:s3:::${var.s3_bucket}/*"
         ]
       },
+      # TITANS Hot/Warm tier bucket (parquet storage)
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.titans_bucket}",
+          "arn:aws:s3:::${var.titans_bucket}/*"
+        ]
+      },
       {
         Effect = "Allow"
         Action = [
@@ -142,8 +156,8 @@ resource "aws_iam_policy" "batch_job_policy" {
             "dynamodb:Scan"
         ]
         Resource = [
-            "arn:aws:dynamodb:${var.aws_region}:*:table/AzureAuth",
-            "arn:aws:dynamodb:${var.aws_region}:*:table/azure"
+            "arn:aws:dynamodb:${var.dynamodb_region}:*:table/AzureAuth",
+            "arn:aws:dynamodb:${var.dynamodb_region}:*:table/azure"
         ]
       },
       {
@@ -249,7 +263,8 @@ resource "aws_batch_job_definition" "collection_job" {
     jobRoleArn = aws_iam_role.batch_job_role.arn
     environment = [
       { name = "S3_BUCKET", value = var.s3_bucket },
-      { name = "AWS_REGION", value = var.aws_region }
+      { name = "AWS_REGION", value = var.aws_region },
+      { name = "TITANS_ENABLED", value = var.titans_enabled }
       # Availability Zones environment variable handling might be needed if script logic depends on it.
       # Defaulting to False or controlled via another var? Logic in Python: os.environ.get("availability_zones", "False")
     ]

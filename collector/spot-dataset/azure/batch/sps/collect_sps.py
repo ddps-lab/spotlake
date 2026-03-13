@@ -109,9 +109,31 @@ def main():
         date_path = timestamp_utc.strftime("%Y/%m/%d")
         
         # Add timestamp column if missing
-        sps_df['time'] = timestamp_utc.strftime("%Y-%m-%d %H:%M:%S")
+        current_time_str = timestamp_utc.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Validate: check if 'time' column already exists (shouldn't happen)
+        if 'time' in sps_df.columns:
+            existing_times = sps_df['time'].unique()
+            Logger.warning(f"SPS DataFrame already has 'time' column with {len(existing_times)} unique values")
+            Logger.warning(f"First 5 values: {list(existing_times[:5])}")
+        
+        sps_df['time'] = current_time_str
+        
+        # Validate: ensure single timestamp before saving
+        unique_times = sps_df['time'].unique()
+        if len(unique_times) > 1:
+            Logger.error(f"ERROR: Multiple timestamps detected in SPS data: {unique_times}")
+            raise ValueError(f"SPS data contains {len(unique_times)} different timestamps!")
+        
+        Logger.info(f"SPS data ready: {len(sps_df)} rows, timestamp: {current_time_str}")
         
         s3_key = f"{AZURE_CONST.S3_RAW_DATA_PATH}/sps/{date_path}/{time_str}_sps_{current_desired_count}.pkl.gz"
+        
+        # Validate S3 key matches current date/time
+        if date_path not in s3_key or time_str not in s3_key:
+            raise ValueError(f"S3 key mismatch! Expected {date_path}/{time_str}, got {s3_key}")
+        
+        Logger.info(f"Saving to S3: {s3_key}")
         
         local_path = f"/tmp/sps_data.pkl.gz"
         sps_df.to_pickle(local_path, compression='gzip')

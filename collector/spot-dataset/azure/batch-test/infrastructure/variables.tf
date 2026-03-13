@@ -15,6 +15,12 @@ variable "s3_bucket" {
   default     = "spotlake-test"
 }
 
+variable "titans_bucket" {
+  description = "S3 Bucket for TITANS Hot/Warm tier parquet data"
+  type        = string
+  default     = "titans-spotlake-data"
+}
+
 variable "image_uri" {
   description = "URI of the Docker image in ECR"
   type        = string
@@ -28,4 +34,20 @@ variable "subnet_ids" {
 variable "security_group_ids" {
   description = "List of security group IDs for Batch Compute Environment"
   type        = list(string)
+}
+
+# Slack Webhook URL for failure notifications (optional)
+# If not provided, monitoring infrastructure will not be deployed
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for Batch job failure notifications (optional)"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+# Use existing Lambda function (shared monitoring)
+variable "use_existing_lambda" {
+  description = "Whether to use existing batch-failure-notifier Lambda (auto-detected by deploy script)"
+  type        = bool
+  default     = false
 }

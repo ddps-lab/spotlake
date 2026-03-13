@@ -72,8 +72,9 @@ def load_if():
 
         eviction_df = pd.DataFrame(datas)
 
-        eviction_df['InstanceTier'] = eviction_df['skuName'].str.split('_', n=1, expand=True)[0].str.capitalize()
-        eviction_df['InstanceType'] = eviction_df['skuName'].str.split('_', n=1, expand=True)[1].str.capitalize()
+        sku_split = eviction_df['skuName'].str.split('_', n=1, expand=True)
+        eviction_df['InstanceTier'] = sku_split[0]
+        eviction_df['InstanceType'] = sku_split[1]
 
         frequency_map = {'0-5': 3.0, '5-10': 2.5, '10-15': 2.0, '15-20': 1.5, '20+': 1.0}
         eviction_df = eviction_df.replace({'evictionRate': frequency_map})
@@ -87,6 +88,14 @@ def load_if():
 
         eviction_df = eviction_df[
             ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF']]
+        
+        # Filter out Gov regions (align with Price collection)
+        FILTER_LOCATIONS = ['GOV', 'DoD', 'China', 'Germany']
+        eviction_df = eviction_df[
+            ~eviction_df['Region'].str.split().str[0].str.upper().isin(FILTER_LOCATIONS)
+        ]
+
+        eviction_df = eviction_df.drop_duplicates(subset=['InstanceTier', 'InstanceType', 'Region'])
 
         return eviction_df
 

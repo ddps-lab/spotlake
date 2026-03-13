@@ -246,15 +246,15 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
 
 
 def map_score_to_int(score_val):
-    if isinstance(score_val, int):
-        return score_val
-    
+    if isinstance(score_val, (int, float)):
+        return int(score_val)
+
     score_map = {
         "High": 3,
         "Medium": 2,
         "Low": 1
     }
-    return score_map.get(score_val, 0)
+    return score_map.get(score_val, -1)
 
 
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_count, max_retries=12):

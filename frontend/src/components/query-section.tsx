@@ -534,7 +534,6 @@ export function QuerySection({ vendor, onDataFetch, setLoading }: QuerySectionPr
         </div>
 
         <Button onClick={querySubmit}>Query</Button>
-        <Button variant="outline" onClick={queryTSDB}>TSDB Query</Button>
       </CardContent>
     </Card>
   )

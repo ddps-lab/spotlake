@@ -36,8 +36,20 @@ jobs:
           cd frontend
           npm run build
       
-      - name: "Sync with AWS S3"
-        run: aws s3 sync ./frontend/out/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} --acl public-read --delete
+      - name: "Sync HTML files with AWS S3"
+        run: |
+          aws s3 sync ./frontend/out/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} \
+            --exclude "*" --include "*.html" \
+            --content-type "text/html" \
+            --acl public-read \
+            --delete
+
+      - name: "Sync other assets with AWS S3"
+        run: |
+          aws s3 sync ./frontend/out/ s3://${{ secrets.AWS_SPOTLAKE_S3_BUCKET_NAME }} \
+            --exclude "*.html" \
+            --acl public-read \
+            --delete
       
       - name: "Create Invalidation"
         run: aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_SPOTLAKE_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"

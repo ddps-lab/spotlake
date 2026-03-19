@@ -36,10 +36,6 @@ from botocore.exceptions import ClientError
 import polars as pl
 
 from .config import get_config, ProviderConfig
-from .partitioned_eager_merge import (
-    concat_partition_outputs,
-    materialize_azure_partitions,
-)
 
 DEFAULT_M = 8
 AZURE_PARTITIONED_MIN_LEVEL = int(os.environ.get("TITANS_AZURE_PARTITIONED_MIN_LEVEL", "3"))
@@ -409,6 +405,11 @@ class WarmCompactor:
 
     def _merge_files_partitioned(self, files: list[WarmFile], new_level: int) -> WarmFile:
         """Merge Azure warm files via range partition + subprocess eager merge."""
+        from .partitioned_eager_merge import (
+            concat_partition_outputs,
+            materialize_azure_partitions,
+        )
+
         start_time = time.time()
         print(
             f"[WARM/{self.provider}] merge start strategy=partitioned "

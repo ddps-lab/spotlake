@@ -13,6 +13,9 @@ def send_slack_message(msg):
     function_name = inspect.stack()[1][3]
 
     message = f"File \"{module_name}\", line {line_no}, in {function_name} :\n{msg}"
+    prefix = os.environ.get("SLACK_MESSAGE_PREFIX", "").strip()
+    if prefix:
+        message = f"{prefix}\n{message}"
 
     slack_data = {
         "text": message

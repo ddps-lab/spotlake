@@ -1,0 +1,76 @@
+name: gcp collector terraform deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Terraform root to deploy
+        required: true
+        type: choice
+        default: test
+        options:
+          - test
+          - live
+
+concurrency:
+  group: gcp-collector-${{ inputs.target }}
+  cancel-in-progress: false
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: us-west-2
+
+jobs:
+  deploy:
+    name: deploy ${{ inputs.target }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set deploy paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TF_ROOT=collector/spot-dataset/gcp/lambda/iac/${{ inputs.target }}" >> "${GITHUB_ENV}"
+          echo "LOCAL_DIR=collector/spot-dataset/gcp/lambda/iac/local" >> "${GITHUB_ENV}"
+          echo "GCP_CREDENTIAL_PATH=collector/spot-dataset/gcp/lambda/iac/local/gcp-hw-feature-collector-a926be14be59.json" >> "${GITHUB_ENV}"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Materialize local inputs
+        env:
+          GCP_KEY_JSON_BASE64: ${{ secrets.GCP_KEY_JSON_BASE64 }}
+          GCP_SLACK_WEBHOOK_URL: ${{ secrets.GCP_COLLECTOR_SLACK_WEBHOOK_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${LOCAL_DIR}"
+          echo "${GCP_KEY_JSON_BASE64}" | base64 --decode > "${GCP_CREDENTIAL_PATH}"
+          chmod 600 "${GCP_CREDENTIAL_PATH}"
+
+          jq -n \
+            --arg credential_file "../local/$(basename "${GCP_CREDENTIAL_PATH}")" \
+            --arg webhook "${GCP_SLACK_WEBHOOK_URL}" \
+            '{
+              credential_file: $credential_file,
+              error_notification_slack_webhook_url: $webhook
+            }' > "${TF_ROOT}/local.auto.tfvars.json"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_ROOT }}
+        run: terraform init -input=false
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_ROOT }}
+        run: terraform apply -auto-approve -input=false
+
+      - name: Terraform output
+        working-directory: ${{ env.TF_ROOT }}
+        run: terraform output

@@ -23,7 +23,7 @@ module "collector" {
     error_notification_slack_webhook_url = var.error_notification_slack_webhook_url
     GCP_TIMESTREAM_ENABLED               = "0"
     GCP_QUERY_SELECTOR_ENABLED           = "0"
-    GCP_PUBLIC_READ_ENABLED              = "0"
+    GCP_PUBLIC_READ_ENABLED              = "1"
   }
 
   titans_enabled       = true

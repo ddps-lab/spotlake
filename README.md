@@ -15,18 +15,20 @@ SpotLake system currently provides the latest and restricted range of spot datas
 │   │   ├── aws/           # AWS instance specs collector
 │   │   ├── azure/         # Azure instance specs collector
 │   │   └── gcp/           # GCP instance specs collector
-│   └── spot-dataset/       # Spot instance stability data collection
-│       ├── aws/           # AWS spot data collectors
-│       │   ├── batch/     # AWS Batch implementation
-│       │   ├── ec2/       # EC2-based collectors
-│       │   └── lambda/    # Lambda-based collectors
-│       ├── azure/         # Azure spot data collectors
-│       │   ├── batch/     # Azure Batch implementation
-│       │   ├── ec2/       # EC2-based collectors
-│       │   └── lambda/    # Lambda-based collectors
-│       └── gcp/           # GCP spot data collectors
-│           ├── ec2/       # EC2-based collectors
-│           └── lambda/    # Lambda-based collectors
+│   ├── spot-dataset/       # Spot instance stability data collection
+│   │   ├── aws/           # AWS spot data collectors
+│   │   │   ├── batch/     # AWS Batch implementation (production)
+│   │   │   ├── ec2/       # EC2-based collectors (legacy)
+│   │   │   ├── lambda/    # Lambda-based collectors
+│   │   │   └── legacy/    # Legacy collector code
+│   │   ├── azure/         # Azure spot data collectors
+│   │   │   ├── batch/     # Azure Batch implementation (production)
+│   │   │   ├── ec2/       # EC2-based collectors (legacy)
+│   │   │   └── lambda/    # Lambda-based collectors
+│   │   └── gcp/           # GCP spot data collectors
+│   │       ├── ec2/       # EC2-based collectors (legacy)
+│   │       └── lambda/    # Lambda-based collectors (production, Terraform IaC)
+│   └── titans_common/     # TITANS shared modules (hot upload, warm compaction)
 ├── frontend/              # Web application (Next.js)
 │   ├── public/            # Static assets
 │   │   └── images/       # Images including howto.png

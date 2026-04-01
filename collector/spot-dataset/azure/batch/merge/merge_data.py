@@ -407,7 +407,7 @@ def main():
             
             # Detect Changes
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']
-            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'T2', 'T3']
+            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'T2', 'T3']
             
             changed_df = compare_data.compare_sps(prev_all_data, sps_merged_df, workload_cols, feature_cols)
             

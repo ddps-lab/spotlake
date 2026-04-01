@@ -1,0 +1,14 @@
+{
+  "environment": "production",
+  "vpc_id": "vpc-xxxxxxxx",
+  "subnet_ids": [
+    "subnet-aaaaaaaa",
+    "subnet-bbbbbbbb"
+  ],
+  "security_group_ids": [
+    "sg-cccccccc"
+  ],
+  "image_uri": "123456789012.dkr.ecr.us-west-2.amazonaws.com/monthly-cold-freezer:latest",
+  "freeze_env": "production",
+  "enable_schedule": true
+}

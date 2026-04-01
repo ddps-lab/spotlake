@@ -8,13 +8,13 @@ import io
 import pytest
 import pandas as pd
 import polars as pl
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # Force test environment
 os.environ["TITANS_ENV"] = "test"
 
 from titans_common.upload_titans import upload_hot_tier, _build_s3_key
-from titans_common.warm_compactor import WarmCompactor, run_compaction, DEFAULT_M
+from titans_common.warm_compactor import WarmCompactor, WarmFile, run_compaction, DEFAULT_M
 from titans_common.config import get_config
 
 
@@ -36,6 +36,38 @@ def _make_sample_df(timestamp_str: str, n_rows: int = 5) -> pd.DataFrame:
         "SpotPrice": [0.048] * n_rows,
         "Savings": [50] * n_rows,
     })
+
+
+def _make_sample_azure_df(timestamp: datetime) -> pl.DataFrame:
+    """Create a small Azure parquet batch with one exact type across multiple PKs."""
+    df = pl.DataFrame({
+        "InstanceTier": ["Standard"] * 4,
+        "InstanceType": ["B1ms"] * 4,
+        "Region": ["eastus", "eastus", "westus", "westus"],
+        "AZ": ["az1", "az2", "az1", "az2"],
+        "Time": [timestamp] * 4,
+        "DesiredCount": [1.0] * 4,
+        "Score": [3] * 4,
+        "T3": [1] * 4,
+        "T2": [1] * 4,
+        "IF": [1.0] * 4,
+        "OndemandPrice": [1.0] * 4,
+        "SpotPrice": [0.5] * 4,
+        "Savings": [0.5] * 4,
+        "Ceased": [False] * 4,
+    })
+    return df.with_columns([
+        pl.col("Time").cast(pl.Datetime("us", "UTC")),
+        pl.col("DesiredCount").cast(pl.Float64),
+        pl.col("Score").cast(pl.Int64),
+        pl.col("T3").cast(pl.Int64),
+        pl.col("T2").cast(pl.Int64),
+        pl.col("IF").cast(pl.Float64),
+        pl.col("OndemandPrice").cast(pl.Float64),
+        pl.col("SpotPrice").cast(pl.Float64),
+        pl.col("Savings").cast(pl.Float64),
+        pl.col("Ceased").cast(pl.Boolean),
+    ]).sort(["InstanceTier", "InstanceType", "Region", "AZ", "Time"])
 
 
 class TestUploadHotTierIntegration:
@@ -250,6 +282,109 @@ class TestWarmCompactorIntegration:
         # Adding same key again should be skipped
         compactor.add_hot_file(keys[0])
         assert len(compactor.levels[0]) == 1  # Still 1, not 2
+
+    def test_azure_partitioned_merge_refines_to_region_and_az(self, s3_client, monkeypatch):
+        """Azure partitioned merge can recursively refine oversized leaves to full PK."""
+        import titans_common.warm_compactor as warm_compactor_module
+
+        monkeypatch.setattr(warm_compactor_module, "AZURE_PARTITION_DEFAULT_PREFIX_LEN", 1)
+        monkeypatch.setattr(warm_compactor_module, "AZURE_PARTITION_PREFIX_LEN", 2)
+        monkeypatch.setattr(warm_compactor_module, "AZURE_PARTITION_SPLIT_PREFIXES", set())
+        monkeypatch.setattr(warm_compactor_module, "AZURE_PARTITION_MAX_ROWS", 8)
+        monkeypatch.setattr(warm_compactor_module, "AZURE_PARTITION_MAX_PREFIX_LEN", 16)
+
+        compactor = WarmCompactor(
+            m=DEFAULT_M, year=2026, month=1, provider="azure", s3_client=s3_client
+        )
+
+        files: list[WarmFile] = []
+        for idx in range(8):
+            ts = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc) + timedelta(minutes=10 * idx)
+            df = _make_sample_azure_df(ts)
+            filename = f"L2_{idx:04d}_{idx * 64:05d}-{(idx + 1) * 64 - 1:05d}.parquet"
+            key = f"{compactor.warm_prefix}/{filename}"
+
+            buffer = io.BytesIO()
+            df.write_parquet(buffer, compression="zstd")
+            buffer.seek(0)
+            s3_client.put_object(Bucket=BUCKET, Key=key, Body=buffer.getvalue())
+
+            files.append(
+                WarmFile(
+                    level=2,
+                    hot_range=(idx * 64, (idx + 1) * 64 - 1),
+                    filename=filename,
+                )
+            )
+
+        merged = compactor._merge_files(files, 3)
+
+        merged_key = f"{compactor.warm_prefix}/{merged.filename}"
+        response = s3_client.get_object(Bucket=BUCKET, Key=merged_key)
+        result = pl.read_parquet(io.BytesIO(response["Body"].read()))
+
+        assert merged.hot_range == (0, 511)
+        assert result.height == 32
+        assert result["Time"].n_unique() == 8
+        assert result.columns[:4] == ["InstanceTier", "InstanceType", "Region", "AZ"]
+
+    def test_azure_l2_merge_uses_streaming_path(self, s3_client, monkeypatch):
+        """Azure lower levels use full-file streaming merge before partitioned levels."""
+        import titans_common.warm_compactor as warm_compactor_module
+
+        monkeypatch.setattr(warm_compactor_module, "AZURE_STREAMING_MIN_LEVEL", 1)
+        monkeypatch.setattr(warm_compactor_module, "AZURE_PARTITIONED_MIN_LEVEL", 3)
+
+        calls: list[tuple[list[str], dict]] = []
+        original = warm_compactor_module.merge_sorted_parquet_files
+
+        def spy_merge_sorted_parquet_files(input_paths, output_path, **kwargs):
+            calls.append((input_paths, kwargs))
+            return original(input_paths, output_path, **kwargs)
+
+        monkeypatch.setattr(
+            warm_compactor_module,
+            "merge_sorted_parquet_files",
+            spy_merge_sorted_parquet_files,
+        )
+
+        compactor = WarmCompactor(
+            m=DEFAULT_M, year=2026, month=1, provider="azure", s3_client=s3_client
+        )
+
+        files: list[WarmFile] = []
+        for idx in range(8):
+            ts = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc) + timedelta(minutes=10 * idx)
+            df = _make_sample_azure_df(ts)
+            filename = f"L1_{idx:04d}_{idx * 8:05d}-{(idx + 1) * 8 - 1:05d}.parquet"
+            key = f"{compactor.warm_prefix}/{filename}"
+
+            buffer = io.BytesIO()
+            df.write_parquet(buffer, compression="zstd")
+            buffer.seek(0)
+            s3_client.put_object(Bucket=BUCKET, Key=key, Body=buffer.getvalue())
+
+            files.append(
+                WarmFile(
+                    level=1,
+                    hot_range=(idx * 8, (idx + 1) * 8 - 1),
+                    filename=filename,
+                )
+            )
+
+        merged = compactor._merge_files(files, 2)
+
+        assert len(calls) == 1
+        assert calls[0][1]["key_columns"] == ["InstanceTier", "InstanceType", "Region", "AZ", "Time"]
+
+        merged_key = f"{compactor.warm_prefix}/{merged.filename}"
+        response = s3_client.get_object(Bucket=BUCKET, Key=merged_key)
+        result = pl.read_parquet(io.BytesIO(response["Body"].read()))
+
+        assert merged.hot_range == (0, 63)
+        assert result.height == 32
+        assert result["Time"].n_unique() == 8
+        assert result.columns[:4] == ["InstanceTier", "InstanceType", "Region", "AZ"]
 
 
 class TestRunCompactionIntegration:

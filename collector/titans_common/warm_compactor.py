@@ -23,6 +23,7 @@ import json
 import os
 from pathlib import Path
 import resource
+import gc
 import subprocess
 import sys
 import tempfile
@@ -34,13 +35,21 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 import polars as pl
+import pyarrow.parquet as pq
 
 from .config import get_config, ProviderConfig
+from .streaming_parquet_merge import merge_sorted_parquet_files
 
 DEFAULT_M = 8
 AZURE_PARTITIONED_MIN_LEVEL = int(os.environ.get("TITANS_AZURE_PARTITIONED_MIN_LEVEL", "3"))
+AZURE_STREAMING_MIN_LEVEL = int(os.environ.get("TITANS_AZURE_STREAMING_MIN_LEVEL", "1"))
 AZURE_PARTITION_PREFIX_LEN = int(os.environ.get("TITANS_AZURE_PARTITION_PREFIX_LEN", "2"))
 AZURE_PARTITION_DEFAULT_PREFIX_LEN = int(os.environ.get("TITANS_AZURE_PARTITION_DEFAULT_PREFIX_LEN", "1"))
+AZURE_PARTITION_MAX_ROWS = int(os.environ.get("TITANS_AZURE_PARTITION_MAX_ROWS", "1000000"))
+AZURE_PARTITION_MAX_PREFIX_LEN = int(os.environ.get("TITANS_AZURE_PARTITION_MAX_PREFIX_LEN", "32"))
+AZURE_PARTITION_CHILD_STRATEGY = os.environ.get("TITANS_AZURE_PARTITION_CHILD_STRATEGY", "streaming").strip().lower()
+AZURE_PARTITION_STREAM_BATCH_SIZE = int(os.environ.get("TITANS_AZURE_PARTITION_STREAM_BATCH_SIZE", "8192"))
+AZURE_PARTITION_STREAM_ROW_GROUP_SIZE = int(os.environ.get("TITANS_AZURE_PARTITION_STREAM_ROW_GROUP_SIZE", "10000"))
 AZURE_PARTITION_SPLIT_PREFIXES = {
     value.strip()
     for value in os.environ.get("TITANS_AZURE_PARTITION_SPLIT_PREFIXES", "D,E").split(",")
@@ -59,6 +68,17 @@ def _rss_mb() -> float:
         pass
 
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+
+
+def _trim_memory() -> None:
+    """Best-effort return of released heap pages between cascading merges."""
+    gc.collect()
+    try:
+        import ctypes
+
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
 
 
 class ConcurrencyConflictError(Exception):
@@ -308,6 +328,7 @@ class WarmCompactor:
             merged = self._merge_files(to_merge, level + 1)
             created_files.append(f"{self.warm_prefix}/{merged.filename}")
             self.levels[level + 1].append(merged)
+            _trim_memory()
 
             for wf in to_merge:
                 if wf.level == 0:
@@ -332,6 +353,8 @@ class WarmCompactor:
         """Merge files to create new Warm file."""
         if self.provider == "azure" and new_level >= AZURE_PARTITIONED_MIN_LEVEL:
             return self._merge_files_partitioned(files, new_level)
+        if self.provider == "azure" and new_level >= AZURE_STREAMING_MIN_LEVEL:
+            return self._merge_files_streaming(files, new_level)
 
         start_time = time.time()
         input_rows = 0
@@ -403,6 +426,65 @@ class WarmCompactor:
 
         return WarmFile(level=new_level, hot_range=(start_idx, end_idx), filename=filename)
 
+    def _merge_files_streaming(self, files: list[WarmFile], new_level: int) -> WarmFile:
+        """Merge already-sorted files with a low-memory streaming path."""
+        start_time = time.time()
+        print(
+            f"[WARM/{self.provider}] merge start strategy=streaming "
+            f"level={new_level} files={len(files)} rss_mb={_rss_mb():.1f}"
+        )
+
+        with tempfile.TemporaryDirectory(prefix=f"warm_stream_merge_{self.provider}_") as tmp:
+            root = Path(tmp)
+            input_dir = root / "inputs"
+            output_dir = root / "output"
+            input_dir.mkdir(parents=True, exist_ok=True)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            local_inputs: list[Path] = []
+            download_started = time.time()
+            for wf in files:
+                key = wf.filename if wf.level == 0 else f"{self.warm_prefix}/{wf.filename}"
+                response = self.s3_client.get_object(Bucket=self.bucket, Key=key)
+                local_path = input_dir / Path(key).name
+                local_path.write_bytes(response["Body"].read())
+                local_inputs.append(local_path)
+
+            print(
+                f"[WARM/{self.provider}] merge streaming download complete "
+                f"level={new_level} files={len(local_inputs)} "
+                f"elapsed_s={time.time() - download_started:.2f} rss_mb={_rss_mb():.1f}"
+            )
+
+            start_idx = min(wf.hot_range[0] for wf in files)
+            end_idx = max(wf.hot_range[1] for wf in files)
+            filename = f"L{new_level}_{self.next_file_id:04d}_{start_idx:05d}-{end_idx:05d}.parquet"
+            self.next_file_id += 1
+            output_path = output_dir / filename
+
+            result = merge_sorted_parquet_files(
+                [str(path) for path in local_inputs],
+                str(output_path),
+                key_columns=self.config.pk_columns + [self.config.time_column],
+                output_schema=pq.ParquetFile(local_inputs[0]).schema_arrow,
+            )
+
+            key = f"{self.warm_prefix}/{filename}"
+            self.s3_client.put_object(
+                Bucket=self.bucket,
+                Key=key,
+                Body=output_path.read_bytes(),
+                ContentType="application/octet-stream",
+            )
+
+            print(
+                f"[WARM/{self.provider}] Created {filename} "
+                f"(L{new_level}, {result['rows_written']} rows, streaming) "
+                f"elapsed_s={time.time() - start_time:.2f} rss_mb={_rss_mb():.1f}"
+            )
+
+            return WarmFile(level=new_level, hot_range=(start_idx, end_idx), filename=filename)
+
     def _merge_files_partitioned(self, files: list[WarmFile], new_level: int) -> WarmFile:
         """Merge Azure warm files via range partition + subprocess eager merge."""
         from .partitioned_eager_merge import (
@@ -446,15 +528,21 @@ class WarmCompactor:
                 prefix_len=AZURE_PARTITION_PREFIX_LEN,
                 split_prefixes=AZURE_PARTITION_SPLIT_PREFIXES,
                 default_prefix_len=AZURE_PARTITION_DEFAULT_PREFIX_LEN,
+                max_rows_per_partition=AZURE_PARTITION_MAX_ROWS,
+                max_prefix_len=AZURE_PARTITION_MAX_PREFIX_LEN,
             )
+            max_partition = max(partitions, key=lambda part: part.row_count, default=None)
             print(
                 f"[WARM/{self.provider}] partitioned materialize complete "
-                f"level={new_level} partitions={len(partitions)} elapsed_s={time.time() - materialize_started:.2f} "
+                f"level={new_level} partitions={len(partitions)} "
+                f"max_part_rows={(max_partition.row_count if max_partition else 0)} "
+                f"max_part_key={(max_partition.key if max_partition else 'n/a')} "
+                f"elapsed_s={time.time() - materialize_started:.2f} "
                 f"rss_mb={_rss_mb():.1f}"
             )
 
             merge_script = Path(__file__).with_name("partitioned_eager_merge.py")
-            partition_outputs: list[Path] = []
+            partition_outputs: list[tuple[tuple[str, ...], Path]] = []
             total_rows = 0
             child_env = os.environ.copy()
             child_env.setdefault("POLARS_MAX_THREADS", "1")
@@ -464,15 +552,31 @@ class WarmCompactor:
             merge_partitions_started = time.time()
             total_partitions = len(partitions)
             for idx, part in enumerate(partitions, start=1):
-                part_dir = partition_dir / part.replace(":", "__")
-                out_path = merged_dir / f"{part.replace(':', '__')}.parquet"
+                part_dir = part.dir_path
+                out_path = merged_dir / f"{part.safe_name}.parquet"
                 part_started = time.time()
                 print(
                     f"[WARM/{self.provider}] partitioned merge part start "
-                    f"level={new_level} part={idx}/{total_partitions} key={part} rss_mb={_rss_mb():.1f}"
+                    f"level={new_level} part={idx}/{total_partitions} key={part.key} "
+                    f"rows={part.row_count} spec={part.spec.describe()} "
+                    f"child_strategy={AZURE_PARTITION_CHILD_STRATEGY} rss_mb={_rss_mb():.1f}"
                 )
+                cmd = [
+                    sys.executable,
+                    str(merge_script),
+                    "--partition-dir",
+                    str(part_dir),
+                    "--output",
+                    str(out_path),
+                    "--strategy",
+                    AZURE_PARTITION_CHILD_STRATEGY,
+                    "--batch-size",
+                    str(AZURE_PARTITION_STREAM_BATCH_SIZE),
+                    "--row-group-size",
+                    str(AZURE_PARTITION_STREAM_ROW_GROUP_SIZE),
+                ]
                 result = subprocess.run(
-                    [sys.executable, str(merge_script), "--partition-dir", str(part_dir), "--output", str(out_path)],
+                    cmd,
                     check=True,
                     capture_output=True,
                     text=True,
@@ -486,10 +590,10 @@ class WarmCompactor:
                         break
                 print(
                     f"[WARM/{self.provider}] partitioned merge part end "
-                    f"level={new_level} part={idx}/{total_partitions} key={part} rows={part_rows} "
+                    f"level={new_level} part={idx}/{total_partitions} key={part.key} rows={part_rows} "
                     f"elapsed_s={time.time() - part_started:.2f} rss_mb={_rss_mb():.1f}"
                 )
-                partition_outputs.append(out_path)
+                partition_outputs.append((part.sort_key, out_path))
             print(
                 f"[WARM/{self.provider}] partitioned merge complete "
                 f"level={new_level} partitions={total_partitions} total_rows={total_rows} "
@@ -503,7 +607,10 @@ class WarmCompactor:
 
             final_path = final_dir / filename
             concat_started = time.time()
-            concat_partition_outputs(sorted(partition_outputs), final_path)
+            concat_partition_outputs(
+                [path for _, path in sorted(partition_outputs, key=lambda item: item[0])],
+                final_path,
+            )
             print(
                 f"[WARM/{self.provider}] partitioned concat complete "
                 f"level={new_level} elapsed_s={time.time() - concat_started:.2f} rss_mb={_rss_mb():.1f}"

@@ -76,49 +76,10 @@ class _StreamState:
             raise RuntimeError("stream is exhausted")
         return self._dedup_keys[self._row_idx]
 
-    def emit_until(
-        self,
-        threshold_sort_key: tuple | None,
-        out_batches: list[pa.RecordBatch],
-    ) -> int:
-        """Emit rows whose sort key is strictly less than threshold_sort_key."""
-        rows_emitted = 0
-        last_dedup_key = None
-
-        while not self.exhausted:
-            assert self._sort_keys is not None
-            assert self._dedup_keys is not None
-            assert self._batch is not None
-
-            if threshold_sort_key is not None and self._sort_keys[self._row_idx] >= threshold_sort_key:
-                break
-
-            end = self._size
-            if threshold_sort_key is not None:
-                while end > self._row_idx and self._sort_keys[end - 1] >= threshold_sort_key:
-                    end -= 1
-                if end == self._row_idx:
-                    break
-
-            selected: list[int] = []
-            for i in range(self._row_idx, end):
-                dedup_key = self._dedup_keys[i]
-                if dedup_key != last_dedup_key:
-                    selected.append(i)
-                    last_dedup_key = dedup_key
-
-            if selected:
-                if len(selected) == (end - self._row_idx):
-                    out_batches.append(self._batch.slice(self._row_idx, end - self._row_idx))
-                else:
-                    out_batches.append(self._batch.take(pa.array(selected, type=pa.int32())))
-                rows_emitted += len(selected)
-
-            self._row_idx = end
-            if self._row_idx >= self._size:
-                self._load_next_batch()
-
-        return rows_emitted
+    def current_row_batch(self) -> pa.RecordBatch:
+        if self.exhausted or self._batch is None:
+            raise RuntimeError("stream is exhausted")
+        return self._batch.slice(self._row_idx, 1)
 
     def advance(self) -> None:
         if self.exhausted:
@@ -126,6 +87,10 @@ class _StreamState:
         self._row_idx += 1
         if self._row_idx >= self._size:
             self._load_next_batch()
+
+    def advance_past_dedup_key(self, dedup_key: tuple) -> None:
+        while not self.exhausted and self.current_dedup_key() == dedup_key:
+            self.advance()
 
 
 def merge_sorted_parquet_files(
@@ -185,19 +150,21 @@ def merge_sorted_parquet_files(
     try:
         while heap:
             current_sort_key = heapq.heappop(heap)
-            _dedup_key, _ceased_sort, stream_id = current_sort_key
+            dedup_key, _ceased_sort, stream_id = current_sort_key
             stream = streams[stream_id]
-            next_threshold = heap[0] if heap else None
-            emitted = stream.emit_until(next_threshold, out_batches)
-            rows_written += emitted
-            buffered_rows += emitted
+
+            out_batches.append(stream.current_row_batch())
+            rows_written += 1
+            buffered_rows += 1
+
+            stream.advance_past_dedup_key(dedup_key)
             if not stream.exhausted:
                 heapq.heappush(heap, stream.current_sort_key())
 
-            while heap and not stream.exhausted and heap[0][0] == stream.current_dedup_key():
+            while heap and heap[0][0] == dedup_key:
                 _dup_sort_key = heapq.heappop(heap)
                 dup_stream = streams[_dup_sort_key[2]]
-                dup_stream.advance()
+                dup_stream.advance_past_dedup_key(dedup_key)
                 if not dup_stream.exhausted:
                     heapq.heappush(heap, dup_stream.current_sort_key())
 

@@ -49,21 +49,15 @@ aws ecr describe-repositories --repository-names "${REPO_NAME}" --region "${REGI
 echo "Logging in to ECR..."
 aws ecr get-login-password --region "${REGION}" | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
 
-# Build Docker image (ARM64 for Graviton instances)
-echo "Building Docker image for ARM64..."
-docker build \
+# Build and push Docker image (ARM64 for Graviton instances)
+echo "Building and pushing Docker image for ARM64 with buildx..."
+docker buildx build \
     --platform linux/arm64 \
     --build-arg AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
     --build-arg AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
-    -t "$REPO_NAME" \
-    -f collector/spot-dataset/aws/batch/Dockerfile .
-
-# Tag Docker image
-echo "Tagging Docker image..."
-docker tag "${REPO_NAME}:latest" "${IMAGE_URI}"
-
-# Push Docker image
-echo "Pushing Docker image..."
-docker push "${IMAGE_URI}"
+    -t "${IMAGE_URI}" \
+    -f collector/spot-dataset/aws/batch/Dockerfile \
+    --push \
+    .
 
 echo "Successfully built and pushed ${IMAGE_URI}"

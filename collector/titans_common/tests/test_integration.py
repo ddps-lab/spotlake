@@ -269,6 +269,34 @@ class TestWarmCompactorIntegration:
         l2_file = compactor.levels[2][0]
         assert l2_file.hot_range == (0, 63)
 
+    def test_l4_is_capped_and_l3_files_are_retained(self, s3_client, monkeypatch):
+        """max_level=3 retains eight L3 files instead of merging to L4."""
+        compactor = WarmCompactor(
+            m=DEFAULT_M, year=2026, month=1, provider="aws", s3_client=s3_client
+        )
+        compactor.levels[3] = [
+            WarmFile(
+                level=3,
+                hot_range=(idx * 512, ((idx + 1) * 512) - 1),
+                filename=f"L3_{idx:04d}_{idx * 512:05d}-{((idx + 1) * 512) - 1:05d}.parquet",
+            )
+            for idx in range(DEFAULT_M)
+        ]
+
+        def fail_merge(*args, **kwargs):
+            raise AssertionError("L4 merge should not be attempted when max_level=3")
+
+        monkeypatch.setattr(compactor, "_merge_files", fail_merge)
+
+        deleted_files, created_files = compactor._compact_with_tracking(3)
+
+        assert deleted_files == []
+        assert created_files == []
+        assert len(compactor.levels[3]) == DEFAULT_M
+        assert [wf.hot_range for wf in compactor.levels[3]] == [
+            (idx * 512, ((idx + 1) * 512) - 1) for idx in range(DEFAULT_M)
+        ]
+
     def test_idempotency_via_last_processed_time(self, s3_client):
         """Same hot file is skipped on second add (idempotency)."""
         keys = self._upload_n_hot_files(s3_client, 1)

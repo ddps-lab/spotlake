@@ -4,6 +4,7 @@ import pandas as pd
 import json
 from botocore.config import Config
 import concurrent.futures
+import resource
 
 # ------ import user module ------
 from utility.utils import get_region
@@ -17,6 +18,17 @@ AWS_TABLE_NAME = "aws"
 
 write_client = boto3.client('timestream-write', region_name=get_region(),
                             config=Config(read_timeout=20, max_pool_connections=5000, retries={'max_attempts': 10}))
+
+
+def _rss_mb():
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
 
 # Submit Batch To Timestream
 
@@ -44,6 +56,10 @@ def submit_batch(records, counter, recursive):
 def upload_timestream(data, timestamp):
     data = data.dropna(axis=0)
     time_value = str(int(timestamp.timestamp() * 1000))
+    print(
+        f"[TIMESTREAM/aws] upload start rows={len(data)} rss_mb={_rss_mb():.1f}",
+        flush=True,
+    )
 
     records = []
     all_batches = []
@@ -72,6 +88,11 @@ def upload_timestream(data, timestamp):
     if len(records) != 0:
         all_batches.append(records)
 
+    print(
+        f"[TIMESTREAM/aws] upload prepared rows={len(data)} batches={len(all_batches)} rss_mb={_rss_mb():.1f}",
+        flush=True,
+    )
+
     # Submit batches in parallel
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(submit_batch, batch, counter, 0) for batch in all_batches]
@@ -80,6 +101,10 @@ def upload_timestream(data, timestamp):
                 future.result()
             except Exception as e:
                 print(f"Error submitting batch: {e}")
+    print(
+        f"[TIMESTREAM/aws] upload end rows={len(data)} batches={len(all_batches)} rss_mb={_rss_mb():.1f}",
+        flush=True,
+    )
 
 
 def update_latest(data, timestamp):

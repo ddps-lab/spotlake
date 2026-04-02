@@ -171,6 +171,7 @@ Run Warm tier compaction after Hot file upload.
 
 **Features:**
 - **m-way compaction**: 8 files at each level → merge to next level
+- **Level cap**: hard-coded `max_level=3` so month-end `L4` compaction is skipped
 - **ETag locking**: Optimistic locking for manifest.json
 - **Idempotent**: `processed_keys` set prevents duplicate processing
 - **Rollback on failure**: Cleans up partially created files

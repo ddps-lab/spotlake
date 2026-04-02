@@ -41,6 +41,7 @@ from .config import get_config, ProviderConfig
 from .streaming_parquet_merge import merge_sorted_parquet_files
 
 DEFAULT_M = 8
+DEFAULT_MAX_LEVEL = 3
 AZURE_PARTITIONED_MIN_LEVEL = int(os.environ.get("TITANS_AZURE_PARTITIONED_MIN_LEVEL", "3"))
 AZURE_STREAMING_MIN_LEVEL = int(os.environ.get("TITANS_AZURE_STREAMING_MIN_LEVEL", "1"))
 AZURE_PARTITION_PREFIX_LEN = int(os.environ.get("TITANS_AZURE_PARTITION_PREFIX_LEN", "2"))
@@ -106,11 +107,14 @@ class WarmCompactor:
     levels: dict[int, list[WarmFile]] = field(default_factory=dict)
     next_file_id: int = 0
     last_hot_idx: int = -1
+    max_level: int = DEFAULT_MAX_LEVEL
     manifest_etag: str | None = None
     last_processed_time: datetime | None = None
     pending_deletions: list[str] = field(default_factory=list)
 
     def __post_init__(self):
+        if self.max_level < 1:
+            raise ValueError("max_level must be >= 1")
         self.config = get_config(self.provider)
         if self.s3_client is None:
             self.s3_client = boto3.client("s3")
@@ -170,6 +174,7 @@ class WarmCompactor:
             "pk_columns": self.config.pk_columns,
             "next_file_id": self.next_file_id,
             "last_hot_idx": self.last_hot_idx,
+            "max_level": self.max_level,
             "last_processed_time": (
                 self.last_processed_time.isoformat()
                 if self.last_processed_time
@@ -316,6 +321,15 @@ class WarmCompactor:
         """Execute compaction - track created files."""
         deleted_files = []
         created_files = []
+
+        if level >= self.max_level:
+            if len(self.levels[level]) >= self.m:
+                print(
+                    f"[WARM/{self.provider}] compact level={level} capped "
+                    f"queue={len(self.levels[level])} max_level={self.max_level} "
+                    f"rss_mb={_rss_mb():.1f}"
+                )
+            return deleted_files, created_files
 
         while len(self.levels[level]) >= self.m:
             print(
@@ -647,7 +661,8 @@ def run_compaction(
     start_time = time.time()
     print(
         f"[WARM/{provider}] run_compaction start "
-        f"hot_key={hot_s3_key} timestamp={ts_utc.isoformat()} rss_mb={_rss_mb():.1f}"
+        f"hot_key={hot_s3_key} timestamp={ts_utc.isoformat()} "
+        f"max_level={DEFAULT_MAX_LEVEL} rss_mb={_rss_mb():.1f}"
     )
 
     compactor = WarmCompactor(

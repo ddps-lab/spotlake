@@ -23,6 +23,7 @@ from titans_common.utils import prepare_for_upload
 
 PROVIDER = "aws"
 TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
+AWS_TIMESTREAM_ENABLED = os.environ.get("AWS_TIMESTREAM_ENABLED", "0") == "1"
 
 # ------ import user module ------
 from utility.slack_msg_sender import send_slack_message
@@ -251,9 +252,12 @@ def main():
             _merge_log("save_raw start", extra="first_run=1")
             save_raw(merge_df, TIMESTAMP)
             _merge_log("save_raw end", extra="first_run=1")
-            _merge_log("upload_timestream start", extra=f"first_run=1 rows={len(merge_df)}")
-            upload_timestream(merge_df, TIMESTAMP)
-            _merge_log("upload_timestream end", extra="first_run=1")
+            if AWS_TIMESTREAM_ENABLED:
+                _merge_log("upload_timestream start", extra=f"first_run=1 rows={len(merge_df)}")
+                upload_timestream(merge_df, TIMESTAMP)
+                _merge_log("upload_timestream end", extra="first_run=1")
+            else:
+                _merge_log("upload_timestream skipped", extra="first_run=1 enabled=0")
             end_time = datetime.now(timezone.utc)
             _merge_log(
                 "first_run complete",
@@ -304,18 +308,24 @@ def main():
         )
 
         # ------ Upload TSDB ------
-        start_time = datetime.now(timezone.utc)
-        _merge_log(
-            "upload_timestream start",
-            extra=f"changed_rows={len(changed_df)} removed_rows={len(removed_df)}",
-        )
-        upload_timestream(changed_df, TIMESTAMP)
-        upload_timestream(removed_df, TIMESTAMP)
-        end_time = datetime.now(timezone.utc)
-        _merge_log(
-            "upload_timestream end",
-            extra=f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f}",
-        )
+        if AWS_TIMESTREAM_ENABLED:
+            start_time = datetime.now(timezone.utc)
+            _merge_log(
+                "upload_timestream start",
+                extra=f"changed_rows={len(changed_df)} removed_rows={len(removed_df)}",
+            )
+            upload_timestream(changed_df, TIMESTAMP)
+            upload_timestream(removed_df, TIMESTAMP)
+            end_time = datetime.now(timezone.utc)
+            _merge_log(
+                "upload_timestream end",
+                extra=f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f}",
+            )
+        else:
+            _merge_log(
+                "upload_timestream skipped",
+                extra=f"enabled=0 changed_rows={len(changed_df)} removed_rows={len(removed_df)}",
+            )
 
         # ------ TITANS Hot tier upload + Warm compaction ------
         _merge_log(

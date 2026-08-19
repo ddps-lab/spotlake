@@ -477,7 +477,7 @@ def execute_spot_placement_score_task_by_parameter_pool_df(api_calls_df, desired
                         "InstanceType": SS_Resources.region_map_and_instance_map_tmp['instance_map'].get(
                             score.get("sku", ""), {}).get("InstanceTypeOld"),
                         "Score": score_value,
-                        "T3": desired_count if score_value == 3 else 0,
+                        "T3": desired_count if score_value >= 3 else 0,
                         "T2": desired_count if score_value >= 2 else 0,
                     }
                     if availability_zones is True:

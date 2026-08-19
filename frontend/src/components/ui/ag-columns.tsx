@@ -105,16 +105,16 @@ const formatDate = (params: any) => {
 export const awsColDefs: ColDef<AWSData>[] = [
   { field: "InstanceType", headerName: "Type", headerTooltip: "Instance Type", valueFormatter: formatNumber },
   { field: "Region", headerTooltip: "Region", valueFormatter: formatNumber },
-  { field: "AZ", headerName: "AZ", headerTooltip: "Availability Zone", valueFormatter: formatNumber },
-  { field: "SPS", headerName: "Availability", headerTooltip: "Spot Placement Score", comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T2", headerTooltip: "T2", comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T3", headerTooltip: "T3", comparator: naComparator, valueFormatter: formatNumber },
-  { field: "IF", headerName: "Interruption", headerTooltip: "Interruption Ratio", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "AZ", headerName: "AZ", headerTooltip: "Availability Zone ID. For details, please refer to https://docs.aws.amazon.com/ram/latest/userguide/working-with-az-ids.html", valueFormatter: formatNumber },
+  { field: "SPS", headerName: "Availability", headerTooltip: "In AWS, it is Spot Placement Score. For details, please refer to https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-placement-score.html", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T2", headerTooltip: "The maximum number of nodes whose Spot Placement Score (SPS) transitions from 2 to 1 denoted as T2", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T3", headerTooltip: "The maximum number of nodes whose Spot Placement Score (SPS) transitions from 3 to 2 or 1 denoted as T3", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "IF", headerName: "IF", headerTooltip: "In AWS, it is Interruption-free score. For details, please refer to “Frequency of interruption” in https://aws.amazon.com/ec2/spot/instance-advisor", comparator: naComparator, valueFormatter: formatNumber },
   { field: "SpotPrice", headerName: "SpotPrice ($)", headerTooltip: "Spot Price (USD)", comparator: naComparator, valueFormatter: formatNumber },
   {
     headerName: "Savings (%)",
     headerTooltip: "Savings Percentage",
-    minWidth: 100,
+    width: 150,
     comparator: naComparator,
     valueGetter: calculateSavings
   },
@@ -122,18 +122,17 @@ export const awsColDefs: ColDef<AWSData>[] = [
 ]
 
 export const gcpColDefs: ColDef<GCPData>[] = [
-  { field: "InstanceType", headerTooltip: "Instance Type", valueFormatter: formatNumber },
-  { field: "Region", headerTooltip: "Region", valueFormatter: formatNumber },
+  { field: "InstanceType", headerTooltip: "Instance Type", valueFormatter: formatNumber, minWidth: 200 },
+  { field: "Region", headerTooltip: "Region", valueFormatter: formatNumber, minWidth: 200 },
   { field: "OnDemand Price", headerTooltip: "On-Demand Price", comparator: naComparator, valueFormatter: formatNumber },
   { field: "Spot Price", headerTooltip: "Spot Price", comparator: naComparator, valueFormatter: formatNumber },
   {
     headerName: "Savings (%)",
     headerTooltip: "Savings Percentage",
-    minWidth: 100,
     comparator: naComparator,
     valueGetter: calculateSavings
   },
-  { field: "time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate },
+  { field: "time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate, minWidth: 300 },
 ]
 
 export const azureColDefs: ColDef<AzureData>[] = [
@@ -143,9 +142,9 @@ export const azureColDefs: ColDef<AzureData>[] = [
   { field: "AvailabilityZone", headerName: "AZ", headerTooltip: "Availability Zone", valueFormatter: formatNumber },
   { field: "SpotPrice", headerTooltip: "Spot Price", comparator: naComparator, valueFormatter: formatNumber },
   { field: "Savings", headerName: "Savings (%)", headerTooltip: "Savings Percentage", comparator: naComparator, valueFormatter: formatSavings },
-  { field: "IF", headerName: "IF", headerTooltip: "Interruption Frequency", comparator: naComparator, valueFormatter: formatNumber },
-  { field: "Score", headerName: "Availability", headerTooltip: "Availability Score", comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T2", headerTooltip: "T2", comparator: naComparator, valueFormatter: formatNumber },
-  { field: "T3", headerTooltip: "T3", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "IF", headerName: "IF", headerTooltip: "In Azure, it is Interruption-free score. For details, please refer to https://learn.microsoft.com/en-us/azure/virtual-machines/spot-vms#pricing-and-eviction-history", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "Score", headerName: "Availability", headerTooltip: "In Azure, it is Spot Placement Score. For details, please refer to https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/spot-placement-score", comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T2", headerTooltip: "The maximum number of nodes whose Spot Placement Score (SPS) transitions from 2 to 1 denoted as T2", width: 100, comparator: naComparator, valueFormatter: formatNumber },
+  { field: "T3", headerTooltip: "The maximum number of nodes whose Spot Placement Score (SPS) transitions from 3 to 2 or 1 denoted as T3", width: 100, comparator: naComparator, valueFormatter: formatNumber },
   { field: "Time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate },
 ]

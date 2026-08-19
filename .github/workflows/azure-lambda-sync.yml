@@ -1,14 +1,8 @@
 name: deploy azure files to lambda
+
+# Legacy ZIP Lambda rollback path. The production Azure collector runs on Batch.
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - 'collector/spot-dataset/azure/lambda/current_collector/lambda_function.py'
-      - 'collector/spot-dataset/azure/lambda/current_collector/load_price.py'
-      - 'collector/spot-dataset/azure/lambda/current_collector/load_if.py'
-      - 'const_config.py'
-      - 'collector/spot-dataset/azure/lambda/current_collector/utils/**'
+  workflow_dispatch:
 
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}

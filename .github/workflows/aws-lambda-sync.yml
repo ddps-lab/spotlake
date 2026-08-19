@@ -1,11 +1,7 @@
 name: deploy AWS files to lambda
+
+# Legacy ZIP Lambda rollback path. The production AWS collector runs on Batch.
 on:
-  push:
-    branches:
-      - "main"
-    paths:
-      - "collector/spot-dataset/aws/lambda/**"
-      - "utility/slack_msg_sender.py"
   workflow_dispatch:
 
 env:

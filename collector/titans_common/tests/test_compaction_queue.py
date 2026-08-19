@@ -1,11 +1,14 @@
 import json
 from pathlib import Path
+from threading import Event, Thread
 
 from titans_common.compaction_queue import (
+    acquire_queue_lease,
     enqueue_request,
     format_failure_message,
     list_pending_keys,
     process_pending,
+    process_pending_exclusively,
 )
 
 
@@ -83,6 +86,102 @@ def test_pending_requests_run_oldest_first_and_delete_only_successes(s3_client, 
     assert result.failed_key == newer_key
     assert list_pending_keys("azure", s3_client=s3_client) == [newer_key]
     assert older_key not in list_pending_keys("azure", s3_client=s3_client)
+
+
+def test_overlapping_consumers_run_a_pending_request_only_once(s3_client, tmp_path):
+    request_path = tmp_path / "request.json"
+    _write_request(
+        request_path,
+        "2026-08-03T10:10:00+00:00",
+        "parquet_cp_hot/azure/2026/08/03/10-10.parquet",
+    )
+    enqueue_request(request_path, s3_client=s3_client)
+
+    first_started = Event()
+    finish_first = Event()
+    seen = []
+    first_result = []
+
+    def slow_runner(path: Path) -> int:
+        seen.append(json.loads(path.read_text(encoding="utf-8"))["hot_key"])
+        first_started.set()
+        assert finish_first.wait(timeout=5)
+        return 0
+
+    first = Thread(
+        target=lambda: first_result.append(
+            process_pending_exclusively(
+                "azure",
+                s3_client=s3_client,
+                run_request=slow_runner,
+                notify_failure=lambda **_: None,
+            )
+        )
+    )
+    first.start()
+    assert first_started.wait(timeout=5)
+
+    second_result = process_pending_exclusively(
+        "azure",
+        s3_client=s3_client,
+        run_request=lambda _: seen.append("duplicate") or 0,
+        notify_failure=lambda **_: None,
+    )
+
+    assert second_result.lease_acquired is False
+    assert seen == ["parquet_cp_hot/azure/2026/08/03/10-10.parquet"]
+
+    finish_first.set()
+    first.join(timeout=5)
+    assert not first.is_alive()
+    assert first_result[0].lease_acquired is True
+    assert list_pending_keys("azure", s3_client=s3_client) == []
+
+    _write_request(
+        request_path,
+        "2026-08-03T10:20:00+00:00",
+        "parquet_cp_hot/azure/2026/08/03/10-20.parquet",
+    )
+    enqueue_request(request_path, s3_client=s3_client)
+    next_result = process_pending_exclusively(
+        "azure",
+        s3_client=s3_client,
+        run_request=lambda path: seen.append(
+            json.loads(path.read_text(encoding="utf-8"))["hot_key"]
+        ) or 0,
+        notify_failure=lambda **_: None,
+    )
+
+    assert next_result.lease_acquired is True
+    assert seen[-1] == "parquet_cp_hot/azure/2026/08/03/10-20.parquet"
+
+
+def test_expired_lease_is_taken_over_without_stale_owner_clobbering(s3_client):
+    expired = acquire_queue_lease(
+        "azure",
+        s3_client=s3_client,
+        ttl_seconds=-1,
+        refresh_seconds=3600,
+    )
+    assert expired is not None
+
+    successor = acquire_queue_lease(
+        "azure",
+        s3_client=s3_client,
+        refresh_seconds=3600,
+    )
+    assert successor is not None
+    assert successor.owner_id != expired.owner_id
+
+    expired.release()
+    lease_object = s3_client.get_object(
+        Bucket=BUCKET,
+        Key="compaction_requests/azure/lease.json",
+    )
+    lease_body = json.loads(lease_object["Body"].read())
+    assert lease_body["owner_id"] == successor.owner_id
+
+    successor.release()
 
 
 def test_failure_message_explains_preserved_data_and_retry():

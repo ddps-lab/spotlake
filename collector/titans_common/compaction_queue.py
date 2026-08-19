@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from typing import Callable
+from threading import Event, Lock, Thread
+from typing import Any, Callable
+import uuid
 
 import boto3
 from botocore.exceptions import ClientError
@@ -19,6 +21,10 @@ from botocore.exceptions import ClientError
 
 DEFAULT_BUCKET = os.environ.get("TITANS_BUCKET", "titans-spotlake-data")
 PENDING_ROOT = "compaction_requests"
+LEASE_TTL_SECONDS = int(os.environ.get("TITANS_COMPACTION_LEASE_TTL_SECONDS", "600"))
+LEASE_REFRESH_SECONDS = int(
+    os.environ.get("TITANS_COMPACTION_LEASE_REFRESH_SECONDS", "60")
+)
 RunRequest = Callable[[Path], int]
 NotifyFailure = Callable[..., None]
 
@@ -28,10 +34,210 @@ class ProcessResult:
     processed: int = 0
     failed_key: str | None = None
     return_code: int = 0
+    lease_acquired: bool = True
 
     @property
     def exit_code(self) -> int:
         return _display_exit_code(self.return_code)
+
+
+@dataclass
+class QueueLease:
+    provider: str
+    owner_id: str
+    etag: str
+    s3_client: Any
+    bucket: str
+    ttl_seconds: int = LEASE_TTL_SECONDS
+    refresh_seconds: int = LEASE_REFRESH_SECONDS
+
+    def __post_init__(self) -> None:
+        self._stop = Event()
+        self._etag_lock = Lock()
+        self._heartbeat = Thread(
+            target=self._heartbeat_loop,
+            name=f"compaction-lease-{self.provider}",
+            daemon=True,
+        )
+
+    @property
+    def key(self) -> str:
+        return f"{PENDING_ROOT}/{self.provider}/lease.json"
+
+    def start(self) -> None:
+        self._heartbeat.start()
+
+    def _heartbeat_loop(self) -> None:
+        while not self._stop.wait(self.refresh_seconds):
+            try:
+                self.renew()
+            except ClientError as exc:
+                if _is_conditional_conflict(exc):
+                    print(
+                        f"[COMPACTION_QUEUE] lease lost provider={self.provider} "
+                        f"owner={self.owner_id}",
+                        flush=True,
+                    )
+                    return
+                print(
+                    f"[COMPACTION_QUEUE] lease heartbeat failed "
+                    f"provider={self.provider} owner={self.owner_id} error={exc}",
+                    flush=True,
+                )
+            except Exception as exc:
+                # A later heartbeat can recover from a transient S3 failure while
+                # the existing lease remains valid for ttl_seconds.
+                print(
+                    f"[COMPACTION_QUEUE] lease heartbeat failed "
+                    f"provider={self.provider} owner={self.owner_id} error={exc}",
+                    flush=True,
+                )
+
+    def _body(self, expires_at: datetime) -> bytes:
+        return json.dumps(
+            {
+                "provider": self.provider,
+                "owner_id": self.owner_id,
+                "expires_at": expires_at.isoformat(),
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+
+    def renew(self) -> None:
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.ttl_seconds)
+        with self._etag_lock:
+            response = self.s3_client.put_object(
+                Bucket=self.bucket,
+                Key=self.key,
+                Body=self._body(expires_at),
+                ContentType="application/json",
+                IfMatch=self.etag,
+            )
+            self.etag = response["ETag"]
+        print(
+            f"[COMPACTION_QUEUE] lease renewed provider={self.provider} "
+            f"owner={self.owner_id} expires_at={expires_at.isoformat()}",
+            flush=True,
+        )
+
+    def release(self) -> None:
+        self._stop.set()
+        self._heartbeat.join(timeout=max(self.refresh_seconds, 1) + 1)
+        try:
+            with self._etag_lock:
+                response = self.s3_client.put_object(
+                    Bucket=self.bucket,
+                    Key=self.key,
+                    Body=self._body(datetime.now(timezone.utc)),
+                    ContentType="application/json",
+                    IfMatch=self.etag,
+                )
+                self.etag = response["ETag"]
+            print(
+                f"[COMPACTION_QUEUE] lease released provider={self.provider} "
+                f"owner={self.owner_id}",
+                flush=True,
+            )
+        except Exception as exc:
+            # The lease body expires even when release cannot reach S3. A
+            # release failure must not turn a completed collection into a
+            # failed Batch job.
+            print(
+                f"[COMPACTION_QUEUE] lease release deferred provider={self.provider} "
+                f"owner={self.owner_id} error={exc}",
+                flush=True,
+            )
+
+
+def _is_conditional_conflict(exc: ClientError) -> bool:
+    return exc.response.get("Error", {}).get("Code") in {
+        "PreconditionFailed",
+        "ConditionalRequestConflict",
+    }
+
+
+def _lease_body(provider: str, owner_id: str, expires_at: datetime) -> bytes:
+    return json.dumps(
+        {
+            "provider": provider,
+            "owner_id": owner_id,
+            "expires_at": expires_at.isoformat(),
+        },
+        sort_keys=True,
+    ).encode("utf-8")
+
+
+def acquire_queue_lease(
+    provider: str,
+    *,
+    s3_client=None,
+    bucket: str = DEFAULT_BUCKET,
+    ttl_seconds: int = LEASE_TTL_SECONDS,
+    refresh_seconds: int = LEASE_REFRESH_SECONDS,
+) -> QueueLease | None:
+    """Acquire the provider-wide compaction lease with an atomic S3 write."""
+    client = s3_client or boto3.client("s3")
+    key = f"{PENDING_ROOT}/{provider}/lease.json"
+    owner_id = os.environ.get("AWS_BATCH_JOB_ID") or str(uuid.uuid4())
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=ttl_seconds)
+    body = _lease_body(provider, owner_id, expires_at)
+
+    try:
+        response = client.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=body,
+            ContentType="application/json",
+            IfNoneMatch="*",
+        )
+    except ClientError as exc:
+        if not _is_conditional_conflict(exc):
+            raise
+        current = client.get_object(Bucket=bucket, Key=key)
+        current_body = json.loads(current["Body"].read())
+        current_expiry = datetime.fromisoformat(current_body["expires_at"])
+        if current_expiry > now:
+            print(
+                f"[COMPACTION_QUEUE] lease busy provider={provider} "
+                f"owner={current_body.get('owner_id', 'unknown')} "
+                f"expires_at={current_expiry.isoformat()}",
+                flush=True,
+            )
+            return None
+        try:
+            response = client.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=body,
+                ContentType="application/json",
+                IfMatch=current["ETag"],
+            )
+        except ClientError as takeover_exc:
+            if not _is_conditional_conflict(takeover_exc):
+                raise
+            print(
+                f"[COMPACTION_QUEUE] lease takeover lost provider={provider}",
+                flush=True,
+            )
+            return None
+
+    lease = QueueLease(
+        provider=provider,
+        owner_id=owner_id,
+        etag=response["ETag"],
+        s3_client=client,
+        bucket=bucket,
+        ttl_seconds=ttl_seconds,
+        refresh_seconds=refresh_seconds,
+    )
+    lease.start()
+    print(
+        f"[COMPACTION_QUEUE] lease acquired provider={provider} "
+        f"owner={owner_id} expires_at={expires_at.isoformat()}",
+        flush=True,
+    )
+    return lease
 
 
 def _display_exit_code(return_code: int) -> int:
@@ -195,6 +401,36 @@ def process_pending(
     return ProcessResult(processed=processed)
 
 
+def process_pending_exclusively(
+    provider: str,
+    *,
+    s3_client=None,
+    bucket: str = DEFAULT_BUCKET,
+    run_request: RunRequest | None = None,
+    notify_failure: NotifyFailure | None = None,
+) -> ProcessResult:
+    """Process the provider queue only while holding its distributed lease."""
+    client = s3_client or boto3.client("s3")
+    lease = acquire_queue_lease(
+        provider,
+        s3_client=client,
+        bucket=bucket,
+    )
+    if lease is None:
+        return ProcessResult(lease_acquired=False)
+
+    try:
+        return process_pending(
+            provider,
+            s3_client=client,
+            bucket=bucket,
+            run_request=run_request,
+            notify_failure=notify_failure,
+        )
+    finally:
+        lease.release()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--request", required=True, help="Path to a compaction request JSON")
@@ -202,7 +438,11 @@ def main() -> int:
     request_path = Path(args.request)
     request = _load_request(request_path)
     enqueue_request(request_path)
-    result = process_pending(request["provider"])
+    result = process_pending_exclusively(request["provider"])
+    if not result.lease_acquired:
+        # The active lease holder will observe this durable request. Collection
+        # should remain successful while compaction continues independently.
+        return 0
     if result.failed_key:
         # The raw and Hot data are durable. Keep the Batch job successful and
         # retry this queued request before newer compactions next cycle.

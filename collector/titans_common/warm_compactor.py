@@ -481,6 +481,8 @@ class WarmCompactor:
                 str(output_path),
                 key_columns=self.config.pk_columns + [self.config.time_column],
                 output_schema=pq.ParquetFile(local_inputs[0]).schema_arrow,
+                batch_size=AZURE_PARTITION_STREAM_BATCH_SIZE,
+                row_group_size=AZURE_PARTITION_STREAM_ROW_GROUP_SIZE,
             )
 
             key = f"{self.warm_prefix}/{filename}"

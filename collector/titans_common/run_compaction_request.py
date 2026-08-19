@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+import faulthandler
 import json
 from pathlib import Path
 import resource
 import sys
 
 import boto3
+
+faulthandler.enable(all_threads=True)
 
 COLLECTOR_ROOT = Path(__file__).resolve().parents[1]
 if str(COLLECTOR_ROOT) not in sys.path:
@@ -63,7 +66,9 @@ def main() -> int:
             f"hot_key={hot_key} error={exc}",
             flush=True,
         )
-        return 0
+        # EX_TEMPFAIL: the durable parent queue must retain and retry this
+        # request after the competing manifest writer finishes.
+        return 75
 
     print(
         f"[TITANS/{provider}] separate-process compaction end "

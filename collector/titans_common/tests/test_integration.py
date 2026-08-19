@@ -404,6 +404,8 @@ class TestWarmCompactorIntegration:
 
         assert len(calls) == 1
         assert calls[0][1]["key_columns"] == ["InstanceTier", "InstanceType", "Region", "AZ", "Time"]
+        assert calls[0][1]["batch_size"] == warm_compactor_module.AZURE_PARTITION_STREAM_BATCH_SIZE
+        assert calls[0][1]["row_group_size"] == warm_compactor_module.AZURE_PARTITION_STREAM_ROW_GROUP_SIZE
 
         merged_key = f"{compactor.warm_prefix}/{merged.filename}"
         response = s3_client.get_object(Bucket=BUCKET, Key=merged_key)

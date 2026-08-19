@@ -338,6 +338,8 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
             print(f"execute_spot_placement_score_api. An unexpected error occurred: {e}")
             break
 
+        if retries is None:
+            break
         if retries:
             continue
 

@@ -1,11 +1,8 @@
 # Unified Docker Image for AWS and Azure Batch Collectors
-FROM python:3.12-slim
+FROM python:3.12.13-slim
 
-ARG AWS_ACCESS_KEY_ID
-ARG AWS_SECRET_ACCESS_KEY
-
-ENV AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-ENV AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONFAULTHANDLER=1
 
 WORKDIR /app
 
@@ -45,16 +42,16 @@ RUN ARCH=$(uname -m) && \
 # Install Python dependencies (for both AWS and Azure)
 RUN pip install --no-cache-dir \
     boto3 \
-    pandas \
-    numpy \
+    pandas==3.0.2 \
+    numpy==2.4.4 \
     pyyaml \
     ortools \
     requests \
     azure-identity \
     azure-core \
     scikit-learn \
-    polars>=1.37.0 \
-    pyarrow
+    polars==1.40.1 \
+    pyarrow==24.0.0
 
 # Copy utility module (shared by both AWS and Azure)
 COPY utility /app/utility
@@ -64,11 +61,11 @@ COPY collector/titans_common /app/collector/titans_common
 
 # Copy AWS collector code
 COPY collector/spot-dataset/aws/batch /app/collector/spot-dataset/aws/batch
-RUN chmod +x /app/collector/spot-dataset/aws/batch/scripts/run_collection.sh
+COPY --chmod=755 collector/spot-dataset/aws/batch/scripts/run_collection.sh /app/collector/spot-dataset/aws/batch/scripts/run_collection.sh
 
 # Copy Azure collector code
 COPY collector/spot-dataset/azure/batch /app/collector/spot-dataset/azure/batch
-RUN chmod +x /app/collector/spot-dataset/azure/batch/scripts/run_collection.sh
+COPY --chmod=755 collector/spot-dataset/azure/batch/scripts/run_collection.sh /app/collector/spot-dataset/azure/batch/scripts/run_collection.sh
 
 # Set PYTHONPATH to include /app so imports work
 ENV PYTHONPATH=/app

@@ -5,6 +5,8 @@ bad_request_retry_count = 0
 found_invalid_instance_type_retry_count = 0
 found_invalid_region_retry_count = 0
 time_out_retry_count = 0
+connection_error_retry_count = 0
+server_error_retry_count = 0
 succeed_to_get_sps_count = 0
 succeed_to_get_next_available_location_count = 0
 too_many_requests_count = 0
@@ -19,9 +21,15 @@ invalid_instance_types_tmp = None
 locations_call_history_tmp = None
 locations_over_limit_tmp = None
 last_subscription_id_and_location_tmp = None
+location_health_tmp = None
 region_map_and_instance_map_tmp = None
 subscriptions = None
 available_locations = None
+required_sps_call_slots = 0
+effective_excluded_locations = set()
+fallback_locations = set()
+probe_locations_pending = []
+probed_locations_this_job = set()
 
 
 def generate_time_to_desired_count_map():

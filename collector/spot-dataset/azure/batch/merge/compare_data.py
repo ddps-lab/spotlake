@@ -7,6 +7,17 @@ def compare_sps(previous_df, current_df, workload_cols, feature_cols):
     previous_df = previous_df.copy()
     current_df = current_df.copy()
 
+    comparison_cols = list(dict.fromkeys(workload_cols + feature_cols))
+    for frame_name, frame in (
+        ("previous_df", previous_df),
+        ("current_df", current_df),
+    ):
+        missing_cols = [column for column in comparison_cols if column not in frame]
+        if missing_cols:
+            raise ValueError(
+                f"{frame_name} is missing comparison columns: {missing_cols}"
+            )
+
     fill_values = {
         'OndemandPrice': -1,
         'Savings': -1,
@@ -19,8 +30,17 @@ def compare_sps(previous_df, current_df, workload_cols, feature_cols):
     previous_df = previous_df.fillna(fill_values)
     current_df = current_df.fillna(fill_values)
 
-    previous_df = previous_df.dropna(axis=0)
-    current_df = current_df.dropna(axis=0)
+    previous_df = previous_df.dropna(subset=comparison_cols)
+    current_df = current_df.dropna(subset=comparison_cols)
+
+    if current_df.empty:
+        return pd.DataFrame(columns=current_df.columns)
+
+    # A partial snapshot deliberately has no SPS-derived comparison values.
+    # The next complete snapshot must therefore be emitted in full so the
+    # change stream resumes from a known SPS state.
+    if previous_df.empty:
+        return current_df.drop_duplicates(subset=workload_cols).copy()
 
     previous_df['Workload'] = previous_df[workload_cols].astype(str).agg(':'.join, axis=1)
     previous_df['Feature'] = previous_df[feature_cols].astype(str).agg(':'.join, axis=1)

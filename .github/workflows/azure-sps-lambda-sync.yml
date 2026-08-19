@@ -1,15 +1,9 @@
 name: deploy azure sps files to lambda
+
+# Legacy ZIP Lambda rollback path. The production Azure collector runs on Batch.
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - 'collector/spot-dataset/azure/lambda/current_collector/lambda_function_sps.py'
-      - 'collector/spot-dataset/azure/lambda/current_collector/load_price.py'
-      - 'collector/spot-dataset/azure/lambda/current_collector/load_sps.py'
-      - 'const_config.py'
-      - 'collector/spot-dataset/azure/lambda/current_collector/utils/**'
-      - 'collector/spot-dataset/azure/lambda/current_collector/sps_module/**'
+  workflow_dispatch:
+
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}

@@ -77,7 +77,7 @@ def query_sps(args):
             else:
                 sps_dict["T3"].append(0)
 
-            if score['Score'] == 2:
+            if score['Score'] >= 2:
                 sps_dict["T2"].append(target_capacity)
             else:
                 sps_dict["T2"].append(0)

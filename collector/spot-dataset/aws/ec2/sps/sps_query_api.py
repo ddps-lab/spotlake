@@ -71,12 +71,12 @@ def query_sps(args):
             sps_dict["SPS"].append(int(score["Score"]))
             sps_dict["TargetCapacity"].append(target_capacity)
             
-            if score['Score'] == 3:
+            if score['Score'] >= 3:
                 sps_dict["T3"].append(target_capacity)
             else:
                 sps_dict["T3"].append(0)
 
-            if score['Score'] == 2:
+            if score['Score'] >= 2:
                 sps_dict["T2"].append(target_capacity)
             else:
                 sps_dict["T2"].append(0)

@@ -12,6 +12,7 @@ from titans_common.warm_compactor import (
     WarmFile,
     WarmCompactor,
     DEFAULT_M,
+    DEFAULT_MAX_LEVEL,
 )
 
 
@@ -67,11 +68,16 @@ class TestWarmCompactorConfig:
         """Verify default M value."""
         assert DEFAULT_M == 8
 
+    def test_default_max_level_value(self):
+        """Warm compaction defaults to L3 cap for monthly cold cadence."""
+        assert DEFAULT_MAX_LEVEL == 3
+
     def test_last_processed_time_field_exists(self):
         """WarmCompactor has last_processed_time for idempotency."""
         import dataclasses
         fields = {f.name for f in dataclasses.fields(WarmCompactor)}
         assert "last_processed_time" in fields
+        assert "max_level" in fields
 
 
 class TestWarmCompactorWarmPrefix:

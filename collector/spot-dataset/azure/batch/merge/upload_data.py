@@ -73,10 +73,16 @@ def save_raw_price_saving_if(data, time_datetime):
 def upload_cloudwatch(data, time_datetime):
     Logger.info("Executing upload_cloudwatch!")
     try:
-        ondemand_count = len(data.drop(columns=['IF', 'SpotPrice', 'Savings', 'Score']).dropna())
-        spot_count = len(data.drop(columns=['IF', 'OndemandPrice', 'Savings', 'Score']).dropna())
-        if_count = len(data.drop(columns=['OndemandPrice', 'SpotPrice', 'Savings', 'Score']).dropna())
-        sps_count = len(data.drop(columns=['IF', 'OndemandPrice', 'SpotPrice', 'Savings']).dropna())
+        def valid_count(column):
+            if column not in data.columns:
+                return 0
+            values = data[column]
+            return int((values.notna() & values.ne(-1)).sum())
+
+        ondemand_count = valid_count('OndemandPrice')
+        spot_count = valid_count('SpotPrice')
+        if_count = valid_count('IF')
+        sps_count = valid_count('Score')
 
         log_event = [{
             'timestamp': int(time_datetime.timestamp()) * 1000,
@@ -277,7 +283,7 @@ def save_raw(all_data_dataframe, time_utc, az, data_type=None):
 
         base_path = f"{AZURE_CONST.S3_RAW_DATA_PATH}"
 
-        if data_type in ["desired_count_1", "multi", "specific"]:
+        if data_type in ["desired_count_1", "multi", "specific", "partial"]:
             data_path = f"{base_path}/{s3_dir_name}/{s3_obj_name}.csv.gz"
 
         else:

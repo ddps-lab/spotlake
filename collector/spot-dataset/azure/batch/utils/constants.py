@@ -23,6 +23,7 @@ class AzureCollector:
         self.S3_LOCATIONS_CALL_HISTORY_JSON_FILENAME = "locations_call_history.json"
         self.S3_LAST_SUBSCRIPTION_ID_AND_LOCATION_JSON_FILENAME = "last_subscription_id_and_location.json"
         self.S3_LOCATIONS_OVER_LIMIT_JSON_FILENAME = "locations_over_limit.json"
+        self.S3_LOCATION_HEALTH_JSON_FILENAME = "location_health.json"
         
         self.ERROR_LOCATIONS_CALL_HISTORY_JSON_PATH = "sps-collector/azure/saved_variable/error_locations_call_history"
         

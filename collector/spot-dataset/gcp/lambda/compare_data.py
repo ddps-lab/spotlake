@@ -1,81 +1,74 @@
-import pandas as pd
+import polars as pl
+
 from utility import slack_msg_sender
 
 
-# compare previous collected workload with current collected workload
-# return changed workload
-def compare(previous_df, current_df, workload_cols, feature_cols):
-    previous_df.loc[:, 'Workload'] = previous_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)),
-                                                                      axis=1)
-    previous_df.loc[:, 'Feature'] = previous_df[feature_cols].apply(lambda row: ':'.join(row.values.astype(str)),
-                                                                    axis=1)
-    current_df.loc[:, 'Workload'] = current_df[workload_cols].apply(lambda row: ':'.join(row.values.astype(str)),
-                                                                    axis=1)
-    current_df.loc[:, 'Feature'] = current_df[feature_cols].apply(lambda row: ':'.join(row.values.astype(str)), axis=1)
+def _annotate(df: pl.DataFrame, workload_cols: list[str], feature_cols: list[str]) -> pl.DataFrame:
+    if df.is_empty():
+        return df.with_columns(
+            [
+                pl.lit(None, dtype=pl.Utf8).alias("Workload"),
+                pl.lit(None, dtype=pl.Utf8).alias("Feature"),
+            ]
+        ).head(0)
 
-    current_indices = current_df[['Workload', 'Feature']].sort_values(by='Workload').index
-    current_values = current_df[['Workload', 'Feature']].sort_values(by='Workload').values
-    previous_indices = previous_df[['Workload', 'Feature']].sort_values(by='Workload').index
-    previous_values = previous_df[['Workload', 'Feature']].sort_values(by='Workload').values
+    workload_expr = pl.concat_str(
+        [pl.col(column).cast(pl.Utf8) for column in workload_cols],
+        separator=":",
+    ).alias("Workload")
+    feature_expr = pl.concat_str(
+        [pl.col(column).cast(pl.Utf8) for column in feature_cols],
+        separator=":",
+    ).alias("Feature")
+    return df.with_columns([workload_expr, feature_expr]).sort("Workload")
 
-    changed_indices = []
-    removed_indices = []
 
-    prev_idx = 0
-    curr_idx = 0
-    while True:
-        if (curr_idx == len(current_indices)) and (prev_idx == len(previous_indices)):
-            break
-        elif curr_idx == len(current_indices):
-            prev_workload = previous_values[prev_idx][0]
-            if prev_workload not in current_values[:, 0]:
-                removed_indices.append(previous_indices[prev_idx])
-                prev_idx += 1
-                continue
-            else:
-                slack_msg_sender.send_slack_message(f"{prev_workload}, {curr_workload} workload error")
-                raise Exception('workload error')
-            break
-        elif prev_idx == len(previous_indices):
-            curr_workload = current_values[curr_idx][0]
-            curr_feature = current_values[curr_idx][1]
-            if curr_workload not in previous_values[:, 0]:
-                changed_indices.append(current_indices[curr_idx])
-                curr_idx += 1
-                continue
-            else:
-                slack_msg_sender.send_slack_message(f"{prev_workload}, {curr_workload} workload error")
-                raise Exception('workload error')
-            break
+def compare(
+    previous_df: pl.DataFrame,
+    current_df: pl.DataFrame,
+    workload_cols: list[str],
+    feature_cols: list[str],
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    previous = _annotate(previous_df, workload_cols, feature_cols)
+    current = _annotate(current_df, workload_cols, feature_cols)
 
-        prev_workload = previous_values[prev_idx][0]
-        prev_feature = previous_values[prev_idx][1]
-        curr_workload = current_values[curr_idx][0]
-        curr_feature = current_values[curr_idx][1]
+    previous_map = {
+        row["Workload"]: row["Feature"]
+        for row in previous.select(["Workload", "Feature"]).iter_rows(named=True)
+    }
+    current_map = {
+        row["Workload"]: row["Feature"]
+        for row in current.select(["Workload", "Feature"]).iter_rows(named=True)
+    }
 
-        if prev_workload != curr_workload:
-            if curr_workload not in previous_values[:, 0]:
-                changed_indices.append(current_indices[curr_idx])
-                curr_idx += 1
-            elif prev_workload not in current_values[:, 0]:
-                removed_indices.append(previous_indices[prev_idx])
-                prev_idx += 1
-                continue
-            else:
-                slack_msg_sender.send_slack_message(f"{prev_workload}, {curr_workload} workload error")
-                raise Exception('workload error')
-        else:
-            if prev_feature != curr_feature:
-                changed_indices.append(current_indices[curr_idx])
-            curr_idx += 1
-            prev_idx += 1
-    changed_df = current_df.loc[changed_indices].drop(['Workload', 'Feature'], axis=1)
-    removed_df = previous_df.loc[removed_indices].drop(['Workload', 'Feature'], axis=1)
+    shared_workloads = previous_map.keys() & current_map.keys()
+    changed_workloads = {
+        workload
+        for workload in current_map.keys()
+        if workload not in previous_map or current_map[workload] != previous_map[workload]
+    }
+    removed_workloads = previous_map.keys() - current_map.keys()
 
-    for col in feature_cols:
-        removed_df[col] = 0
+    if any(workload not in previous_map and workload in shared_workloads for workload in changed_workloads):
+        slack_msg_sender.send_slack_message("GCP compare workload invariant violated")
+        raise Exception("workload error")
 
-    # removed_df have one more column, 'Ceased'
-    removed_df['Ceased'] = True
+    changed_df = current.filter(pl.col("Workload").is_in(sorted(changed_workloads))).drop(
+        ["Workload", "Feature"]
+    )
+    removed_df = previous.filter(pl.col("Workload").is_in(sorted(removed_workloads))).drop(
+        ["Workload", "Feature"]
+    )
+
+    if not removed_df.is_empty():
+        removed_df = removed_df.with_columns(
+            [
+                pl.lit(0).cast(removed_df.schema[column], strict=False).alias(column)
+                for column in feature_cols
+            ]
+            + [pl.lit(True).alias("Ceased")]
+        )
+    else:
+        removed_df = removed_df.with_columns(pl.lit(True).alias("Ceased"))
 
     return changed_df, removed_df

@@ -49,24 +49,18 @@ aws ecr describe-repositories --repository-names "${REPO_NAME}" --region "${REGI
 echo "Logging in to ECR..."
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
 
-# Build Docker image
-echo "Building Docker image..."
+# Build and push Docker image
+echo "Building and pushing Docker image for ARM64 with buildx..."
 # Note: Path to Dockerfile is relative to build context (project root)
 # We assume this script is run from project root or references correct paths.
 # Based on existing script logic: `collector/spot-dataset/azure/batch/Dockerfile`
-docker build \
+docker buildx build \
     --platform linux/arm64 \
     --build-arg AWS_ACCESS_KEY_ID="$ACCESS_KEY" \
     --build-arg AWS_SECRET_ACCESS_KEY="$SECRET_KEY" \
-    -t "$REPO_NAME" \
-    -f collector/spot-dataset/azure/batch/Dockerfile .
-
-# Tag Docker image
-echo "Tagging Docker image..."
-docker tag "${REPO_NAME}:latest" "${IMAGE_URI}"
-
-# Push Docker image
-echo "Pushing Docker image..."
-docker push "${IMAGE_URI}"
+    -t "${IMAGE_URI}" \
+    -f collector/spot-dataset/azure/batch/Dockerfile \
+    --push \
+    .
 
 echo "Successfully built and pushed ${IMAGE_URI}"

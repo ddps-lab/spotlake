@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+export PYTHONUNBUFFERED=1
+
 TIMESTAMP=$1
 
 # Capture start time

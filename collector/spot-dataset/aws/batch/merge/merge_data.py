@@ -23,6 +23,7 @@ from titans_common.utils import prepare_for_upload
 
 PROVIDER = "aws"
 TITANS_ENABLED = os.environ.get("TITANS_ENABLED", "0") == "1" # Default OFF until titans cold data cleaning resolved
+AWS_TIMESTREAM_ENABLED = os.environ.get("AWS_TIMESTREAM_ENABLED", "0") == "1"
 
 # ------ import user module ------
 from utility.slack_msg_sender import send_slack_message
@@ -48,10 +49,15 @@ def _rss_mb() -> float:
 
 def _stage_log(stage: str, *, extra: str = "") -> None:
     suffix = f" {extra}" if extra else ""
-    print(f"[TITANS/{PROVIDER}] {stage} rss_mb={_rss_mb():.1f}{suffix}")
+    print(f"[TITANS/{PROVIDER}] {stage} rss_mb={_rss_mb():.1f}{suffix}", flush=True)
+
+
+def _merge_log(stage: str, *, extra: str = "") -> None:
+    suffix = f" {extra}" if extra else ""
+    print(f"[MERGE/{PROVIDER}] {stage} rss_mb={_rss_mb():.1f}{suffix}", flush=True)
 
 def main():
-    print("Start Merge Data Script")
+    _merge_log("start")
     start_time = datetime.now(timezone.utc)
 
     # ------ Parse Arguments ------
@@ -134,9 +140,10 @@ def main():
         sps_file_name = sps_files[0] # Just take the first one? Original code did this.
         target_capacity = int(sps_file_name.split('/')[-1].split('_')[2].split('.')[0])
 
-    print(f"Processing SPS File: {sps_file_name}")
-    print(f"Timestamp: {TIMESTAMP}")
-    print(f"Target Capacity: {target_capacity}")
+    _merge_log(
+        "input_resolved",
+        extra=f"sps_key={sps_file_name} timestamp={TIMESTAMP.isoformat()} target_capacity={target_capacity}",
+    )
 
     SPOTIF_FILE_NAME = f"{S3_PATH_PREFIX}/spot_if/{S3_DIR_NAME}/{S3_OBJECT_PREFIX}_spot_if.pkl.gz"
     ONDEMAND_PRICE_FILE_NAME = f"{S3_PATH_PREFIX}/ondemand_price/{S3_DIR_NAME}/ondemand_price.pkl.gz"
@@ -151,7 +158,7 @@ def main():
         s3_client = boto3.client('s3')
 
         # ------ Load Data from PKL File in S3 ------
-        print("Loading data files...")
+        _merge_log("load_inputs start")
         try:
             sps_df = pickle.load(gzip.open(s3.Object(BUCKET_NAME, sps_file_name).get()["Body"]))
         except Exception as e:
@@ -190,7 +197,7 @@ def main():
         ondemand_price_df['OndemandPrice'] = ondemand_price_df['OndemandPrice'].astype('float').round(5)
 
         # ------ Need to Change to Outer Join ------
-        print("Merging dataframes...")
+        _merge_log("merge_frames start")
         merge_df = pd.merge(sps_df, spotinfo_df, how="outer")
         merge_df = pd.merge(merge_df, ondemand_price_df, how="outer")
         merge_df = pd.merge(merge_df, spot_price_df, how="outer")
@@ -213,7 +220,13 @@ def main():
         merge_df['Time'] = time_value
 
         end_time = datetime.now(timezone.utc)
-        print(f"Merging time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+        _merge_log(
+            "merge_frames end",
+            extra=(
+                f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f} "
+                f"rows={len(merge_df)}"
+            ),
+        )
 
         # ------ Check The Previous DF File in S3 and Local ------
         previous_df = None
@@ -231,33 +244,55 @@ def main():
             else:
                 previous_df = previous_df.drop(columns=['id'])
         except Exception as e: # Catching generic exception to handle NoSuchKey or FirstRunError
-            print(f"First run or error loading previous data: {e}")
+            _merge_log(f"previous_df missing_or_invalid error={e}")
             # If system is first time uploading data, make a new one and upload it to TSDB
+            _merge_log("update_latest start", extra="first_run=1")
             update_latest(merge_df, TIMESTAMP)
+            _merge_log("update_latest end", extra="first_run=1")
+            _merge_log("save_raw start", extra="first_run=1")
             save_raw(merge_df, TIMESTAMP)
-            upload_timestream(merge_df, TIMESTAMP)
+            _merge_log("save_raw end", extra="first_run=1")
+            if AWS_TIMESTREAM_ENABLED:
+                _merge_log("upload_timestream start", extra=f"first_run=1 rows={len(merge_df)}")
+                upload_timestream(merge_df, TIMESTAMP)
+                _merge_log("upload_timestream end", extra="first_run=1")
+            else:
+                _merge_log("upload_timestream skipped", extra="first_run=1 enabled=0")
             end_time = datetime.now(timezone.utc)
-            print(f"Checking time of previous json file is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+            _merge_log(
+                "first_run complete",
+                extra=f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f}",
+            )
             return
 
         end_time = datetime.now(timezone.utc)
-        print(f"Checking time of previous json file is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+        _merge_log(
+            "previous_df loaded",
+            extra=f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f} rows={len(previous_df)}",
+        )
 
         start_time = datetime.now(timezone.utc)
 
         # ------ Compare T3 and T2 Data ------
-        print("Comparing with previous data...")
+        _merge_log("compare_max_instance start", extra=f"prev_rows={len(previous_df)} current_rows={len(merge_df)}")
         current_df = compare_max_instance(previous_df, merge_df, target_capacity)
+        _merge_log("compare_max_instance end", extra=f"rows={len(current_df)}")
 
         # ------ Upload Merge DF to s3 Bucket ------
+        _merge_log("update_latest start", extra=f"rows={len(current_df)}")
         update_latest(current_df, TIMESTAMP)
+        _merge_log("update_latest end", extra=f"rows={len(current_df)}")
+        _merge_log("save_raw start", extra=f"rows={len(current_df)}")
         save_raw(current_df, TIMESTAMP)
+        _merge_log("save_raw end", extra=f"rows={len(current_df)}")
 
         # ------ Compare All Data ------
         workload_cols = ['InstanceType', 'Region', 'AZ']
         feature_cols = ['SPS', 'T3', 'T2', 'IF', 'SpotPrice', 'OndemandPrice']
 
+        _merge_log("compare start", extra=f"prev_rows={len(previous_df)} current_rows={len(current_df)}")
         changed_df, removed_df = compare(previous_df, current_df, workload_cols, feature_cols)  # compare previous_df and current_df to extract changed rows)
+        _merge_log("compare end", extra=f"changed_rows={len(changed_df)} removed_rows={len(removed_df)}")
         ts_utc = TIMESTAMP if TIMESTAMP.tzinfo else TIMESTAMP.replace(tzinfo=timezone.utc)
 
         # Ceased timestamp semantics: disappearance is observed at current batch time.
@@ -267,18 +302,36 @@ def main():
             removed_df["Time"] = ts_utc.strftime("%Y-%m-%d %H:%M:%S")
 
         end_time = datetime.now(timezone.utc)
-        print(f"Compare time is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+        _merge_log(
+            "compare_total end",
+            extra=f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f}",
+        )
 
         # ------ Upload TSDB ------
-        start_time = datetime.now(timezone.utc)
-        print(f"Uploading {len(changed_df)} changed rows and {len(removed_df)} removed rows to Timestream...")
-        upload_timestream(changed_df, TIMESTAMP)
-        upload_timestream(removed_df, TIMESTAMP)
-        end_time = datetime.now(timezone.utc)
-        print(f"Uploading time to TSDB is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+        if AWS_TIMESTREAM_ENABLED:
+            start_time = datetime.now(timezone.utc)
+            _merge_log(
+                "upload_timestream start",
+                extra=f"changed_rows={len(changed_df)} removed_rows={len(removed_df)}",
+            )
+            upload_timestream(changed_df, TIMESTAMP)
+            upload_timestream(removed_df, TIMESTAMP)
+            end_time = datetime.now(timezone.utc)
+            _merge_log(
+                "upload_timestream end",
+                extra=f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f}",
+            )
+        else:
+            _merge_log(
+                "upload_timestream skipped",
+                extra=f"enabled=0 changed_rows={len(changed_df)} removed_rows={len(removed_df)}",
+            )
 
         # ------ TITANS Hot tier upload + Warm compaction ------
-        print(f"TITANS_FLAG : {TITANS_ENABLED} Preparing data for TITANS upload. Changed rows: {len(changed_df)}, Removed rows: {len(removed_df)}")
+        _merge_log(
+            "titans_gate",
+            extra=f"enabled={int(TITANS_ENABLED)} changed_rows={len(changed_df)} removed_rows={len(removed_df)}",
+        )
         if TITANS_ENABLED:
             try:
                 _stage_log("start", extra=f"changed_rows={len(changed_df)} removed_rows={len(removed_df)}")
@@ -322,12 +375,16 @@ def main():
 
         # ------ Upload Spotlake Query Selector to S3 ------
         start_time = datetime.now(timezone.utc)
+        _merge_log("update_query_selector start", extra=f"rows={len(changed_df)}")
         update_query_selector(changed_df)
         end_time = datetime.now(timezone.utc)
-        print(f"Uploading time of query selector data is {(end_time - start_time).total_seconds() * 1000 / 60000:.2f} min")
+        _merge_log(
+            "update_query_selector end",
+            extra=f"elapsed_min={(end_time - start_time).total_seconds() * 1000 / 60000:.2f}",
+        )
     except Exception as e:
         send_slack_message(e)
-        print(e)
+        _merge_log(f"failure error={e}")
         raise
 
 if __name__ == "__main__":

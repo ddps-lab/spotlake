@@ -1,0 +1,4 @@
+{
+  "credential_file": "../local/gcp-hw-feature-collector-a926be14be59.json",
+  "error_notification_slack_webhook_url": "REPLACE_ME"
+}

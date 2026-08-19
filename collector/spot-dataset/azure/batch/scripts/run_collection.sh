@@ -46,6 +46,8 @@ monitor_memory() {
 }
 
 echo "Starting SpotLake Azure Data Collection for timestamp: $TIMESTAMP"
+rm -f /tmp/sps_key.txt
+rm -f /tmp/sps_partial.txt
 
 # Run collection scripts in parallel
 echo "Starting SPS Collection..."
@@ -65,12 +67,12 @@ monitor_memory $PID_SPS $PID_IF $PID_PRICE "$MEMORY_FILE" &
 MONITOR_PID=$!
 
 # Wait for all background processes to finish
-wait $PID_SPS
-STATUS_SPS=$?
-wait $PID_IF
-STATUS_IF=$?
-wait $PID_PRICE
-STATUS_PRICE=$?
+STATUS_SPS=0
+STATUS_IF=0
+STATUS_PRICE=0
+wait "$PID_SPS" || STATUS_SPS=$?
+wait "$PID_IF" || STATUS_IF=$?
+wait "$PID_PRICE" || STATUS_PRICE=$?
 
 # Stop memory monitoring
 kill $MONITOR_PID 2>/dev/null || true
@@ -94,7 +96,7 @@ if [ $STATUS_SPS -eq 0 ] && [ $STATUS_IF -eq 0 ] && [ $STATUS_PRICE -eq 0 ]; the
 
         if [ -f "$COMPACTION_REQUEST_FILE" ]; then
             echo "Starting TITANS Warm Compaction Job..."
-            python3 collector/titans_common/run_compaction_request.py --request "$COMPACTION_REQUEST_FILE"
+            python3 -u collector/titans_common/compaction_queue.py --request "$COMPACTION_REQUEST_FILE"
             rm -f "$COMPACTION_REQUEST_FILE"
         fi
 
@@ -140,6 +142,28 @@ if [ $STATUS_SPS -eq 0 ] && [ $STATUS_IF -eq 0 ] && [ $STATUS_PRICE -eq 0 ]; the
         echo "Error: /tmp/sps_key.txt not found. SPS collection might have failed to write the key."
         exit 1
     fi
+elif [ "$STATUS_SPS" -ne 0 ] && { [ "$STATUS_IF" -eq 0 ] || [ "$STATUS_PRICE" -eq 0 ]; }; then
+    echo "SPS collection failed. Saving available Price/IF data as a partial snapshot."
+    PARTIAL_MERGE_STATUS=0
+    if [ -f /tmp/sps_key.txt ] && [ -f /tmp/sps_partial.txt ]; then
+        SPS_KEY=$(cat /tmp/sps_key.txt)
+        echo "Found partial SPS Key: $SPS_KEY"
+        python3 collector/spot-dataset/azure/batch/merge/merge_data.py \
+            --sps_key "$SPS_KEY" --sps-partial || PARTIAL_MERGE_STATUS=$?
+    else
+        python3 collector/spot-dataset/azure/batch/merge/merge_data.py \
+            --timestamp "$TIMESTAMP" --sps-unavailable || PARTIAL_MERGE_STATUS=$?
+    fi
+
+    if [ "$PARTIAL_MERGE_STATUS" -eq 0 ]; then
+        echo "Partial snapshot saved; SPS collection remains failed."
+    else
+        echo "Partial snapshot merge failed with status: $PARTIAL_MERGE_STATUS"
+    fi
+    echo "SPS Status: $STATUS_SPS"
+    echo "IF Status: $STATUS_IF"
+    echo "Price Status: $STATUS_PRICE"
+    exit 1
 else
     echo "One or more collection jobs failed."
     echo "SPS Status: $STATUS_SPS"

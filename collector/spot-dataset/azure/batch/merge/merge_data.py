@@ -25,6 +25,11 @@ from utils.common import S3, Logger
 from utils.constants import AZURE_CONST, STORAGE_CONST
 from utils.slack_msg_sender import send_slack_message
 from merge import upload_data, compare_data
+from merge.partial_snapshot import (
+    build_partial_sps_snapshot,
+    build_sps_unavailable_snapshot,
+    merge_price_and_if,
+)
 
 from titans_common.upload_titans import upload_hot_tier
 from titans_common.warm_compactor import run_compaction, ConcurrencyConflictError
@@ -156,7 +161,20 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--sps_key', dest='sps_key', action='store', help='S3 Key of the SPS file')
     parser.add_argument('--timestamp', dest='timestamp', action='store')
+    parser.add_argument(
+        '--sps-unavailable',
+        action='store_true',
+        help='Save Price/IF as a partial snapshot with null SPS-dependent fields',
+    )
+    parser.add_argument(
+        '--sps-partial',
+        action='store_true',
+        help='Save completed SPS results and null only unfinished request ranges',
+    )
     args = parser.parse_args()
+    if args.sps_unavailable and args.sps_partial:
+        raise ValueError("Choose only one SPS partial snapshot mode")
+    partial_snapshot_mode = args.sps_unavailable or args.sps_partial
 
     s3_client = boto3.client('s3')
     BUCKET_NAME = STORAGE_CONST.BUCKET_NAME
@@ -188,28 +206,28 @@ def main():
             except ValueError:
                 timestamp_utc = datetime.strptime(args.timestamp, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
         
-        # Try to find SPS key for this timestamp (Defaulting to desired count 1 or finding any?)
-        # For now, let's assume if timestamp is given, we fail if we can't find a key, or user must provide key.
-        # But for robustness, let's try to list objects.
-        date_path = timestamp_utc.strftime("%Y/%m/%d")
-        time_str = timestamp_utc.strftime("%H-%M")
-        
-        # Try to find any sps file for this time
-        prefix = f"{AZURE_CONST.S3_RAW_DATA_PATH}/sps/{date_path}/{time_str}_sps_"
-        objs = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=prefix)
-        if 'Contents' in objs:
-            sps_key = objs['Contents'][0]['Key']
-            desired_count = int(sps_key.split('_')[-1].split('.')[0])
-            Logger.info(f"Found SPS Key from timestamp: {sps_key}")
+        if args.sps_unavailable:
+            sps_key = None
+            desired_count = None
         else:
-            Logger.error("No SPS file found for timestamp.")
-            return
+            date_path = timestamp_utc.strftime("%Y/%m/%d")
+            time_str = timestamp_utc.strftime("%H-%M")
+            prefix = f"{AZURE_CONST.S3_RAW_DATA_PATH}/sps/{date_path}/{time_str}_sps_"
+            objs = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=prefix)
+            if 'Contents' in objs:
+                sps_key = objs['Contents'][0]['Key']
+                desired_count = int(sps_key.split('_')[-1].split('.')[0])
+                Logger.info(f"Found SPS Key from timestamp: {sps_key}")
+            else:
+                raise ValueError("No SPS file found for timestamp")
     else:
         Logger.error("Must provide --sps_key or --timestamp")
         return
 
     Logger.info(f"Processing Timestamp: {timestamp_utc}")
-    Logger.info(f"Desired Count: {desired_count}")
+    Logger.info(
+        f"Desired Count: {desired_count if desired_count is not None else 'N/A (SPS unavailable)'}"
+    )
 
     # Construct other keys
     date_path = timestamp_utc.strftime("%Y/%m/%d")
@@ -223,30 +241,41 @@ def main():
         Logger.info("Loading S3 data files in parallel...")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            sps_future = executor.submit(S3.read_file, sps_key, 'pkl.gz')
+            sps_future = (
+                executor.submit(S3.read_file, sps_key, 'pkl.gz')
+                if not args.sps_unavailable
+                else None
+            )
             if_future = executor.submit(S3.read_file, if_key, 'pkl.gz')
             price_future = executor.submit(S3.read_file, price_key, 'pkl.gz')
-            prev_all_data_future = executor.submit(
-                S3.read_file,
-                AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH,
-                'pkl.gz'
+            prev_all_data_future = (
+                executor.submit(
+                    S3.read_file,
+                    AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH,
+                    'pkl.gz'
+                )
+                if not partial_snapshot_mode
+                else None
             )
 
-            sps_df = sps_future.result()
+            sps_df = sps_future.result() if sps_future else None
             if_df = if_future.result()
             price_df = price_future.result()
-            prev_all_data = prev_all_data_future.result()
+            prev_all_data = (
+                prev_all_data_future.result() if prev_all_data_future else None
+            )
 
         Logger.info("S3 data files loaded in parallel")
 
-        if sps_df is None:
+        if not args.sps_unavailable and sps_df is None:
              raise ValueError(f"SPS data missing at {sps_key}")
 
-        Logger.info(f"Loaded SPS: {len(sps_df)} rows")
+        if not args.sps_unavailable:
+            Logger.info(f"Loaded SPS: {len(sps_df)} rows")
 
         # CRITICAL: Filter to latest timestamp only
         # SPS files may contain historical data causing massive row explosion
-        if 'time' in sps_df.columns:
+        if not args.sps_unavailable and 'time' in sps_df.columns:
             latest_time = sps_df['time'].max()
             time_range = f"{sps_df['time'].min()} to {latest_time}"
             Logger.info(f"SPS time range: {time_range}")
@@ -266,88 +295,69 @@ def main():
              Logger.warning("Price data missing. Proceeding with empty Price columns.")
              price_df = pd.DataFrame()
 
-        # Pre-merge Price and IF
-        # Note: collect_price returns Savings, Price. collect_if returns IF.
-        # We need to join them first into `price_saving_if_df` format expected by merge logic.
-        # Or just merge three of them.
-        
-        # Legacy `merge_df.py` has `merge_price_saving_if_df`.
-        # collect_price.py returns: ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings']
-        # collect_if.py returns: ['InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 'SpotPrice', 'Savings', 'IF'] (It actually has default -1s)
-        
-        # Actually `collect_if` returns a dataframe that has `IF` and dummy price cols.
-        # `collect_price` returns `Savings`, `SpotPrice`, `OndemandPrice`.
-        
-        # We should merge them on InstanceType, InstanceTier, Region.
-        # `collect_if` output has dummy price cols, we should likely drop them before merging or use them if price data is missing?
-        # Valid `collect_price` data is better.
-        
-        # Lambda Logic: Join on armRegionName (Price Code) == Region (IF Code)
-        # This ensures IF values are preserved instead of being lost to NaN
-        if not price_df.empty and not if_df.empty:
-            # Case-insensitive merge: IF API (Resource Graph) returns lowercase,
-            # Price API (Retail Prices) returns mixed case (e.g., NC24ads_A100_v4)
-            price_df['_merge_type'] = price_df['InstanceType'].str.lower()
-            price_df['_merge_tier'] = price_df['InstanceTier'].str.lower()
-            if_df['_merge_type'] = if_df['InstanceType'].str.lower()
-            if_df['_merge_tier'] = if_df['InstanceTier'].str.lower()
-
-            price_saving_if_df = pd.merge(
-                price_df,
-                if_df,
-                left_on=['_merge_type', '_merge_tier', 'armRegionName'],
-                right_on=['_merge_type', '_merge_tier', 'Region'],
-                how='outer'
-            )
-
-            # Use Price's original casing, fall back to IF's if Price is missing
-            price_saving_if_df['InstanceType'] = price_saving_if_df['InstanceType_x'].fillna(price_saving_if_df['InstanceType_y'])
-            price_saving_if_df['InstanceTier'] = price_saving_if_df['InstanceTier_x'].fillna(price_saving_if_df['InstanceTier_y'])
-            price_saving_if_df.drop(columns=['_merge_type', '_merge_tier', 'InstanceType_x', 'InstanceType_y', 'InstanceTier_x', 'InstanceTier_y'], inplace=True)
-            
-            # Select columns and rename
-            # Region_x is Price Region Name ("East US"), Region_y is IF Region Code ("eastus")
-            # We keep Region_x (Name) for user-friendly output
-            price_saving_if_df = price_saving_if_df[[
-                'InstanceTier', 'InstanceType', 'Region_x', 'armRegionName', 
-                'OndemandPrice_x', 'SpotPrice_x', 'Savings_x', 'IF'
-            ]]
-            
-            # Filter rows where SpotPrice is NaN (Lambda logic)
-            price_saving_if_df = price_saving_if_df[~price_saving_if_df['SpotPrice_x'].isna()]
-            
-            # Rename columns to standard names
-            price_saving_if_df.rename(columns={
-                'Region_x': 'Region',
-                'OndemandPrice_x': 'OndemandPrice',
-                'SpotPrice_x': 'SpotPrice',
-                'Savings_x': 'Savings'
-            }, inplace=True)
-            
-        elif not price_df.empty:
-            price_saving_if_df = price_df.copy()
-            price_saving_if_df['IF'] = -1
-        elif not if_df.empty:
-            price_saving_if_df = if_df.copy()
-        else:
-            price_saving_if_df = pd.DataFrame(columns=[
-                'InstanceTier', 'InstanceType', 'Region', 'OndemandPrice', 
-                'SpotPrice', 'Savings', 'IF'
-            ])
+        price_saving_if_df = merge_price_and_if(price_df, if_df)
 
         del price_df, if_df
         gc.collect()
 
-        # Merge with SPS
-        Logger.info(f"[MERGE DEBUG] Before merge_if_saving_price_sps_df:")
-        Logger.info(f"  price_saving_if_df: {len(price_saving_if_df)} rows")
-        Logger.info(f"  sps_df: {len(sps_df)} rows")
-        
-        sps_merged_df = merge_if_saving_price_sps_df(price_saving_if_df, sps_df, az=True)
+        Logger.info(f"[MERGE DEBUG] Price/IF rows: {len(price_saving_if_df)}")
+        if args.sps_unavailable:
+            sps_merged_df = build_sps_unavailable_snapshot(
+                price_saving_if_df,
+                timestamp_utc,
+            )
+            Logger.info(
+                "SPS unavailable: preserving Price/IF and storing SPS-dependent fields as null"
+            )
+        elif args.sps_partial:
+            sps_merged_df = build_partial_sps_snapshot(
+                price_saving_if_df,
+                sps_df,
+                timestamp_utc,
+            )
+            Logger.info(
+                "Partial SPS available: preserving completed SPS results and "
+                "storing only unfinished request ranges as null"
+            )
+        else:
+            Logger.info(f"[MERGE DEBUG] SPS rows: {len(sps_df)}")
+            sps_merged_df = merge_if_saving_price_sps_df(
+                price_saving_if_df, sps_df, az=True
+            )
         del price_saving_if_df, sps_df
         gc.collect()
 
         Logger.info(f"[MERGE DEBUG] After merge_if_saving_price_sps_df: {len(sps_merged_df)} rows")
+
+        if partial_snapshot_mode:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {
+                    'cloudwatch': executor.submit(
+                        upload_data.upload_cloudwatch, sps_merged_df, timestamp_utc
+                    ),
+                    'update_latest': executor.submit(
+                        upload_data.update_latest, sps_merged_df
+                    ),
+                    'save_raw': executor.submit(
+                        upload_data.save_raw,
+                        sps_merged_df,
+                        timestamp_utc,
+                        True,
+                        'partial',
+                    ),
+                }
+                results = {name: future.result() for name, future in futures.items()}
+
+            failed_uploads = [name for name, success in results.items() if not success]
+            if failed_uploads:
+                raise RuntimeError(
+                    f"Partial snapshot upload failed: {', '.join(failed_uploads)}"
+                )
+
+            Logger.info(
+                "Partial snapshot saved with available Price, IF, and SPS values"
+            )
+            return
 
         # Process prev_all_data (already loaded in parallel above)
         # CRITICAL: Filter prev_all_data to latest timestamp
@@ -407,7 +417,7 @@ def main():
             
             # Detect Changes
             workload_cols = ['InstanceTier', 'InstanceType', 'Region', 'AvailabilityZone']
-            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'Score', 'T2', 'T3']
+            feature_cols = ['OndemandPrice', 'SpotPrice', 'IF', 'T2', 'T3']
             
             changed_df = compare_data.compare_sps(prev_all_data, sps_merged_df, workload_cols, feature_cols)
             

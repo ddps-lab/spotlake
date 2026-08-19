@@ -43,7 +43,7 @@ class TestGetConfig:
     def test_get_config_azure(self):
         config = get_config("azure")
         assert config.name == "azure"
-        assert config.pk_columns == ["InstanceType", "Region", "AvailabilityZone"]
+        assert config.pk_columns == ["InstanceTier", "InstanceType", "Region", "AZ"]
         assert "Score" in config.value_columns
 
     def test_get_config_gcp(self):

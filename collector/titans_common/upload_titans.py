@@ -1,17 +1,17 @@
 """TITANS Hot tier Parquet uploader (Multi-provider support)."""
 from datetime import datetime, timezone
 import io
+from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError
-import pandas as pd
 import polars as pl
 
 from .config import get_config, ProviderConfig
 
 
 def upload_hot_tier(
-    changed_df: pd.DataFrame,
+    changed_df: Any,
     timestamp: datetime,
     provider: str = "aws",
     s3_client=None,
@@ -30,7 +30,8 @@ def upload_hot_tier(
     Raises:
         ValueError: If timestamp is timezone-naive
     """
-    if changed_df.empty:
+    df = _to_polars_frame(changed_df)
+    if df.is_empty():
         return ""
 
     # Validate timezone and normalize to UTC
@@ -40,22 +41,19 @@ def upload_hot_tier(
 
     config = get_config(provider)
 
-    # 1. Convert pandas to polars
-    df = pl.from_pandas(changed_df)
-
-    # 2. Normalize schema (including dtype casting)
+    # 1. Normalize schema (including dtype casting)
     df = _normalize_schema(df, config)
 
-    # 3. Sort by PK + Time (compression efficiency + query optimization)
+    # 2. Sort by PK + Time (compression efficiency + query optimization)
     sort_cols = config.pk_columns + [config.time_column]
     df = df.sort(sort_cols)
 
-    # 4. Serialize to Parquet (zstd compression)
+    # 3. Serialize to Parquet (zstd compression)
     buffer = io.BytesIO()
     df.write_parquet(buffer, compression="zstd")
     buffer.seek(0)
 
-    # 5. S3 Conditional PUT (idempotency guarantee)
+    # 4. S3 Conditional PUT (idempotency guarantee)
     s3_key = _build_s3_key(ts_utc, config)
     if s3_client is None:
         s3_client = boto3.client("s3")
@@ -78,6 +76,23 @@ def upload_hot_tier(
             raise
 
     return s3_key
+
+
+def _to_polars_frame(changed_df: Any) -> pl.DataFrame:
+    if isinstance(changed_df, pl.DataFrame):
+        return changed_df
+
+    if changed_df is None:
+        return pl.DataFrame()
+
+    if hasattr(changed_df, "to_dict"):
+        records = changed_df.to_dict(orient="records")
+        return pl.from_dicts(records) if records else pl.DataFrame()
+
+    if isinstance(changed_df, list):
+        return pl.from_dicts(changed_df) if changed_df else pl.DataFrame()
+
+    raise TypeError(f"Unsupported change frame type: {type(changed_df)!r}")
 
 
 def _normalize_schema(df: pl.DataFrame, config: ProviderConfig) -> pl.DataFrame:

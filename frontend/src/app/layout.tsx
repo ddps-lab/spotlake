@@ -1,22 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "SpotLake",
-  description: "SpotLake Dashboard",
+  title: "SpotLake | Under Construction",
+  description: "SpotLake is currently under construction. Contact DDPS Lab for more information.",
   icons: {
     icon: "/images/favicon.png"
   },
@@ -30,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
+        className="min-h-screen flex flex-col antialiased"
       >
         <ThemeProvider
           attribute="class"

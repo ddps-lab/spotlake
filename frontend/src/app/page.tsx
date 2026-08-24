@@ -28,9 +28,9 @@ export default function Home() {
           Under Construction
         </h1>
         <p className="mt-6 max-w-2xl text-pretty text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-          SpotLake를 더 나은 모습으로 개선하고 있습니다.
+          We are working to make SpotLake better than ever.
           <br className="hidden sm:block" />
-          페이지 및 데이터 공유 관련 문의는 아래 이메일로 연락해 주세요.
+          For inquiries about the website or dataset access, please reach out via the email below.
         </p>
 
         <a

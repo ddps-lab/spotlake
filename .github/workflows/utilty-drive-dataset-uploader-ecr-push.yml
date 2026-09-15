@@ -1,0 +1,37 @@
+name: CI/CD
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "utility/monthly_drive_dataset_uploader/**"
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-and-push:
+    name: Build and Push to ECR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.SPOTRANK_AWS_ACCESS_ID }}
+          aws-secret-access-key: ${{ secrets.SPOTRANK_AWS_SECRET_KEY }}
+          aws-region: ${{ secrets.SPOTRANK_AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Docker Image
+        run: |
+          cd utility/monthly_drive_dataset_uploader
+          # 커밋 태그와 latest 를 한 번에 붙여서 굽는다. 태그 없이 구우면
+          # latest 만 생겨서 커밋 태그로 미는 단계가 없는 이미지를 찾는다.
+          docker build -f dockerfile -t ${{ secrets.SPOTLAKE_DRIVE_UPLOADER_ECR_REPOSITORY }}:$IMAGE_TAG -t ${{ secrets.SPOTLAKE_DRIVE_UPLOADER_ECR_REPOSITORY }}:latest .
+          docker push ${{ secrets.SPOTLAKE_DRIVE_UPLOADER_ECR_REPOSITORY }}:$IMAGE_TAG
+          docker push ${{ secrets.SPOTLAKE_DRIVE_UPLOADER_ECR_REPOSITORY }}:latest

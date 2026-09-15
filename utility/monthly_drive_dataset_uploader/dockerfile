@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip3 install --no-cache-dir "boto3[crt]" polars
+
+COPY monthly_drive_dataset_uploader.py /app/batch.py
+
+CMD ["python3", "/app/batch.py"]

@@ -1,9 +1,18 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Github, FileText } from "lucide-react"
+import { Github, FileText, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { PublicationList } from "@/components/publication-list"
+import { getPublications } from "@/lib/publications"
+
+// SpotLake 논문의 Google Scholar 인용 목록. iframe 으로는 못 띄운다
+// (X-Frame-Options: SAMEORIGIN). 새 창으로 열어 준다.
+const SCHOLAR_CITATIONS =
+  "https://scholar.google.com/scholar?cites=6489608266362296686"
 
 export default function AboutPage() {
+  const { ddps, citing } = getPublications()
+
   return (
     <div className="space-y-8">
       <Card>
@@ -74,29 +83,40 @@ export default function AboutPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">How to access full dataset</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-muted-foreground leading-relaxed">
-            We can not provide the full dataset through this web-service because
-            the dataset is too large. Those who want to access the full dataset of
-            the SpotLake system, please fill out the google form below and we will
-            give you access permission for the full dataset.
+      <section className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Related Work</h2>
+          <p className="text-muted-foreground mt-2 leading-relaxed">
+            Research from DDPS Lab built on SpotLake, and papers from other
+            groups that cite SpotLake. The SpotLake paper itself is listed under
+            Paper and code above.
           </p>
-          <div className="flex flex-wrap gap-4">
-            <Button asChild className="bg-blue-600 hover:bg-blue-700">
-              <Link
-                href="https://forms.gle/zUAqmJ4B9fuaUhE89"
-                target="_blank"
-              >
-                Google Form
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold">Research using SpotLake at DDPS Lab</h3>
+          <PublicationList groups={ddps} />
+        </div>
+
+        <div className="space-y-3 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold">Papers citing SpotLake</h3>
+            <Button asChild variant="outline" size="sm">
+              <Link href={SCHOLAR_CITATIONS} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                All citations on Google Scholar
               </Link>
             </Button>
           </div>
-        </CardContent>
-      </Card>
+          {/* 이 목록은 공개 API 로 모은 것이라 Google Scholar 보다 적다.
+              전체를 보려면 위 링크로 가도록 안내한다. */}
+          <p className="text-muted-foreground text-sm">
+            This list is compiled from open citation databases and is not
+            exhaustive. Google Scholar tracks more citations.
+          </p>
+          <PublicationList groups={citing} />
+        </div>
+      </section>
     </div>
   )
 }

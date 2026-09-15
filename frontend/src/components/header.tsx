@@ -15,6 +15,11 @@ import {
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 
+// 과거 데이터 요청 폼. Terms of Use 와 동의 항목이 폼 문항에 들어 있어
+// 사이트에서 따로 동의를 받지 않는다. 이 사이트를 찾는 주된 이유라
+// 어느 페이지에서나 보이도록 헤더에 둔다.
+const DATA_REQUEST_FORM = "https://forms.gle/GjhsuybJkUt5LMFc7"
+
 export function Header() {
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -57,16 +62,15 @@ export function Header() {
             >
               Document
             </Link>
-            <Link
-              href="/contact"
-              className="transition-colors hover:text-foreground/80 text-foreground/60"
-            >
-              Contact
-            </Link>
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end space-x-2">
           <nav className="flex items-center space-x-2">
+            <Button asChild size="sm" className="hidden sm:inline-flex">
+              <Link href={DATA_REQUEST_FORM} target="_blank" rel="noreferrer">
+                Request Full Dataset
+              </Link>
+            </Button>
             <Link
               href="https://github.com/ddps-lab/spotlake"
               target="_blank"
@@ -112,12 +116,11 @@ export function Header() {
                   >
                     Document
                   </Link>
-                  <Link
-                    href="/contact"
-                    className="px-2 py-2 text-base font-medium transition-colors hover:text-foreground text-foreground/80 hover:bg-accent rounded-md"
-                  >
-                    Contact
-                  </Link>
+                  <Button asChild size="sm" className="mt-2 w-full">
+                    <Link href={DATA_REQUEST_FORM} target="_blank" rel="noreferrer">
+                      Request Full Dataset
+                    </Link>
+                  </Button>
                 </nav>
               </SheetContent>
             </Sheet>

@@ -6,12 +6,12 @@ export default function DocumentPage() {
     <div className="space-y-8">
       <div className="relative w-full max-w-3xl mx-auto">
         <Image
-          src="/images/howto.png"
+          src="/images/howto.jpg"
           alt="How to use SpotLake"
-          width={0}
-          height={0}
-          className="w-full h-auto rounded-md"
-          style={{ width: '100%', height: 'auto' }}
+          width={1568}
+          height={744}
+          className="w-full h-auto rounded-md border"
+          priority
         />
       </div>
 
@@ -21,32 +21,75 @@ export default function DocumentPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground leading-relaxed">
-            On the demo page, users can select one cloud vendor among AWS, Google Cloud, or Azure to show the latest spot instance dataset in the table below. The table shows the latest dataset of the selected cloud vendor, and it contains every pair of instance types and regions provided by the vendor.
+            Pick one of the three cards at the top — Amazon Web Services, Google
+            Cloud Platform, or Microsoft Azure — to show that vendor&apos;s spot
+            instance dataset in the table below. The table contains every pair of
+            instance types and regions provided by that vendor, together with
+            availability, interruption-free score, and pricing. The row count and
+            the time the snapshot was collected are shown just above the filters.
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">2. Querying</CardTitle>
+          <CardTitle className="text-2xl">2. Filtering</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground leading-relaxed">
-            Since the default table shows only the latest dataset of every instance-region pair, users have to query with specific Instance Type, Region, AZ, and Date Range options to get the historical dataset. Data query has some limitations; the maximum number of the returned data point is 20,000 and user can set the date range up to 1 month. If user selects the &apos;ALL&apos; option in Region or AZ field, the returned dataset contains every Regions or AZs corresponding to the Instance Type option.
+            Narrow the table down with the Instance Type, Region, and
+            Availability Zone selectors. Each one lets you search and pick as
+            many values as you like — selecting nothing means no restriction, so
+            there is no separate option for everything. The list only contains
+            values that actually appear in the current dataset, and choosing a
+            region narrows the instance type and availability zone lists to what
+            exists there. Google Cloud has no availability zone field, so that
+            selector is hidden for it.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            Even if user send query with specific date range, SpotLake does not return data points in the date range. SpotLake system only saves the data point when there is a change in any fields. Therefore, user only get the changed data points with demo page&apos;s querying feature. If you want to get the full dataset, check the &apos;How to access full dataset&apos; section on about page.
+            Filtering happens in your browser, so results update immediately and
+            no query is sent to the server. The row count above the filters shows
+            how many rows are left out of the whole dataset. Press Reset to clear
+            every selector at once.
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">3. Filtering</CardTitle>
+          <CardTitle className="text-2xl">3. Working with the table</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <p className="text-muted-foreground leading-relaxed">
-            User can apply additional filter to the table that shows default latest dataset or queried dataset. For instance, user can select specific data points that contains specific character in Instance Type column or filter by size of the score. Also table could be exported in the CSV format with EXPORT button.
+            Beyond the selectors above, each column header has its own filter and
+            can be sorted. For instance, you can keep only the rows whose
+            instance type contains a certain string, or sort by availability
+            score to find the most stable instances. Rows where a vendor does not
+            report a value are shown as N/A and are always sorted to the bottom.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            Use the Export CSV button to download what the table currently shows,
+            including the filters you applied.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">4. Data coverage</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-muted-foreground leading-relaxed">
+            This page shows a single snapshot, published once a day. The time the
+            snapshot was collected is shown as Last updated above the filters, in
+            UTC. Because every row comes from the same snapshot, the table has no
+            date column.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            Historical data is not served from this page. If you need past
+            datasets for research, use the Request Full Dataset button in the top
+            right of the site. Access is granted for academic and non-commercial
+            research, and the request form states the terms you agree to.
           </p>
         </CardContent>
       </Card>

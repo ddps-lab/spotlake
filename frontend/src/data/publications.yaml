@@ -1,0 +1,245 @@
+# SpotLake 관련 논문 목록.
+#
+# About 페이지의 Related Work 항목이 이 파일 하나만 읽는다. 논문을
+# 추가하거나 고치거나 지우려면 여기만 손대면 되고, 코드는 건드릴 필요가
+# 없다. 연도별 묶음과 정렬은 화면이 알아서 한다.
+#
+# 두 갈래로 나뉜다.
+#   ddps      SpotLake 를 활용한 DDPS Lab 연구
+#   citing    SpotLake 를 인용한 외부 연구
+#
+# SpotLake 원 논문은 여기에 넣지 않는다. Related Work 가 아니라 대상 자체이고,
+# About 페이지 위쪽 Paper and code 항목에서 이미 제공하고 있다.
+#
+# 항목 하나는 이렇게 쓴다. title 만 있으면 나머지는 없어도 된다.
+#
+#   - title:   논문 제목
+#     authors: 저자를 쓰인 순서대로, 쉼표로 구분
+#     venue:   학회나 저널 이름
+#     year:    연도 (숫자). 없으면 목록 맨 뒤로 간다
+#     links:
+#       - { name: PDF, url: "..." }
+#
+# links 의 name 은 화면에 그대로(대문자로) 나온다. PDF, IEEE, ACM, ARXIV,
+# BIB, GITHUB, DEMO, SPRINGER, DOI 처럼 짧게 쓴다. 링크가 없으면 links
+# 자체를 빼도 된다.
+#
+# 제목에 콜론(:)이 들어가면 YAML 이 헷갈리므로 따옴표로 감싼다.
+#   - title: "SpotGATES: DRL for Workflow Scheduling"
+
+# ---------------------------------------------------------------------------
+# SpotLake 데이터를 활용한 DDPS Lab 연구
+# ---------------------------------------------------------------------------
+ddps:
+  - title: "KubePACS: Kubernetes Cluster Using Performant, Highly Available, and Cost Efficient Spot Instances"
+    authors: Taeyoon Kim, Kyumin Kim, Enrique Molina-Giménez, Pedro García-López, Kyungyong Lee
+    venue: 27th ACM International Middleware Conference - Middleware 2026
+    year: 2026
+    links:
+      - { name: ARXIV, url: "https://arxiv.org/abs/2604.24027" }
+      - { name: DEMO, url: "https://kubepacs.ddps.cloud" }
+
+  - title: "SpotVista: Availability-Aware Recommendation System for Reliable and Cost-Efficient Multi-Node Spot Instances"
+    authors: Taeyoon Kim, Kyumin Kim, Kyunghwan Kim, Hayoung Kim, Seungwoo Jeong, Moohyun Song, Kyungyong Lee
+    venue: arXiv
+    year: 2026
+    links:
+      - { name: ARXIV, url: "https://arxiv.org/abs/2604.24548" }
+      - { name: DEMO, url: "https://spotvista.ddps.cloud" }
+
+  - title: "Ding-Dong Ditch: Peeking Into Spot Instance Availability"
+    authors: Kyumin Kim, Moohyun Song, Taeyoon Kim, Kyungyong Lee
+    venue: 2026 IEEE 19th International Conference on Cloud Computing - CLOUD 2026
+    year: 2026
+    links:
+      - { name: IEEE, url: "https://doi.org/10.1109/cloud72782.2026.00023" }
+      - { name: ARXIV, url: "https://arxiv.org/abs/2604.16457" }
+
+  - title: "Pygration: Workload-Aware Live Migratable Cloud Instance Detector for Python Runtime"
+    authors: Soohyuk Lee, Junho Lim, Kyungyong Lee
+    venue: IEEE Transactions on Cloud Computing (2026)
+    year: 2026
+    links:
+      - { name: IEEE, url: "https://doi.org/10.1109/tcc.2026.3672402" }
+
+  - title: Predicting CNN training latency on cloud GPUs without disclosing model architecture
+    authors: Yoonseo Hur, Sungjae Lee, Seungwoo Kum, Kyungyong Lee
+    venue: International Journal of Cluster Computing, Springer, 2026
+    year: 2026
+    links:
+      - { name: SPRINGER, url: "https://doi.org/10.1007/s10586-026-06447-5" }
+
+  - title: Multi-Node Spot Instances Availability Score Collection System
+    authors: Sungkyu Cheon, Kyumin Kim, Kyunghwan Kim, Moohyun Song, Kyungyong Lee
+    venue: 34th International Symposium on High-Performance Parallel and Distributed Computing - HPDC 2025 (Poster)
+    year: 2025
+    links:
+      - { name: ACM, url: "https://doi.org/10.1145/3731545.3735122" }
+
+  - title: Making Cloud Spot Instance Interruption Events Visible
+    authors: Kyunghwan Kim, Kyungyong Lee
+    venue: ACM The Web Conference 2024, WWW
+    year: 2024
+    links:
+      - { name: ACM, url: "https://doi.org/10.1145/3589334.3645548" }
+
+  - title: Workload-Aware Live Migratable Cloud Instance Detector
+    authors: Junho Lim, Kyunghwan Kim, Kyungyong Lee
+    venue: The 24th IEEE/ACM International Symposium on Cluster, Cloud and Internet Computing - CCGRID 2024
+    year: 2024
+    links:
+      - { name: IEEE, url: "https://doi.org/10.1109/ccgrid59990.2024.00029" }
+
+  - title: Public Spot Instance Dataset Archive Service
+    authors: Kyunghwan Kim, Subin Park, Jaeil Hwang, HyeonYoung Lee, SeokHyeon Kang, Kyungyong Lee
+    venue: ACM The Web Conference 2023, WWW (Demo)
+    year: 2023
+    links:
+      - { name: ACM, url: "https://doi.org/10.1145/3543873.3587314" }
+
+# ---------------------------------------------------------------------------
+# SpotLake 를 인용한 외부 연구
+#
+# 새 인용 논문은 Google Scholar 의 SpotLake 논문 인용 목록에서 확인하고
+# 아래에 직접 추가한다.
+# https://scholar.google.com/scholar?cites=6489608266362296686
+# ---------------------------------------------------------------------------
+citing:
+  - title: A Design of Cost-Efficient GPU-Based Training Workloads on Preemptible Instances via Adaptive Live Migration
+    authors: Huan Le, Phuong Bac Ta, Vitumbiko Mafeni, Younghan Kim
+    venue: 2026 40th International Conference on Information Networking (ICOIN)
+    year: 2026
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/icoin68469.2026.11480582" }
+
+  - title: Exploiting Spot Instances for Time-Critical Cloud Workloads Using Optimal Randomized Strategies
+    authors: Neelkamal Bhuyan, Randeep Bhatia, Murali Kodialam, Tv Lakshman
+    venue: IEEE INFOCOM 2026 - IEEE Conference on Computer Communications
+    year: 2026
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/infocom59046.2026.11571265" }
+
+  - title: Opportunistic Scheduling for Optimal Spot Instance Savings in the Cloud
+    authors: Neelkamal Bhuyan, Randeep Bhatia, Murali Kodialam, Tv Lakshman
+    venue: IEEE INFOCOM 2026 - IEEE Conference on Computer Communications
+    year: 2026
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/infocom59046.2026.11571508" }
+
+  - title: "SpotGATES: DRL for Workflow Scheduling in Heterogeneous Cloud Environments via Risk Prediction"
+    authors: Xinyu Lv
+    venue: 2026 3rd International Conference on Electronic Engineering and Information Systems (EEISS)
+    year: 2026
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/eeiss69782.2026.11584555" }
+
+  - title: "SpotWhisk: Transferring the Spot Instances Cost-Efficiency to Serverless Data Analytics Pipelines"
+    authors: Enrique Molina-Giménez, Pedro García-López, Javier Fabra
+    venue: 2026 IEEE 19th International Conference on Cloud Computing (CLOUD)
+    year: 2026
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/cloud72782.2026.00022" }
+
+  - title: Towards an Adaptive Runtime System for Cloud-Native HPC
+    authors: Aditya Bhosale, Advait Tahilyani, Laxmikant Kale, Sara Kokkila-Schumacher
+    venue: 2026 IEEE International Parallel and Distributed Processing Symposium Workshops (IPDPSW)
+    year: 2026
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/ipdpsw71298.2026.00028" }
+
+  - title: "Flora: Efficient Cloud Resource Selection for Big Data Processing Via Job Classification"
+    authors: Jonathan Will, Lauritz Thamsen, Jonathan Bader, Odej Kao
+    venue: 2025 IEEE 25th International Symposium on Cluster, Cloud and Internet Computing (CCGrid)
+    year: 2025
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/ccgrid64434.2025.00020" }
+
+  - title: "DeepVM: Integrating Spot and On-Demand VMs for Cost-Efficient Deep Learning Clusters in the Cloud"
+    authors: Yoochan Kim, Kihyun Kim, Yonghyeon Cho, Jinwoo Kim, Awais Khan, Ki-Dong Kang, Baiksong An, Myung-Hoon Cha, Hong-Yeon Kim, Youngjae Kim
+    venue: 2024 IEEE 24th International Symposium on Cluster, Cloud and Internet Computing (CCGrid)
+    year: 2024
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/ccgrid59990.2024.00034" }
+
+  - title: How Can We Train Deep Learning Models Across Clouds and Continents? An Experimental Study
+    authors: Alexander Erben, Ruben Mayer, Hans-Arno Jacobsen
+    venue: Proceedings of the VLDB Endowment
+    year: 2024
+    links:
+      - { name: DOI, url: "https://doi.org/10.14778/3648160.3648165" }
+
+  - title: "SpotVerse: Optimizing Bioinformatics Workflows with Multi-Region Spot Instances in Galaxy and Beyond"
+    authors: Myungjun Son, Gulsum Gudukbay Akbulut, Mahmut Kandemir
+    venue: Proceedings of the 25th International Middleware Conference
+    year: 2024
+    links:
+      - { name: DOI, url: "https://doi.org/10.1145/3652892.3700750" }
+
+  - title: "Oobleck: Resilient Distributed Training of Large Models Using Pipeline Templates"
+    authors: Insu Jang, Zhenning Yang, Zhen Zhang, Xin Jin, Mosharaf Chowdhury
+    venue: Proceedings of the 29th Symposium on Operating Systems Principles (SOSP 2023)
+    year: 2023
+    links:
+      - { name: DOI, url: "https://doi.org/10.1145/3600006.3613152" }
+
+  - title: "spotDNN: Provisioning Spot Instances for Predictable Distributed DNN Training in the Cloud"
+    authors: Ruitao Shang, Fei Xu, Zhuoyan Bai, Li Chen, Zhi Zhou, Fangming Liu
+    venue: 2023 IEEE/ACM 31st International Symposium on Quality of Service (IWQoS)
+    year: 2023
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/iwqos57198.2023.10188717" }
+
+  - title: Migration Destination Selection Algorithm for Spot Instances using SPS
+    authors: Daisuke Katayama, Kippei Kasai, Takahiro Koita
+    venue: 2022 IEEE International Conference on Big Data (Big Data)
+    year: 2022
+    links:
+      - { name: DOI, url: "https://doi.org/10.1109/bigdata55660.2022.10020520" }
+
+  - title: 'Vivace: Exact Temporal OLAP over Interval Histories via Independent Serverless Execution'
+    authors: Woohyeok Park, Taeyoon Kim, Hyunjoon Kim, Kungyong Lee
+    venue: arXiv.org
+    year: 2026
+    links:
+      - {name: DOI, url: https://doi.org/10.48550/arxiv.2606.14069}
+
+  - title: AI-Driven Multi-Region Provisioning for Cloud Services Using Spot Fleets
+    authors: Javier Fabra, Enrique Molina-Giménez, P. García-López
+    venue: arXiv.org
+    year: 2026
+    links:
+      - {name: DOI, url: https://doi.org/10.48550/arxiv.2605.22778}
+
+  - title: 'SkyNomad: On Using Multi-Region Spot Instances to Minimize AI Batch Job Cost'
+    authors: Zhifei Li, Tian Xia, Ziming Mao, Zihan Zhou, Ethan J. Jackson, Jamison Kerney, Zhanghao Wu, Pratik Mishra, Yi Xu, Yifan Qiao, S. Shenker, Ion Stoica
+    venue: arXiv.org
+    year: 2026
+    links:
+      - {name: DOI, url: https://doi.org/10.48550/arxiv.2601.06520}
+
+  - title: A Systematic Evaluation of the Potential of Carbon-Aware Execution for Scientific Workflows
+    authors: Kathleen West, Youssef Moawad, Fabian Lehmann, Vasilis Bountris, Ulf Leser, Yehia Elkhatib, L. Thamsen
+    venue: Future generations computer systems
+    year: 2025
+    links:
+      - {name: DOI, url: https://doi.org/10.48550/arxiv.2508.14625}
+
+  - title: 'Energy-Aware Workflow Execution: An Overview of Techniques for Saving Energy and Emissions in Scientific Compute Clusters'
+    authors: L. Thamsen, Yehia Elkhatib, Paul Harvey, S. W. Nabi, Jeremy Singer, W. Vanderbauwhede
+    venue: arXiv.org
+    year: 2025
+    links:
+      - {name: DOI, url: https://doi.org/10.48550/arxiv.2506.04062}
+
+  - title: 'Optimizing static site CMS hosting with Github Codespaces: A cost-effective approach'
+    authors: Daniel Damyanov, Lyubomir Filipov, Z. Varbanov
+    venue: 2025 24th International Symposium INFOTEH-JAHORINA (INFOTEH)
+    year: 2025
+    links:
+      - {name: DOI, url: https://doi.org/10.1109/infoteh64129.2025.10959242}
+
+  - title: 'SpotProxy: Rediscovering the Cloud for Censorship Circumvention'
+    authors: Patrick Tser Jern Kon, Sina Kamali, Jinyu Pei, Diogo Barradas, Ang Chen, Micah Sherr, Moti Yung
+    venue: USENIX Security Symposium
+    year: 2024
+    links: []

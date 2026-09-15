@@ -66,7 +66,7 @@ def load_runtime_config() -> GcpRuntimeConfig:
             "GCP_QUERY_SELECTOR_WRITE_PATH",
             query_selector_path_default,
         ),
-        public_read_enabled=_env_bool("GCP_PUBLIC_READ_ENABLED", True),
+        public_read_enabled=_env_bool("GCP_PUBLIC_READ_ENABLED", False),
         timestream_enabled=_env_bool("GCP_TIMESTREAM_ENABLED", True),
         query_selector_enabled=_env_bool("GCP_QUERY_SELECTOR_ENABLED", True),
         compute_api_backend=compute_api_backend,

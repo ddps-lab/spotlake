@@ -46,6 +46,7 @@ from pathlib import Path
 import boto3
 import polars as pl
 from botocore.config import Config
+from botocore.exceptions import ClientError
 from concurrent.futures import ThreadPoolExecutor
 
 RAW_BUCKET = os.environ.get("RAW_BUCKET", "spotlake")
@@ -90,8 +91,10 @@ DROP = {"id", "SPS_Update_Time", "Time"}
 # 기존 생성기와 같이 리전을 박아 둔다. 실행 환경의 설정에 기대지 않는다.
 session = boto3.session.Session(region_name="us-west-2")
 # 기본 연결 풀은 10개뿐이라 받는 스레드를 늘려도 거기서 막힌다.
-s3 = session.client(
-    "s3", config=Config(max_pool_connections=DOWNLOAD_WORKERS + 4))
+s3 = session.client("s3", config=Config(
+    max_pool_connections=DOWNLOAD_WORKERS + 4,
+    connect_timeout=15, read_timeout=60,
+    retries={"max_attempts": 5, "mode": "standard"}))
 
 
 # --------------------------------------------------------------------------
@@ -299,8 +302,23 @@ def normalize(df, provider, tick):
     return df.select(["Time"] + pk + values + extra)
 
 
-def fetch(key):
-    return key, s3.get_object(Bucket=RAW_BUCKET, Key=key)["Body"].read()
+def fetch(key, tries=5):
+    """한 시점을 받는다. 끊기면 다시 받는다.
+
+    한 달이면 수천 번 받는데 그중 한 번만 끊겨도 잡 전체가 죽는다. 실제로
+    2025-06 백필이 읽기 도중 타임아웃으로 중단됐다. botocore 의 재시도는
+    본문을 읽는 중에 끊기는 것까지는 덮지 못해서 여기서 다시 받는다.
+    없는 키나 권한 문제는 다시 받아도 같으므로 바로 올린다.
+    """
+    for n in range(tries):
+        try:
+            return key, s3.get_object(Bucket=RAW_BUCKET, Key=key)["Body"].read()
+        except ClientError:
+            raise
+        except Exception:
+            if n == tries - 1:
+                raise
+            time.sleep(2 ** n)
 
 
 def parse_tick(key, body, provider, year, month, day):

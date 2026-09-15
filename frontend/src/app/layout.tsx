@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "SpotLake | Under Construction",
-  description: "SpotLake is currently under construction. Contact DDPS Lab for more information.",
+  title: "SpotLake",
+  description:
+    "Spot instance datasets from AWS, Google Cloud, and Azure, collected and published by DDPS Lab at Hanyang University.",
   icons: {
     icon: "/images/favicon.png"
   },
@@ -28,11 +30,12 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Header />
-          <main className="flex-1 flex flex-col items-center justify-center w-full">
+          <main className="flex-1 flex flex-col items-center w-full">
             <div className="w-full max-w-7xl px-4 py-8">
               {children}
             </div>
           </main>
+          <Footer />
         </ThemeProvider>
       </body>
     </html>

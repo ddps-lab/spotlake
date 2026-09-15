@@ -80,28 +80,6 @@ const calculateSavings = (params: any) => {
   return isNaN(savings) ? "N/A" : savings
 }
 
-const formatDate = (params: any) => {
-  const dateStr = params.value
-  if (!dateStr) return "N/A"
-  try {
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) {
-        return dateStr
-    }
-    
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    const hours = String(date.getHours()).padStart(2, '0')
-    const minutes = String(date.getMinutes()).padStart(2, '0')
-    const seconds = String(date.getSeconds()).padStart(2, '0')
-    
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-  } catch (e) {
-    return dateStr
-  }
-}
-
 export const awsColDefs: ColDef<AWSData>[] = [
   { field: "InstanceType", headerName: "Type", headerTooltip: "Instance Type", valueFormatter: formatNumber },
   { field: "Region", headerTooltip: "Region", valueFormatter: formatNumber },
@@ -118,7 +96,6 @@ export const awsColDefs: ColDef<AWSData>[] = [
     comparator: naComparator,
     valueGetter: calculateSavings
   },
-  { field: "Time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate },
 ]
 
 export const gcpColDefs: ColDef<GCPData>[] = [
@@ -132,7 +109,6 @@ export const gcpColDefs: ColDef<GCPData>[] = [
     comparator: naComparator,
     valueGetter: calculateSavings
   },
-  { field: "time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate, minWidth: 300 },
 ]
 
 export const azureColDefs: ColDef<AzureData>[] = [
@@ -146,5 +122,4 @@ export const azureColDefs: ColDef<AzureData>[] = [
   { field: "Score", headerName: "Availability", headerTooltip: "In Azure, it is Spot Placement Score. For details, please refer to https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/spot-placement-score", comparator: naComparator, valueFormatter: formatNumber },
   { field: "T2", headerTooltip: "The maximum number of nodes whose Spot Placement Score (SPS) transitions from 2 to 1 denoted as T2", width: 100, comparator: naComparator, valueFormatter: formatNumber },
   { field: "T3", headerTooltip: "The maximum number of nodes whose Spot Placement Score (SPS) transitions from 3 to 2 or 1 denoted as T3", width: 100, comparator: naComparator, valueFormatter: formatNumber },
-  { field: "Time", headerName: "Date", headerTooltip: "Timestamp", valueFormatter: formatDate },
 ]

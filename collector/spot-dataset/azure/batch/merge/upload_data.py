@@ -254,12 +254,12 @@ def update_latest(all_data_dataframe):
         json_path = f"{AZURE_CONST.S3_LATEST_JSON_SAVE_PATH}"
         pkl_gzip_path = f"{AZURE_CONST.S3_LATEST_ALL_DATA_AVAILABILITY_ZONE_TRUE_PKL_GZIP_SAVE_PATH}"
 
-        # Parallel upload: json and pkl.gz
+        # Keep both internal snapshots private; public daily data is published separately.
         def upload_json():
-            S3.upload_file(json_data, json_path, "json", set_public_read=True)
+            S3.upload_file(json_data, json_path, "json")
 
         def upload_pkl_gz():
-            S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz", set_public_read=True)
+            S3.upload_file(all_data_dataframe, pkl_gzip_path, "pkl.gz")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             futures = [

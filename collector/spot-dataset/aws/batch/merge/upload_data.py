@@ -116,13 +116,11 @@ def update_latest(data, timestamp):
     # Note: 'Time' column is already added in merge_data.py before calling this function
     data.to_json(f"/tmp/{filename}", orient="records")
 
-    s3 = boto3.resource('s3')
     s3_client = boto3.client('s3')
 
+    # Keep the internal snapshot private; public daily data is published separately.
     with open(f"/tmp/{filename}", 'rb') as f:
         s3_client.upload_fileobj(f, BUCKET_NAME, LATEST_PATH, ExtraArgs={'ContentType': 'application/json'})
-    object_acl = s3.ObjectAcl(BUCKET_NAME, LATEST_PATH)
-    object_acl.put(ACL='public-read')
 
     data.drop(['id'], axis=1, inplace=True)
 

@@ -8,7 +8,7 @@ import { getPublications } from "@/lib/publications"
 // SpotLake 논문의 Google Scholar 인용 목록. iframe 으로는 못 띄운다
 // (X-Frame-Options: SAMEORIGIN). 새 창으로 열어 준다.
 const SCHOLAR_CITATIONS =
-  "https://scholar.google.com/scholar?cites=6489608266362296686"
+  "https://scholar.google.com/scholar?cites=18351368357501524870"
 
 export default function AboutPage() {
   const { ddps, citing } = getPublications()

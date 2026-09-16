@@ -78,6 +78,13 @@ VALUE_ORDER = {
     "gcp": ["OndemandPrice", "SpotPrice", "Savings"],
 }
 
+# Azure Score는 과거의 Low/High/Restricted... 문자열과 이후 숫자를 모두 보존한다.
+VALUE_DTYPES = {
+    provider: {c: pl.String if provider == "azure" and c == "Score" else pl.Float64
+               for c in columns}
+    for provider, columns in VALUE_ORDER.items()
+}
+
 # 시기에 따라 이름이 다른 컬럼들. 값은 같다.
 RENAME = {
     "AvailabilityZone": "AZ",            # azure 전 구간
@@ -290,10 +297,13 @@ def normalize(df, provider, tick):
 
     pk = PK_COLUMNS[provider]
     values = VALUE_ORDER[provider]
-    # 2025년 azure에는 T2/T3가 없다. 달마다 컬럼이 달라지지 않도록 채운다.
-    absent = [pl.lit(None, dtype=pl.Float64).alias(c)
-              for c in values if c not in df.columns]
-    df = df.with_columns(absent + [
+    # CSV마다 정수/소수 추론 결과가 다르므로 기존 값도 같은 자료형으로 맞춘다.
+    # 예: Azure T2/T3 추가 전후, IF가 소수에서 -1만 있는 시점으로 바뀔 때.
+    # 변환할 수 없는 값은 오류로 남겨 데이터 손실을 숨기지 않는다.
+    typed = [pl.col(c).cast(dtype) if c in df.columns
+             else pl.lit(None, dtype=dtype).alias(c)
+             for c, dtype in VALUE_DTYPES[provider].items()]
+    df = df.with_columns(typed + [
         pl.lit(tick, dtype=pl.Datetime("us")).alias("Time")])
 
     # 아는 컬럼을 앞에 두고, 나중에 늘어난 컬럼이 있으면 뒤에 붙여 살린다.

@@ -85,8 +85,8 @@ def test_build_day_with_changing_csv_numeric_schemas():
     assert all(out[c].dtype == dtype for c, dtype in m.VALUE_DTYPES["azure"].items())
     assert out["Score"].to_list() == ["Low", "3"]
     assert out["IF"].to_list() == [1.5, -1.0]
-    assert out["T2"].to_list() == [None, 0.0]
-    assert out["T3"].to_list() == [None, 25.0]
+    assert out["T2"].to_list() == [None, 0]
+    assert out["T3"].to_list() == [None, 25]
     assert out["AZ"].to_list() == ["zone1", "zone1"]
     assert out["Time"].to_list() == [datetime(2025, 12, 12), datetime(2025, 12, 12, 12)]
 
@@ -100,6 +100,21 @@ def test_normalize_rejects_invalid_numeric_values():
         pass
     else:
         raise AssertionError("Invalid numeric data must not silently become null")
+
+
+def test_integer_fields_preserve_null_and_reject_fractional_values():
+    df = pl.DataFrame({"SPS": [3.0, None, -1.0], "T3": [10, None, 0]})
+    out = m.cast_integer_columns(df, "aws")
+    assert out["SPS"].dtype == pl.Int64
+    assert out["SPS"].to_list() == [3, None, -1]
+    assert out["T3"].to_list() == [10, None, 0]
+    for invalid in [1.5, float("nan"), float("inf"), float("-inf")]:
+        try:
+            m.cast_integer_columns(pl.DataFrame({"T2": [invalid]}), "azure")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Must reject fractional/nonfinite count: {invalid}")
 
 
 if __name__ == "__main__":

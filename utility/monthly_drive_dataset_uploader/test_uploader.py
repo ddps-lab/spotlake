@@ -5,6 +5,10 @@
 """
 
 from datetime import date, datetime
+import gzip
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import polars as pl
 
@@ -59,6 +63,43 @@ def test_normalize_keeps_unknown_columns():
     df = pl.DataFrame({"InstanceType": ["n1"], "Region": ["us"], "Brandnew": [1]})
     out = m.normalize(df, "gcp", datetime(2025, 3, 16))
     assert out.columns[-1] == "Brandnew"
+    assert out["Brandnew"].dtype == pl.Int64
+
+
+def test_build_day_with_changing_csv_numeric_schemas():
+    # 실제 실패 두 가지: T2/T3 없음 -> 정수, IF 소수 -> 정수(-1).
+    prefix = "rawdata/azure/2025/12/12/"
+    header = "InstanceTier,InstanceType,Region,AvailabilityZone,IF,Score"
+    payloads = {
+        prefix + "00-00-00.csv.gz": gzip.compress(
+            (header + "\nStandard,D2s_v3,us,zone1,1.5,Low\n").encode()),
+        prefix + "12-00-00.csv.gz": gzip.compress(
+            (header + ",T2,T3\nStandard,D2s_v3,us,zone1,-1,3,0,25\n").encode()),
+    }
+    with TemporaryDirectory() as tmp:
+        path = Path(tmp) / "day.parquet"
+        with patch.object(m, "raw_keys", return_value=list(payloads)), \
+                patch.object(m, "fetch", side_effect=lambda key: (key, payloads[key])):
+            assert m.build_day("azure", 2025, 12, 12, path) == (2, 2)
+        out = pl.read_parquet(path)
+    assert all(out[c].dtype == dtype for c, dtype in m.VALUE_DTYPES["azure"].items())
+    assert out["Score"].to_list() == ["Low", "3"]
+    assert out["IF"].to_list() == [1.5, -1.0]
+    assert out["T2"].to_list() == [None, 0.0]
+    assert out["T3"].to_list() == [None, 25.0]
+    assert out["AZ"].to_list() == ["zone1", "zone1"]
+    assert out["Time"].to_list() == [datetime(2025, 12, 12), datetime(2025, 12, 12, 12)]
+
+
+def test_normalize_rejects_invalid_numeric_values():
+    df = pl.DataFrame({"InstanceType": ["n1"], "Region": ["us"],
+                       "SpotPrice": ["invalid"]})
+    try:
+        m.normalize(df, "gcp", datetime(2025, 3, 16))
+    except pl.exceptions.InvalidOperationError:
+        pass
+    else:
+        raise AssertionError("Invalid numeric data must not silently become null")
 
 
 if __name__ == "__main__":

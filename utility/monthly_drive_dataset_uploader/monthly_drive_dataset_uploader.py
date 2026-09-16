@@ -78,9 +78,17 @@ VALUE_ORDER = {
     "gcp": ["OndemandPrice", "SpotPrice", "Savings"],
 }
 
+# 개수/정수 점수는 nullable 정수로 보존한다. IF/가격/할인율은 소수가 있다.
+INTEGER_COLUMNS = {
+    "aws": {"SPS", "T3", "T2"},
+    "azure": {"T3", "T2", "DesiredCount"},
+    "gcp": set(),
+}
+
 # Azure Score는 과거의 Low/High/Restricted... 문자열과 이후 숫자를 모두 보존한다.
 VALUE_DTYPES = {
-    provider: {c: pl.String if provider == "azure" and c == "Score" else pl.Float64
+    provider: {c: (pl.String if provider == "azure" and c == "Score" else
+                   pl.Int64 if c in INTEGER_COLUMNS[provider] else pl.Float64)
                for c in columns}
     for provider, columns in VALUE_ORDER.items()
 }
@@ -290,10 +298,29 @@ def tick_of(key, year, month, day):
                                                   seconds=s)
 
 
+def cast_integer_columns(df, provider):
+    """정수 컬럼의 null을 보존하고, 소수를 버리는 Int64 변환은 거부한다."""
+    casts = []
+    for c in sorted(INTEGER_COLUMNS[provider]):
+        if c not in df.columns:
+            continue
+        values = df[c]
+        if values.dtype.is_float():
+            invalid = (values.is_nan() | values.is_infinite() |
+                       (values != values.floor())).fill_null(False)
+            if invalid.any():
+                raise ValueError(f"{provider}.{c} contains non-integer values: "
+                                 f"{values.filter(invalid).head(5).to_list()}")
+        # strict=True also rejects invalid strings and values outside Int64.
+        casts.append(pl.col(c).cast(pl.Int64, strict=True))
+    return df.with_columns(casts)
+
+
 def normalize(df, provider, tick):
     """시기별 스키마 차이를 흡수해 Time + PK + 값 컬럼 순으로 맞춘다."""
     df = df.rename({k: v for k, v in RENAME.items() if k in df.columns})
     df = df.drop([c for c in DROP if c in df.columns])
+    df = cast_integer_columns(df, provider)
 
     pk = PK_COLUMNS[provider]
     values = VALUE_ORDER[provider]

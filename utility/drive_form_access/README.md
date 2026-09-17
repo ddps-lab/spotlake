@@ -69,7 +69,12 @@ Only submissions at or after activation are processed. Activation does not impor
 old responses. If activation stops during ACL cleanup, already removed public
 permissions stay removed; fix the reported issue and rerun `activate`. This fails
 closed rather than reopening public data. A cutover timestamp is preserved across
-retries. No monthly reset is added to the AWS EventBridge rule: permission expiry
+retries. Drive can briefly return inherited child permissions after the parent
+permission was removed; attempting to delete that inherited entry returns an
+error. Wait for propagation, rerun `preflight`, and retry `activate` only if it
+has not completed. Do not enable limited access on vendor subfolders to suppress
+this error, because that would prevent respondents from inheriting root access.
+No monthly reset is added to the AWS EventBridge rule: permission expiry
 already enforces the exact UTC boundary independently of the uploader.
 
 ## Runtime, retry and renewal

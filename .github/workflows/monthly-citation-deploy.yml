@@ -6,7 +6,6 @@ on:
     paths:
       - 'utility/monthly_citation_updater/**'
       - 'frontend/src/data/publications.yaml'
-      - 'frontend/src/data/citations.json'
       - 'frontend/scripts/prepare-citations.mjs'
       - '.github/workflows/monthly-citation-deploy.yml'
   workflow_dispatch:
@@ -45,8 +44,6 @@ jobs:
         run: |
           node frontend/scripts/prepare-citations.mjs "$RUNNER_TEMP/citation-build"
           python utility/monthly_citation_updater/render_template.py "$RUNNER_TEMP/citation-build"
-      - name: Seed only if the snapshot does not exist
-        run: python utility/monthly_citation_updater/seed_snapshot.py "$RUNNER_TEMP/citation-build/seed.json"
       - name: Deploy Lambda and shared monthly rule
         run: |
           aws cloudformation deploy \

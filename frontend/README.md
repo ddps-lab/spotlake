@@ -39,11 +39,12 @@ snapshot's last successful citation refresh. An unsuccessful refresh preserves t
 previous list and timestamp. Even when no new papers are found, a successful refresh
 advances the date. The Scholar button remains a link to its more complete list.
 
-`src/data/citations.json` is a bundled fallback, rendered immediately and retained
-if the remote snapshot cannot be loaded. It is also used once to seed an absent AWS
-object; deployment never overwrites an existing live snapshot. Its timestamp is not
-changed just because the website is rebuilt. Routine monthly updates do not require
-GitHub commits.
+Citation lists are stored only in AWS; no citation snapshot is committed to GitHub
+or bundled into the website. While the request is pending, the section shows a
+loading message. A failed request shows an error and leaves the Google Scholar
+link available; it does not display a fabricated Last Updated value. Lab papers
+remain visible independently. Routine updates require no GitHub commits, and
+frontend deployment does not write or overwrite the AWS snapshot.
 
 See [monthly updater operations](../utility/monthly_citation_updater/README.md) for
 the exact schedule, AWS resource names, deployment, retries, and local validation.

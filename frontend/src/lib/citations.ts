@@ -15,7 +15,7 @@ export interface CitationSnapshot {
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
-// Treat remote data as data, and retain the bundled list on a malformed response.
+// Reject malformed remote data before displaying the AWS snapshot.
 export function parseCitationSnapshot(value: unknown): CitationSnapshot {
   if (!record(value) || value.schemaVersion !== 1 ||
       typeof value.source !== "string" || !Array.isArray(value.papers) ||

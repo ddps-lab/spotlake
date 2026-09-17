@@ -60,20 +60,18 @@ console. No Slack/email notifications are configured.
 `main`, or a manual dispatch **on main**. It uses the repository's existing
 `SPOTRANK_ACCESS_KEY_ID` / `SPOTRANK_SECRET_ACCESS_KEY` deployment secrets. Their
 principal needs CloudFormation, Lambda, EventBridge, IAM role management/PassRole,
-CloudWatch Logs, Scheduler GetSchedule/UpdateSchedule, and seed-object permissions; the deployed Lambda role is much
-narrower. Deployment fails visibly if those CI permissions are insufficient.
+CloudWatch Logs and Scheduler GetSchedule/UpdateSchedule permissions; the deployed
+Lambda role is much narrower. Deployment fails visibly if those CI permissions are insufficient.
 
 The workflow:
 
 1. Runs unit tests and reads curated lab identities from `publications.yaml`.
 2. Renders a small CloudFormation template with inline Python code and lab identities.
-3. Creates the initial snapshot from `frontend/src/data/citations.json` **only if the
-   object is absent**, using `If-None-Match: *`. Future deployments preserve live data.
-4. Deploys the `spotlake-monthly-citations` CloudFormation stack, Lambda, shared
+3. Deploys the `spotlake-monthly-citations` CloudFormation stack, Lambda, shared
    Rule, Lambda resource permission, and Batch submission role. The latter can
    submit only this queue/job-definition family and trusts only this Rule. The
    stack retains the old citation Scheduler in its disabled state.
-5. Runs `disable_legacy_schedules.py`: verifies the enabled monthly Rule and both
+4. Runs `disable_legacy_schedules.py`: verifies the enabled monthly Rule and both
    expected targets, then disables the legacy Schedulers without changing their
    targets. The script is idempotent and does not run either job. No new bucket,
    Batch queue, job definition, container image, or build host is created.
@@ -83,10 +81,15 @@ it would stop both monthly triggers. The legacy schedules are retained for an
 explicit rollback: disable the shared Rule first, then enable both legacy schedules.
 Routine deployments keep only the Rule enabled.
 
-The fallback file contains the date of its actual successful API refresh. A normal
-code deployment does not change this date or invoke the external APIs. After the
-initial deployment, the first scheduled refresh is the next first-of-month run.
-A manual invocation can verify AWS execution sooner:
+The production S3 snapshot was initialized and successfully refreshed on September
+17, 2026. It is the only maintained citation list. There is no GitHub fallback,
+bundled citation data, or deployment-time seed step. The updater reads the existing
+S3 snapshot to preserve previous entries and curated metadata; a missing object
+fails visibly instead of silently replacing the history with an empty list. When
+recovering or moving to another bucket, restore the existing snapshot first.
+
+Code deployment does not write the snapshot, change its date, or invoke the
+external APIs. A manual invocation can verify AWS execution:
 
 ```bash
 aws lambda invoke --function-name spotlake-monthly-citations \
@@ -104,9 +107,22 @@ resource is created by rendering or validating the template.
 python3 -m unittest discover -s utility/monthly_citation_updater/tests -v
 cd frontend
 npm ci
-node scripts/fetch-citations.mjs --dry-run
+npm run build
 ```
 
-The dry-run uses real external APIs without writing files. Omit `--dry-run` only to
-refresh the bundled fallback JSON locally. It does not upload to AWS or modify
-`publications.yaml`. The normal monthly job requires no local run or commit.
+For an optional API dry-run, prepare lab identities and download the current AWS
+snapshot into a temporary directory, then run the Python collector without an
+`--output` argument:
+
+```bash
+node frontend/scripts/prepare-citations.mjs /tmp/spotlake-citation-check
+aws s3api get-object --bucket spotlake-public-daily --key citations/citations.json \
+  --region us-west-2 --profile spotrank_jaeil /tmp/spotlake-citation-check/current.json
+python3 utility/monthly_citation_updater/lambda_function.py \
+  --seed /tmp/spotlake-citation-check/current.json \
+  --lab-papers /tmp/spotlake-citation-check/lab-papers.json
+```
+
+This calls real APIs and prints a summary without writing a citation file or
+uploading to AWS. It does not modify `publications.yaml`. Do not commit downloaded
+citation snapshots. Routine monthly refresh requires no local run or commit.

@@ -6,17 +6,20 @@ import { ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PublicationList } from "@/components/publication-list"
 import { groupByYear } from "@/lib/publication-data"
-import { CITATIONS_URL, SCHOLAR_CITATIONS, parseCitationSnapshot } from "@/lib/citations"
+import { CITATIONS_URL, SCHOLAR_CITATIONS, parseCitationSnapshot, type CitationSnapshot } from "@/lib/citations"
 import { formatUtc } from "@/lib/latest-data"
-import baseline from "@/data/citations.json"
-
-const initialSnapshot = parseCitationSnapshot(baseline)
+type CitationState =
+  | { status: "loading" }
+  | { status: "loaded"; snapshot: CitationSnapshot }
+  | { status: "error" }
 
 export function CitationList() {
-  const [snapshot, setSnapshot] = useState(initialSnapshot)
+  const [state, setState] = useState<CitationState>({ status: "loading" })
+  const snapshot = state.status === "loaded" ? state.snapshot : null
 
   useEffect(() => {
     const controller = new AbortController()
+    let active = true
     const timeout = setTimeout(() => controller.abort(), 10_000)
     fetch(CITATIONS_URL, { signal: controller.signal })
       .then((response) => {
@@ -25,16 +28,16 @@ export function CitationList() {
       })
       .then(parseCitationSnapshot)
       .then((next) => {
-        if (!controller.signal.aborted && next.updatedAt &&
-            (!initialSnapshot.updatedAt || Date.parse(next.updatedAt) >= Date.parse(initialSnapshot.updatedAt))) {
-          setSnapshot(next)
+        if (active && !controller.signal.aborted) {
+          setState({ status: "loaded", snapshot: next })
         }
       })
       .catch(() => {
-        // A data/CDN outage must not remove the existing publication list.
+        if (active) setState({ status: "error" })
       })
       .finally(() => clearTimeout(timeout))
     return () => {
+      active = false
       clearTimeout(timeout)
       controller.abort()
     }
@@ -47,12 +50,12 @@ export function CitationList() {
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-xs text-muted-foreground">
             Last Updated:{" "}
-            {snapshot.updatedAt ? (
+            {snapshot?.updatedAt ? (
               <time dateTime={snapshot.updatedAt} className="font-medium tabular-nums text-foreground">
                 {formatUtc(snapshot.updatedAt)}
               </time>
             ) : (
-              <span>Not available</span>
+              <span>{state.status === "loading" ? "Loading…" : "Not available"}</span>
             )}
           </p>
           <Button asChild variant="outline" size="sm">
@@ -67,7 +70,15 @@ export function CitationList() {
         This list is refreshed monthly from open citation databases and is not
         exhaustive. Google Scholar tracks more citations.
       </p>
-      <PublicationList groups={groupByYear(snapshot.papers)} />
+      {state.status === "loading" && (
+        <p role="status" className="text-sm text-muted-foreground">Loading citations…</p>
+      )}
+      {state.status === "error" && (
+        <p role="alert" className="text-sm text-muted-foreground">
+          Unable to load citations. Please reload this page or view all citations on Google Scholar.
+        </p>
+      )}
+      {snapshot && <PublicationList groups={groupByYear(snapshot.papers)} />}
     </div>
   )
 }

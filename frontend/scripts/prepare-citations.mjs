@@ -11,4 +11,3 @@ if (!Array.isArray(ddps) || !ddps.length) throw new Error("Missing DDPS publicat
 const papers = ddps.map(({ title, links = [] }) => ({ title, links }))
 mkdirSync(output, { recursive: true })
 writeFileSync(join(output, "lab-papers.json"), JSON.stringify(papers))
-writeFileSync(join(output, "seed.json"), readFileSync(join(frontend, "src/data/citations.json")))

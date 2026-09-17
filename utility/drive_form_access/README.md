@@ -80,7 +80,10 @@ already enforces the exact UTC boundary independently of the uploader.
 ## Runtime, retry and renewal
 
 The installed submission trigger normally grants access shortly after submission;
-the confirmation page cannot wait for it. The message therefore asks users to allow
+the confirmation page cannot wait for it. The confirmation text directs requests for
+other data periods, non-research/commercial use, and access help to
+`spotlake@hanyang.ac.kr`. It can be edited in Forms after activation: submit and
+reconciliation triggers do not overwrite it. The message asks users to allow
 up to five minutes. This is a normal retry interval, not an availability guarantee
 during outages or quota exhaustion.
 

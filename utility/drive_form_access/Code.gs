@@ -162,7 +162,9 @@ function activate() {
       'https://drive.google.com/drive/folders/' + CONFIG.folderId + '\n\n' +
       'Use that same Google account to open the folder. Access expires at 00:00 UTC ' +
       'on the first day of the next month. Submit this form again each month to renew ' +
-      'access. If access is still unavailable after 5 minutes, retry or contact ddpslab@hanyang.ac.kr.'
+      'access. If access is still unavailable after 5 minutes, retry or contact spotlake@hanyang.ac.kr.\n\n' +
+      'For data covering other time periods or use beyond academic and non-commercial research, ' +
+      'please contact spotlake@hanyang.ac.kr. Such use requires prior written permission.'
     );
     props.setProperty('activatedAt', started);
     props.setProperty('enabled', 'true');

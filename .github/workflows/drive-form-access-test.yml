@@ -1,0 +1,22 @@
+name: Drive Form access tests
+on:
+  pull_request:
+    paths:
+      - 'utility/drive_form_access/**'
+      - '.github/workflows/drive-form-access-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'utility/drive_form_access/**'
+      - '.github/workflows/drive-form-access-test.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test utility/drive_form_access/access.test.cjs

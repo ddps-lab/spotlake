@@ -1,0 +1,85 @@
+# Monthly citation refresh
+
+EventBridge invokes `spotlake-monthly-citations` on the **first day of each month at
+00:17 UTC (09:17 Asia/Seoul)**. The Python Lambda queries Semantic Scholar for the
+IISWC paper, its arXiv version, and the WWW demo. Crossref supplies missing venue
+names when available. Google Scholar is a link to the full citation list, not a
+scraping source.
+
+The output is `s3://spotlake-public-daily/citations/citations.json`, served through
+the existing data distribution at
+`https://d2krkjqajp4l0e.cloudfront.net/citations/citations.json`. This is separate
+from the website deployment bucket: normal frontend `s3 sync --delete` cannot
+remove the snapshot. The existing public-daily producer writes its own named
+objects and does not delete this prefix.
+
+## Data and failure behavior
+
+- `schemaVersion`: currently 1.
+- `updatedAt`: UTC time of the last successful citation refresh, including checks
+  with no new papers. It is not the frontend deployment time or Google Scholar's
+  indexing time. Crossref is optional enrichment; failure there does not invalidate
+  an otherwise complete citation lookup.
+- `source`: `Semantic Scholar + Crossref`.
+- `papers`: title, authors, venue, year, and links, matching the frontend's publication
+  format. Existing entries and manually refined metadata are preserved. New entries
+  are deduplicated by normalized DOI/title. Curated lab papers and known lab-author
+  names are excluded from the external list.
+
+Every Semantic Scholar source/page must finish before writing. Rate limiting,
+invalid responses, empty aggregate results, and exhausted time budgets leave the
+stored list and date unchanged. Requests use bounded backoff and a total 240-second
+API budget inside a 300-second function. EventBridge delivery and Lambda execution
+also have bounded retries. No per-visitor external API calls, GitHub write token,
+proxy, CAPTCHA bypass, VPC, NAT gateway, or container build is involved.
+
+The function can read/write only the citation object and write to its own log
+streams. Conditional S3 writes prevent an in-flight refresh from overwriting a
+concurrent repair. CloudFront may serve the previous snapshot for up to one hour.
+Logs are retained for 30 days; inspect failed invocations in the Lambda/CloudWatch
+console. No Slack/email notifications are configured.
+
+## Deployment
+
+`.github/workflows/monthly-citation-deploy.yml` runs on relevant changes merged to
+`main`, or a manual dispatch **on main**. It uses the repository's existing
+`SPOTRANK_ACCESS_KEY_ID` / `SPOTRANK_SECRET_ACCESS_KEY` deployment secrets. Their
+principal needs CloudFormation, Lambda, EventBridge, IAM role management/PassRole,
+CloudWatch Logs, and seed-object permissions; the deployed Lambda role is much
+narrower. Deployment fails visibly if those CI permissions are insufficient.
+
+The workflow:
+
+1. Runs unit tests and reads curated lab identities from `publications.yaml`.
+2. Renders a small CloudFormation template with inline Python code and lab identities.
+3. Creates the initial snapshot from `frontend/src/data/citations.json` **only if the
+   object is absent**, using `If-None-Match: *`. Future deployments preserve live data.
+4. Deploys the `spotlake-monthly-citations` CloudFormation stack and monthly rule.
+
+The fallback file contains the date of its actual successful API refresh. A normal
+code deployment does not change this date or invoke the external APIs. After the
+initial deployment, the first scheduled refresh is the next first-of-month run.
+A manual invocation can verify AWS execution sooner:
+
+```bash
+aws lambda invoke --function-name spotlake-monthly-citations \
+  --region us-west-2 --profile spotrank_jaeil --cli-read-timeout 310 \
+  /tmp/spotlake-citation-result.json
+```
+
+Check both the CLI response's `FunctionError` field and the result/logs: HTTP 200
+from the invocation API alone does not prove handler success. No production
+resource is created by rendering or validating the template.
+
+## Local checks
+
+```bash
+python3 -m unittest discover -s utility/monthly_citation_updater/tests -v
+cd frontend
+npm ci
+node scripts/fetch-citations.mjs --dry-run
+```
+
+The dry-run uses real external APIs without writing files. Omit `--dry-run` only to
+refresh the bundled fallback JSON locally. It does not upload to AWS or modify
+`publications.yaml`. The normal monthly job requires no local run or commit.

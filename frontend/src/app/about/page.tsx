@@ -1,17 +1,13 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Github, FileText, ExternalLink } from "lucide-react"
+import { Github, FileText } from "lucide-react"
 import Link from "next/link"
 import { PublicationList } from "@/components/publication-list"
+import { CitationList } from "@/components/citation-list"
 import { getPublications } from "@/lib/publications"
 
-// SpotLake 논문의 Google Scholar 인용 목록. iframe 으로는 못 띄운다
-// (X-Frame-Options: SAMEORIGIN). 새 창으로 열어 준다.
-const SCHOLAR_CITATIONS =
-  "https://scholar.google.com/scholar?cites=18351368357501524870"
-
 export default function AboutPage() {
-  const { ddps, citing } = getPublications()
+  const { ddps } = getPublications()
 
   return (
     <div className="space-y-8">
@@ -98,24 +94,7 @@ export default function AboutPage() {
           <PublicationList groups={ddps} />
         </div>
 
-        <div className="space-y-3 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold">Papers citing SpotLake</h3>
-            <Button asChild variant="outline" size="sm">
-              <Link href={SCHOLAR_CITATIONS} target="_blank" rel="noreferrer">
-                <ExternalLink className="mr-2 h-4 w-4" />
-                All citations on Google Scholar
-              </Link>
-            </Button>
-          </div>
-          {/* 이 목록은 공개 API 로 모은 것이라 Google Scholar 보다 적다.
-              전체를 보려면 위 링크로 가도록 안내한다. */}
-          <p className="text-muted-foreground text-sm">
-            This list is compiled from open citation databases and is not
-            exhaustive. Google Scholar tracks more citations.
-          </p>
-          <PublicationList groups={citing} />
-        </div>
+        <CitationList />
       </section>
     </div>
   )

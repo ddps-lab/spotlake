@@ -128,3 +128,46 @@ test('public root fails closed',()=>{
   const h=harness(); h.permissions.push({id:'public',type:'anyone',role:'reader'});
   assert.throws(()=>h.context.assertRestricted_(),/general access/);
 });
+test('a trigger from a different Form is rejected before any grant',()=>{
+  const h=harness();
+  assert.throws(()=>h.context.onDatasetRequest({source:{getId:()=> 'wrong-form'},
+    response:h.response()}),/installed Google Form/);
+  assert.deepEqual(h.calls,[]);
+});
+test('missing activation cutoff cannot import historical responses',()=>{
+  const h=harness(); h.values.delete('activatedAt');
+  assert.throws(()=>h.context.processResponse_(h.response(),NOW),/activation cutoff/);
+  assert.deepEqual(h.calls,[]);
+});
+test('an incomplete consent or collection configuration blocks processing',()=>{
+  for (const bad of ['email','one-response','terms']) {
+    const h=harness();
+    h.context.Session={getEffectiveUser:()=>({getEmail:()=> 'spotlake@hanyang.ac.kr'})};
+    h.context.FormApp={ItemType:{CHECKBOX:'checkbox'},openById:()=>({
+      collectsEmail:()=> bad!=='email',hasLimitOneResponsePerUser:()=> bad==='one-response',
+      getItems:()=>[{getTitle:()=> 'SpotLake Dataset — Terms of Use',
+        asCheckboxItem:()=>({isRequired:()=> bad!=='terms'})}],
+    })};
+    assert.throws(()=>h.context.form_(),/email collection|Terms of Use/);
+  }
+});
+test('activation audits all collaborators before revoking general access',()=>{
+  const h=harness(); h.values.delete('activatedAt'); h.values.delete('enabled');
+  h.context.LockService={getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})};
+  h.context.form_=()=>({}); h.context.tree_=()=>[{id:'root'}];
+  h.permissions.push({id:'public',type:'anyone',role:'reader'},
+    {id:'manual',type:'user',role:'writer',emailAddress:'external@example.org'});
+  assert.throws(()=>h.context.activate(),/Unexpected existing collaborator/);
+  assert.deepEqual(h.calls,[]);
+  assert.equal(h.values.has('activatedAt'),false);
+});
+test('trigger installation failure leaves current public access unchanged',()=>{
+  const h=harness(); h.values.delete('activatedAt'); h.values.delete('enabled');
+  h.context.LockService={getScriptLock:()=>({tryLock:()=>true,releaseLock:()=>{}})};
+  h.context.form_=()=>({}); h.context.tree_=()=>[{id:'root'}];
+  h.context.installTriggers_=()=>{throw new Error('install failed');};
+  h.permissions.push({id:'public',type:'anyone',role:'reader'});
+  assert.throws(()=>h.context.activate(),/install failed/);
+  assert.deepEqual(h.calls,[]);
+  assert.equal(h.values.has('activatedAt'),false);
+});

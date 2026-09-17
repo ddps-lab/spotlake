@@ -32,14 +32,23 @@ template = {
             "Environment": {"Variables": {"CITATIONS_BUCKET": bucket, "CITATIONS_KEY": key,
                                            "LAB_PAPERS_JSON": json.dumps(lab, ensure_ascii=False)}},
             "Code": {"ZipFile": source}}},
-        "MonthlySchedule": {"Type": "AWS::Events::Rule", "Properties": {
-            "Description": "First day of every month, 00:17 UTC / 09:17 Asia-Seoul",
-            "ScheduleExpression": "cron(17 0 1 * ? *)", "State": "ENABLED",
-            "Targets": [{"Id": "CitationUpdater", "Arn": {"Fn::GetAtt": ["Function", "Arn"]},
-                         "RetryPolicy": {"MaximumRetryAttempts": 2, "MaximumEventAgeInSeconds": 21600}}]}},
-        "SchedulePermission": {"Type": "AWS::Lambda::Permission", "Properties": {
-            "FunctionName": {"Ref": "Function"}, "Action": "lambda:InvokeFunction",
-            "Principal": "events.amazonaws.com", "SourceArn": {"Fn::GetAtt": ["MonthlySchedule", "Arn"]}}},
+        "SchedulerRole": {"Type": "AWS::IAM::Role", "Properties": {
+            "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{
+                "Effect": "Allow", "Principal": {"Service": "scheduler.amazonaws.com"},
+                "Action": "sts:AssumeRole", "Condition": {"StringEquals": {
+                    "aws:SourceAccount": {"Ref": "AWS::AccountId"},
+                    "aws:SourceArn": {"Fn::Sub": "arn:${AWS::Partition}:scheduler:${AWS::Region}:${AWS::AccountId}:schedule-group/default"}}}}]},
+            "Policies": [{"PolicyName": "InvokeCitationUpdaterOnly", "PolicyDocument": {
+                "Version": "2012-10-17", "Statement": [{"Effect": "Allow",
+                    "Action": "lambda:InvokeFunction", "Resource": {"Fn::GetAtt": ["Function", "Arn"]}}]}}]}},
+        "MonthlySchedule": {"Type": "AWS::Scheduler::Schedule", "Properties": {
+            "Name": "spotlake-monthly-citations-cron", "GroupName": "default",
+            "Description": "First day of every month, 04:00 UTC / 13:00 Asia-Seoul, aligned with Drive upload",
+            "ScheduleExpression": "cron(0 4 1 * ? *)", "ScheduleExpressionTimezone": "UTC",
+            "FlexibleTimeWindow": {"Mode": "OFF"}, "State": "ENABLED",
+            "Target": {"Arn": {"Fn::GetAtt": ["Function", "Arn"]},
+                       "RoleArn": {"Fn::GetAtt": ["SchedulerRole", "Arn"]}, "Input": "{}",
+                       "RetryPolicy": {"MaximumRetryAttempts": 2, "MaximumEventAgeInSeconds": 21600}}}},
         "AsyncRetries": {"Type": "AWS::Lambda::EventInvokeConfig", "Properties": {
             "FunctionName": {"Ref": "Function"}, "Qualifier": "$LATEST", "MaximumRetryAttempts": 2,
             "MaximumEventAgeInSeconds": 21600}},

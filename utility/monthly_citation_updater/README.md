@@ -1,7 +1,10 @@
 # Monthly citation refresh
 
-EventBridge invokes `spotlake-monthly-citations` on the **first day of each month at
-00:17 UTC (09:17 Asia/Seoul)**. The Python Lambda queries Semantic Scholar for the
+EventBridge Scheduler invokes `spotlake-monthly-citations` on the **first day of each month at
+04:00 UTC (13:00 Asia/Seoul)**. This matches the existing Drive upload schedule,
+`monthly-drive-dataset-uploader-cron`. Scheduler supports one target per schedule,
+so `spotlake-monthly-citations-cron` is a separate schedule at the same time; the
+Drive schedule and its Batch target remain unchanged. The Python Lambda queries Semantic Scholar for the
 IISWC paper, its arXiv version, and the WWW demo. Crossref supplies missing venue
 names when available. Google Scholar is a link to the full citation list, not a
 scraping source.
@@ -54,7 +57,8 @@ The workflow:
 2. Renders a small CloudFormation template with inline Python code and lab identities.
 3. Creates the initial snapshot from `frontend/src/data/citations.json` **only if the
    object is absent**, using `If-None-Match: *`. Future deployments preserve live data.
-4. Deploys the `spotlake-monthly-citations` CloudFormation stack and monthly rule.
+4. Deploys the `spotlake-monthly-citations` CloudFormation stack, Lambda, dedicated
+   Scheduler execution role, and monthly schedule. No new data bucket is created.
 
 The fallback file contains the date of its actual successful API refresh. A normal
 code deployment does not change this date or invoke the external APIs. After the

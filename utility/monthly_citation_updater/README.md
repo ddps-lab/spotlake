@@ -1,10 +1,22 @@
 # Monthly citation refresh
 
-EventBridge Scheduler invokes `spotlake-monthly-citations` on the **first day of each month at
-00:00 UTC (09:00 Asia/Seoul)**. This matches the existing Drive upload schedule,
-`monthly-drive-dataset-uploader-cron`. Scheduler supports one target per schedule,
-so `spotlake-monthly-citations-cron` is a separate schedule at the same time; the
-Drive schedule and its Batch target remain unchanged. The Python Lambda queries Semantic Scholar for the
+EventBridge Rule `spotlake-monthly-jobs` runs on the **first day of each month at
+00:00 UTC (09:00 Asia/Seoul)**. It independently invokes citation Lambda
+`spotlake-monthly-citations` and submits the Google Drive upload Batch job to
+`montly_share_raw_dataset_generator_queue`, using the latest active revision of
+`monthly_drive_dataset_uploader_definition`. Neither target waits for the other.
+The Batch job definition supplies its existing retry/timeout/container settings;
+target delivery keeps the previous 185 attempts / 2-hour event-age limits.
+
+The old Schedulers `monthly-drive-dataset-uploader-cron` and
+`spotlake-monthly-citations-cron` are retained **DISABLED**, with their original
+targets preserved. Do not enable them while the shared Rule is enabled, or jobs
+can be submitted twice. The citation Scheduler's disabled state is managed by
+CloudFormation; a post-deployment migration script verifies both Rule targets
+before disabling the separately managed Drive Scheduler. It refuses unexpected
+legacy target overrides rather than silently losing them.
+
+The Python Lambda queries Semantic Scholar for the
 IISWC paper, its arXiv version, and the WWW demo. Crossref supplies missing venue
 names when available. Google Scholar is a link to the full citation list, not a
 scraping source.
@@ -48,7 +60,7 @@ console. No Slack/email notifications are configured.
 `main`, or a manual dispatch **on main**. It uses the repository's existing
 `SPOTRANK_ACCESS_KEY_ID` / `SPOTRANK_SECRET_ACCESS_KEY` deployment secrets. Their
 principal needs CloudFormation, Lambda, EventBridge, IAM role management/PassRole,
-CloudWatch Logs, and seed-object permissions; the deployed Lambda role is much
+CloudWatch Logs, Scheduler GetSchedule/UpdateSchedule, and seed-object permissions; the deployed Lambda role is much
 narrower. Deployment fails visibly if those CI permissions are insufficient.
 
 The workflow:
@@ -57,8 +69,19 @@ The workflow:
 2. Renders a small CloudFormation template with inline Python code and lab identities.
 3. Creates the initial snapshot from `frontend/src/data/citations.json` **only if the
    object is absent**, using `If-None-Match: *`. Future deployments preserve live data.
-4. Deploys the `spotlake-monthly-citations` CloudFormation stack, Lambda, dedicated
-   Scheduler execution role, and monthly schedule. No new data bucket is created.
+4. Deploys the `spotlake-monthly-citations` CloudFormation stack, Lambda, shared
+   Rule, Lambda resource permission, and Batch submission role. The latter can
+   submit only this queue/job-definition family and trusts only this Rule. The
+   stack retains the old citation Scheduler in its disabled state.
+5. Runs `disable_legacy_schedules.py`: verifies the enabled monthly Rule and both
+   expected targets, then disables the legacy Schedulers without changing their
+   targets. The script is idempotent and does not run either job. No new bucket,
+   Batch queue, job definition, container image, or build host is created.
+
+The shared Rule and Batch event role belong to this CloudFormation stack; deleting
+it would stop both monthly triggers. The legacy schedules are retained for an
+explicit rollback: disable the shared Rule first, then enable both legacy schedules.
+Routine deployments keep only the Rule enabled.
 
 The fallback file contains the date of its actual successful API refresh. A normal
 code deployment does not change this date or invoke the external APIs. After the

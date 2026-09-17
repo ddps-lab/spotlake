@@ -47,10 +47,12 @@ jobs:
           python utility/monthly_citation_updater/render_template.py "$RUNNER_TEMP/citation-build"
       - name: Seed only if the snapshot does not exist
         run: python utility/monthly_citation_updater/seed_snapshot.py "$RUNNER_TEMP/citation-build/seed.json"
-      - name: Deploy Lambda and monthly schedule
+      - name: Deploy Lambda and shared monthly rule
         run: |
           aws cloudformation deploy \
             --stack-name spotlake-monthly-citations \
             --template-file "$RUNNER_TEMP/citation-build/template.json" \
             --capabilities CAPABILITY_IAM \
             --no-fail-on-empty-changeset
+      - name: Verify shared rule and disable legacy Schedulers
+        run: python utility/monthly_citation_updater/disable_legacy_schedules.py

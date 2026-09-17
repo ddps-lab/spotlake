@@ -9,9 +9,12 @@ lab = json.loads((build / "lab-papers.json").read_text())
 bucket = "spotlake-public-daily"
 key = "citations/citations.json"
 function_name = "spotlake-monthly-citations"
+rule_name = "spotlake-monthly-jobs"
+rule_arn = {"Fn::Sub": "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/" + rule_name}
+queue_arn = {"Fn::Sub": "arn:${AWS::Partition}:batch:${AWS::Region}:${AWS::AccountId}:job-queue/montly_share_raw_dataset_generator_queue"}
 template = {
     "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "Monthly SpotLake citation snapshot from Semantic Scholar and Crossref",
+    "Description": "SpotLake citation Lambda and shared monthly Drive/citation EventBridge rule",
     "Resources": {
         "LogGroup": {"Type": "AWS::Logs::LogGroup", "Properties": {
             "LogGroupName": "/aws/lambda/" + function_name, "RetentionInDays": 30}},
@@ -43,19 +46,45 @@ template = {
                     "Action": "lambda:InvokeFunction", "Resource": {"Fn::GetAtt": ["Function", "Arn"]}}]}}]}},
         "MonthlySchedule": {"Type": "AWS::Scheduler::Schedule", "Properties": {
             "Name": "spotlake-monthly-citations-cron", "GroupName": "default",
-            "Description": "First day of every month, 00:00 UTC / 09:00 Asia-Seoul, aligned with Drive upload",
+            "Description": "Disabled legacy trigger; replaced by spotlake-monthly-jobs EventBridge rule",
             "ScheduleExpression": "cron(0 0 1 * ? *)", "ScheduleExpressionTimezone": "UTC",
-            "FlexibleTimeWindow": {"Mode": "OFF"}, "State": "ENABLED",
+            "FlexibleTimeWindow": {"Mode": "OFF"}, "State": "DISABLED",
             "Target": {"Arn": {"Fn::GetAtt": ["Function", "Arn"]},
                        "RoleArn": {"Fn::GetAtt": ["SchedulerRole", "Arn"]}, "Input": "{}",
                        "RetryPolicy": {"MaximumRetryAttempts": 2, "MaximumEventAgeInSeconds": 21600}}}},
+        "BatchEventRole": {"Type": "AWS::IAM::Role", "Properties": {
+            "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{
+                "Effect": "Allow", "Principal": {"Service": "events.amazonaws.com"},
+                "Action": "sts:AssumeRole", "Condition": {
+                    "StringEquals": {"aws:SourceAccount": {"Ref": "AWS::AccountId"}},
+                    "ArnEquals": {"aws:SourceArn": rule_arn}}}]},
+            "Policies": [{"PolicyName": "SubmitDriveUploadOnly", "PolicyDocument": {
+                "Version": "2012-10-17", "Statement": [{"Effect": "Allow",
+                    "Action": "batch:SubmitJob", "Resource": [queue_arn,
+                        {"Fn::Sub": "arn:${AWS::Partition}:batch:${AWS::Region}:${AWS::AccountId}:job-definition/monthly_drive_dataset_uploader_definition:*"}]}]}}]}},
+        "RulePermission": {"Type": "AWS::Lambda::Permission", "Properties": {
+            "FunctionName": {"Ref": "Function"}, "Action": "lambda:InvokeFunction",
+            "Principal": "events.amazonaws.com", "SourceArn": rule_arn,
+            "SourceAccount": {"Ref": "AWS::AccountId"}}},
+        "MonthlyRule": {"Type": "AWS::Events::Rule", "DependsOn": "RulePermission", "Properties": {
+            "Name": rule_name, "Description": "Drive upload and citation refresh: first day, 00:00 UTC / 09:00 KST",
+            "ScheduleExpression": "cron(0 0 1 * ? *)", "State": "ENABLED",
+            "Targets": [
+                {"Id": "CitationUpdater", "Arn": {"Fn::GetAtt": ["Function", "Arn"]}, "Input": "{}",
+                 "RetryPolicy": {"MaximumRetryAttempts": 2, "MaximumEventAgeInSeconds": 21600}},
+                {"Id": "DriveUploader", "Arn": queue_arn, "RoleArn": {"Fn::GetAtt": ["BatchEventRole", "Arn"]},
+                 "BatchParameters": {"JobDefinition": "monthly_drive_dataset_uploader_definition",
+                                     "JobName": "monthly-drive-dataset-uploader"},
+                 "RetryPolicy": {"MaximumRetryAttempts": 185, "MaximumEventAgeInSeconds": 7200}},
+            ]}},
         "AsyncRetries": {"Type": "AWS::Lambda::EventInvokeConfig", "Properties": {
             "FunctionName": {"Ref": "Function"}, "Qualifier": "$LATEST", "MaximumRetryAttempts": 2,
             "MaximumEventAgeInSeconds": 21600}},
     },
     "Outputs": {
         "FunctionName": {"Value": {"Ref": "Function"}},
-        "ScheduleName": {"Value": {"Ref": "MonthlySchedule"}},
+        "MonthlyRuleName": {"Value": {"Ref": "MonthlyRule"}},
+        "LegacyScheduleName": {"Value": {"Ref": "MonthlySchedule"}},
         "SnapshotUrl": {"Value": "https://d2krkjqajp4l0e.cloudfront.net/" + key},
     },
 }

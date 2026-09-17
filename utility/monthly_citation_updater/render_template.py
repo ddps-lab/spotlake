@@ -43,8 +43,8 @@ template = {
                     "Action": "lambda:InvokeFunction", "Resource": {"Fn::GetAtt": ["Function", "Arn"]}}]}}]}},
         "MonthlySchedule": {"Type": "AWS::Scheduler::Schedule", "Properties": {
             "Name": "spotlake-monthly-citations-cron", "GroupName": "default",
-            "Description": "First day of every month, 04:00 UTC / 13:00 Asia-Seoul, aligned with Drive upload",
-            "ScheduleExpression": "cron(0 4 1 * ? *)", "ScheduleExpressionTimezone": "UTC",
+            "Description": "First day of every month, 00:00 UTC / 09:00 Asia-Seoul, aligned with Drive upload",
+            "ScheduleExpression": "cron(0 0 1 * ? *)", "ScheduleExpressionTimezone": "UTC",
             "FlexibleTimeWindow": {"Mode": "OFF"}, "State": "ENABLED",
             "Target": {"Arn": {"Fn::GetAtt": ["Function", "Arn"]},
                        "RoleArn": {"Fn::GetAtt": ["SchedulerRole", "Arn"]}, "Input": "{}",

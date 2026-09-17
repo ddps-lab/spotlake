@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
-import type { YearGroup } from "@/lib/publications"
+import type { YearGroup } from "@/lib/publication-data"
 
 /**
  * 연도를 왼쪽에 두고 그 해 논문 카드를 오른쪽에 쌓는다.

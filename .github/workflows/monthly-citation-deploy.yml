@@ -1,0 +1,55 @@
+name: Deploy monthly citation updater
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'utility/monthly_citation_updater/**'
+      - 'frontend/src/data/publications.yaml'
+      - 'frontend/scripts/prepare-citations.mjs'
+      - '.github/workflows/monthly-citation-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spotlake-monthly-citation-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install build dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Test updater
+        run: python -m unittest discover -s utility/monthly_citation_updater/tests -v
+      - name: Prepare citation data and infrastructure
+        run: |
+          node frontend/scripts/prepare-citations.mjs "$RUNNER_TEMP/citation-build"
+          python utility/monthly_citation_updater/render_template.py "$RUNNER_TEMP/citation-build"
+      - name: Deploy Lambda and shared monthly rule
+        run: |
+          aws cloudformation deploy \
+            --stack-name spotlake-monthly-citations \
+            --template-file "$RUNNER_TEMP/citation-build/template.json" \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changeset
+      - name: Verify shared rule and disable legacy Schedulers
+        run: python utility/monthly_citation_updater/disable_legacy_schedules.py

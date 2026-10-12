@@ -84,56 +84,71 @@ def month_files(month, until):
     return keys
 
 
-def load_month(month, until):
-    """그 달 변경점을 (항목, 시각) 순으로 정렬한 배열로 돌려준다.
+def open_month(month, until, tmp):
+    """그 달 TITANS 파일을 tmp에 받아 DuckDB에 올린다. (연결, 항목 이름 목록)을 돌려준다.
 
-    TITANS parquet은 zstd로 압축돼 있어 DuckDB로 읽는다. 파일은 /tmp에 받았다가
-    끝나면 지운다(Lambda는 /tmp를 다음 호출에도 남긴다).
-    """
-    keys = month_files(month, until)
-    with tempfile.TemporaryDirectory() as tmp:
-        paths = []
-        for i, key in enumerate(keys):
-            # 이름의 순번은 중복 행 중 어느 것을 쓸지 정할 때 파일 순서로 쓰인다.
-            paths.append(os.path.join(tmp, f"{i:04d}.parquet").replace("\\", "/"))
-            _s3().download_file(SRC_BUCKET, key, paths[-1])
-        return read_changes(paths, until, tmp)
-
-
-def read_changes(paths, until, tmp):
-    """parquet 파일들의 변경점을 하나로 읽는다.
+    TITANS parquet은 zstd로 압축돼 있어 DuckDB로 읽는다. 한 달치(약 1,500만 행)를
+    문자열 그대로 정렬하면 메모리를 넘으므로, 항목 목록(약 5만 개)으로 번호를 매기고
+    변경점에는 번호만 붙여 표 c에 둔다. 날짜별로 필요한 행은 day_data가 꺼낸다.
 
     시기마다 없는 컬럼(T3, Ceased)은 NULL이다. Ceased 행은 값이 0으로 기록돼 있으므로
-    NULL로 바꾼다. 그 항목은 다음 정상 행 전까지 없는 것으로 본다. 같은 항목·시각이
-    여러 파일에 있으면 뒤 파일의 것을 쓴다.
+    NULL로 바꾼다. 그 항목은 다음 정상 행 전까지 없는 것으로 본다.
     """
+    paths = []
+    for i, key in enumerate(month_files(month, until)):
+        # 이름의 순번은 같은 항목·시각이 여러 파일에 있을 때 뒤 파일 것을 고르는 데 쓴다.
+        paths.append(os.path.join(tmp, f"{i:04d}.parquet").replace("\\", "/"))
+        _s3().download_file(SRC_BUCKET, key, paths[-1])
+
     con = duckdb.connect()
-    # 시각은 UTC 기준. 정렬이 메모리를 넘으면 쓰기 가능한 /tmp로 내린다.
-    con.execute(f"SET TimeZone='UTC'; SET temp_directory='{tmp}/spill'; "
-                "SET memory_limit='4GB'; SET threads=4")
+    con.execute(f"SET TimeZone='UTC'; SET temp_directory='{tmp}/spill'; SET memory_limit='3GB'; "
+                "SET threads=4; SET preserve_insertion_order=false")
     files = "[" + ", ".join(f"'{p}'" for p in paths) + "]"
     src = f"read_parquet({files}, union_by_name=true, filename=true)"
     cols = {r[0] for r in con.execute(f"DESCRIBE SELECT * FROM {src}").fetchall()}
     ceased = "coalesce(Ceased, false)" if "Ceased" in cols else "false"
     vals = ", ".join(f"CASE WHEN {ceased} THEN NULL ELSE {c} END::DOUBLE AS {c}" if c in cols
                      else f"NULL::DOUBLE AS {c}" for c in VALUES)
+    minute = "epoch_us(Time) // 60000000"
     con.execute(f"""
-        CREATE TEMP TABLE m AS
-        SELECT dense_rank() OVER (ORDER BY InstanceType, Region, AZ) - 1 AS code,
-               InstanceType, Region, AZ, epoch_us(Time) // 60000000 AS minute, {vals}
-        FROM {src}
-        WHERE Time <= $until
-        QUALIFY row_number() OVER (PARTITION BY InstanceType, Region, AZ, epoch_us(Time) // 60000000
-                                   ORDER BY filename DESC) = 1
+        CREATE TEMP TABLE k AS
+        SELECT row_number() OVER (ORDER BY InstanceType, Region, AZ) - 1 AS code, *
+        FROM (SELECT DISTINCT InstanceType, Region, AZ FROM {src} WHERE Time <= $until)
     """, {"until": until})
-    names = [tuple(r[1:]) for r in con.execute(
-        "SELECT DISTINCT code, InstanceType, Region, AZ FROM m ORDER BY code").fetchall()]
-    arrays = con.execute(f"SELECT code, minute, {', '.join(VALUES)} FROM m ORDER BY code, minute").fetchnumpy()
-    con.close()
+    con.execute(rf"""
+        CREATE TEMP TABLE c AS
+        SELECT code, {minute} AS minute,
+               {minute} * 10000 + regexp_extract(filename, '(\d+)\.parquet$', 1)::BIGINT AS ord,
+               {vals}
+        FROM {src} JOIN k USING (InstanceType, Region, AZ)
+        WHERE Time <= $until
+    """, {"until": until})
+    names = [tuple(r) for r in con.execute("SELECT InstanceType, Region, AZ FROM k ORDER BY code").fetchall()]
+    return con, names
+
+
+def day_data(con, names, day):
+    """그날 계산에 필요한 행: 항목마다 00:00 이하의 마지막 행과 그날의 변경점.
+
+    (항목, 시각) 순으로 정렬한 배열로 돌려준다. 같은 항목·시각이 둘이면 뒤 파일 것을 쓴다.
+    """
+    d0 = int(datetime.combine(day, time(), timezone.utc).timestamp()) // 60
+    fields = ", ".join(f"struct_extract(s, '{f}') AS {f}" for f in ("minute", "ord") + VALUES)
+    arrays = con.execute(f"""
+        SELECT code, {fields} FROM (
+            SELECT code, arg_max(struct_pack(minute, ord, {', '.join(VALUES)}), ord) AS s
+            FROM c WHERE minute <= {d0} GROUP BY code)
+        UNION ALL
+        SELECT code, minute, ord, {', '.join(VALUES)} FROM c
+        WHERE minute > {d0} AND minute < {d0 + TICKS * 10}
+        ORDER BY code, ord
+    """).fetchnumpy()
+    code = np.asarray(arrays["code"], dtype=np.int64)
+    minute = np.asarray(arrays["minute"], dtype=np.int64)
+    keep = np.r_[(code[1:] != code[:-1]) | (minute[1:] != minute[:-1]), True]
     # NULL이 있는 컬럼은 masked array로 온다. NaN으로 채운다.
-    return {"names": names, "code": np.asarray(arrays["code"], dtype=np.int64),
-            "minute": np.asarray(arrays["minute"], dtype=np.int64),
-            **{c: np.ma.filled(np.ma.asarray(arrays[c], dtype=float), np.nan) for c in VALUES}}
+    return {"names": names, "code": code[keep], "minute": minute[keep],
+            **{c: np.ma.filled(np.ma.asarray(arrays[c], dtype=float), np.nan)[keep] for c in VALUES}}
 
 
 # ------------------------------------------------------------------ 계산
@@ -265,16 +280,21 @@ def lambda_handler(event, context):
     for month, group in groupby(target_days(event or {}, today), key=lambda d: d.replace(day=1)):
         group = list(group)
         until = datetime.combine(group[-1], time(23, 50), timezone.utc)
-        try:
-            data = load_month(month, until)
-        except NotReady as e:
-            print(f"skip: {e}")
-            continue
-        for day in group:
-            files = day_files(data, day, summarize_day(data, day))
-            write_day(day, files)
-            update_index(day, files)
-            made.append(f"{day}")
-            print(f"{day}: {len(files)} files")
-        del data
+        # Lambda는 /tmp를 다음 호출에도 남기므로 받은 파일은 달마다 지운다.
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                con, names = open_month(month, until, tmp)
+            except NotReady as e:
+                print(f"skip: {e}")
+                continue
+            try:
+                for day in group:
+                    data = day_data(con, names, day)
+                    files = day_files(data, day, summarize_day(data, day))
+                    write_day(day, files)
+                    update_index(day, files)
+                    made.append(f"{day}")
+                    print(f"{day}: {len(files)} files")
+            finally:
+                con.close()
     return {"days": made}

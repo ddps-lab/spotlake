@@ -107,22 +107,25 @@ def write_fixtures(tmp):
 
 
 class LoadMonthTest(unittest.TestCase):
-    def test_reads_zstd_files_in_utc_with_missing_columns_ceased_and_duplicates(self):
+    def test_day_rows_from_zstd_files_in_utc(self):
         import shutil
         import tempfile
         from unittest.mock import MagicMock, patch
 
         until = datetime(2026, 10, 1, 23, 50, tzinfo=timezone.utc)
-        with tempfile.TemporaryDirectory() as fixtures:
+        with tempfile.TemporaryDirectory() as fixtures, tempfile.TemporaryDirectory() as tmp:
             files = dict(zip(("ap", "cp"), write_fixtures(fixtures)))
             s3 = MagicMock()
             s3.download_file.side_effect = lambda bucket, key, dest: shutil.copy(files[key], dest)
             with patch.object(exporter, "month_files", return_value=["ap", "cp"]),                     patch.object(exporter, "_s3", return_value=s3):
-                data = exporter.load_month(date(2026, 10, 1), until)
+                con, names = exporter.open_month(date(2026, 10, 1), until, tmp)
+                data = exporter.day_data(con, names, date(2026, 10, 1))
+                con.close()
 
         minute = lambda *t: int(datetime(*t, tzinfo=timezone.utc).timestamp()) // 60
         self.assertEqual(data["names"], [("a", "r", "z1"), ("b", "r", "z2")])
-        self.assertEqual(data["code"].tolist(), [0, 0, 0, 1])     # until 이후 행은 빠진다
+        # a: 00:00 이전 마지막 행과 그날 두 행(until 이후 행은 빠짐), b: 00:00 행
+        self.assertEqual(data["code"].tolist(), [0, 0, 0, 1])
         # 이 테스트를 KST에서 돌려도 UTC 기준 분이어야 한다.
         self.assertEqual(data["minute"].tolist(), [minute(2026, 9, 30, 23), minute(2026, 10, 1, 0, 10),
                                                    minute(2026, 10, 1, 0, 20), minute(2026, 10, 1)])

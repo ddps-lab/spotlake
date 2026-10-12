@@ -29,7 +29,6 @@ from botocore.config import Config
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from pyarrow import fs
 
 SRC_BUCKET = os.environ.get("SRC_BUCKET", "titans-spotlake-data")
 DST_BUCKET = os.environ.get("DST_BUCKET", "spotlake-public-daily")
@@ -54,7 +53,6 @@ def _s3():
     if "s3" not in _clients:
         # 기본 연결 풀(10개)로는 WRITERS개 스레드가 10개씩만 나간다.
         _clients["s3"] = boto3.client("s3", config=Config(max_pool_connections=WRITERS))
-        _clients["fs"] = fs.S3FileSystem(region=os.environ.get("AWS_REGION", "us-west-2"))
     return _clients["s3"]
 
 
@@ -95,10 +93,11 @@ def month_files(month, until):
 
 def _read(key):
     """파일 하나를 COLUMNS 모양으로 읽는다. 없는 컬럼은 null로 채운다."""
-    path = f"{SRC_BUCKET}/{key}"
-    names = pq.read_schema(path, filesystem=_clients["fs"]).names
-    t = pq.read_table(path, columns=[c for c in COLUMNS if c in names],
-                      filesystem=_clients["fs"])
+    # 관리형 레이어의 pyarrow에는 S3FileSystem이 없다. 받아서 메모리에서 읽는다(월 파일도 수십 MB).
+    body = _s3().get_object(Bucket=SRC_BUCKET, Key=key)["Body"].read()
+    f = pq.ParquetFile(pa.BufferReader(body))
+    names = f.schema_arrow.names
+    t = f.read(columns=[c for c in COLUMNS if c in names])
     return pa.table({c: t[c].cast(ty) if c in names else pa.nulls(len(t), ty)
                      for c, ty in COLUMNS.items()})
 
@@ -115,7 +114,6 @@ def load_month(month, until):
     Ceased 행은 값이 0으로 기록돼 있으므로 NaN으로 바꾼다. 그 항목은 다음 정상 행
     전까지 없는 것으로 본다.
     """
-    _s3()
     t = pa.concat_tables([_read(k) for k in month_files(month, until)])
     t = t.filter(pc.less_equal(t["Time"], pa.scalar(until, COLUMNS["Time"])))
 

@@ -85,6 +85,29 @@ class SummarizeDayTest(unittest.TestCase):
         self.check(rows, 30)
 
 
+class ReadTest(unittest.TestCase):
+    def test_reads_s3_bytes_and_fills_missing_columns(self):
+        import io
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        from unittest.mock import MagicMock, patch
+
+        # T3·Ceased가 없던 시기의 파일
+        old = pa.table({"InstanceType": ["a"], "Region": ["r"], "AZ": ["z"],
+                        "Time": pa.array([0], pa.timestamp("us", "UTC")),
+                        "SPS": [3], "SpotPrice": [0.1], "IF": [1.0]})
+        buf = io.BytesIO()
+        pq.write_table(old, buf)
+        s3 = MagicMock()
+        s3.get_object.return_value = {"Body": io.BytesIO(buf.getvalue())}
+        with patch.object(exporter, "_s3", return_value=s3):
+            t = exporter._read("aws/2025-01_AP.parquet")
+        self.assertEqual(t.schema.names, list(exporter.COLUMNS))
+        self.assertEqual(t["T3"].null_count, 1)
+        self.assertEqual(t["Ceased"].null_count, 1)
+        self.assertEqual(t["SPS"].to_pylist(), [3])
+
+
 class LoadMonthTest(unittest.TestCase):
     def test_ceased_rows_become_nan_and_entries_are_named(self):
         import pyarrow as pa

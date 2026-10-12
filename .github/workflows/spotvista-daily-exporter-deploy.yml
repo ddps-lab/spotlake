@@ -1,0 +1,43 @@
+name: Deploy SpotVista daily exporter
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'utility/spotvista_daily_exporter/**'
+      - '.github/workflows/spotvista-daily-exporter-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spotvista-daily-exporter-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.SPOTRANK_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SPOTRANK_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: us-west-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Test exporter
+        run: |
+          pip install numpy pyarrow boto3
+          python -m unittest discover -s utility/spotvista_daily_exporter/tests -v
+      - name: Render template
+        run: python utility/spotvista_daily_exporter/render_template.py "$RUNNER_TEMP/spotvista-build"
+      - name: Deploy Lambda and daily rule
+        run: |
+          aws cloudformation deploy \
+            --stack-name spotvista-daily-exporter \
+            --template-file "$RUNNER_TEMP/spotvista-build/template.json" \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changeset

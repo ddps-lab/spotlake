@@ -38,7 +38,7 @@ template = {
                 ]}}]}},
         "Function": {"Type": "AWS::Lambda::Function", "Properties": {
             "FunctionName": function_name, "Runtime": "python3.13", "Handler": "index.lambda_handler",
-            "Architectures": ["arm64"], "MemorySize": 4096, "Timeout": 900, "Layers": [layer],
+            "Architectures": ["arm64"], "MemorySize": 6144, "Timeout": 900, "Layers": [layer],
             "ReservedConcurrentExecutions": 1, "Role": {"Fn::GetAtt": ["Role", "Arn"]},
             "Environment": {"Variables": {"SRC_BUCKET": src_bucket, "DST_BUCKET": dst_bucket,
                                            "DST_PREFIX": dst_prefix}},

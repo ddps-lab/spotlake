@@ -25,6 +25,7 @@ from itertools import groupby
 
 import boto3
 import numpy as np
+from botocore.config import Config
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
@@ -37,6 +38,7 @@ WARM_PREFIX = "parquet_warm/aws/m8"
 FIRST_DAY = date(2025, 2, 15)   # TITANS에 T3가 처음 나오는 날
 TICKS = 144                      # 하루의 10분 칸 수
 LOOKBACK = 7                     # 빠진 날을 다시 채우는 범위
+WRITERS = 32                     # 하루 약 1,400개 파일을 동시에 쓰는 수
 
 # 시기마다 없는 컬럼이 있다. T3는 2025-02 중순부터, Ceased는 그 뒤에 생겼다.
 COLUMNS = {
@@ -50,7 +52,8 @@ _clients = {}
 
 def _s3():
     if "s3" not in _clients:
-        _clients["s3"] = boto3.client("s3")
+        # 기본 연결 풀(10개)로는 WRITERS개 스레드가 10개씩만 나간다.
+        _clients["s3"] = boto3.client("s3", config=Config(max_pool_connections=WRITERS))
         _clients["fs"] = fs.S3FileSystem(region=os.environ.get("AWS_REGION", "us-west-2"))
     return _clients["s3"]
 
@@ -229,7 +232,7 @@ def _put(key, body, max_age):
 
 def write_day(day, files):
     # 지난 날짜는 다시 만들 일이 드물다. 그래도 고쳐 쓸 수 있게 캐시는 하루로 둔다.
-    with ThreadPoolExecutor(32) as pool:
+    with ThreadPoolExecutor(WRITERS) as pool:
         list(pool.map(lambda kv: _put(f"daily/{day}/{kv[0]}.json", kv[1], 86400), files.items()))
     # 마지막에 표시를 남긴다. 이것이 없는 날은 다음 실행이 다시 만든다.
     _put(f"daily/{day}/_done", {"files": len(files)}, 86400)

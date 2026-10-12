@@ -85,5 +85,30 @@ class SummarizeDayTest(unittest.TestCase):
         self.check(rows, 30)
 
 
+class LoadMonthTest(unittest.TestCase):
+    def test_ceased_rows_become_nan_and_entries_are_named(self):
+        import pyarrow as pa
+        from unittest.mock import patch
+
+        ts = lambda m: datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp() * 1e6 + m * 60e6
+        # null이 없는 표는 pyarrow가 읽기 전용 배열로 넘긴다. 그 경우도 다뤄야 한다.
+        table = pa.table({
+            "InstanceType": ["a", "a", "b", "a"], "Region": ["r", "r", "r", "r"],
+            "AZ": ["z1", "z1", "z2", "z1"],
+            "Time": pa.array([ts(0), ts(10), ts(0), ts(10)], pa.int64()).cast(pa.timestamp("us", "UTC")),
+            "SPS": [3, 0, 2, 0], "T3": [50, 0, 5, 0], "SpotPrice": [0.1, 0.0, 0.2, 0.0],
+            "Ceased": [False, True, False, True],
+        })
+        until = datetime(2026, 10, 1, 23, 50, tzinfo=timezone.utc)
+        with patch.object(exporter, "month_files", return_value=["k"]), \
+                patch.object(exporter, "_read", return_value=table), \
+                patch.object(exporter, "_s3"):
+            data = exporter.load_month(date(2026, 10, 1), until)
+        self.assertEqual(data["names"], [("a", "r", "z1"), ("b", "r", "z2")])
+        self.assertEqual(data["code"].tolist(), [0, 0, 1])        # (a, 10분) 중복은 하나로
+        self.assertTrue(np.isnan(data["T3"][1]))                 # Ceased 행은 NaN
+        self.assertEqual(data["T3"][0], 50)
+
+
 if __name__ == "__main__":
     unittest.main()

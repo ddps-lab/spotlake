@@ -129,9 +129,8 @@ def load_month(month, until):
     ceased = t["Ceased"].fill_null(False).to_numpy(zero_copy_only=False)
     vals = {}
     for c in ("T3", "SPS", "SpotPrice"):
-        v = t[c].cast(pa.float64()).to_numpy(zero_copy_only=False)
-        v[ceased] = np.nan
-        vals[c] = v
+        # to_numpy는 null이 없으면 읽기 전용 배열을 준다. 고치지 않고 새로 만든다.
+        vals[c] = np.where(ceased, np.nan, t[c].cast(pa.float64()).to_numpy(zero_copy_only=False))
     del t
 
     order = np.lexsort((minute, code))

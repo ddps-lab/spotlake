@@ -11,8 +11,10 @@ src_prefixes = ["aws/", "parquet_warm/aws/", "parquet_cp_hot/aws/"]
 dst_bucket = "spotlake-public-daily"
 dst_prefix = "spotvista/aws"
 function_name = "spotvista-daily-exporter"
-# AWS SDK for pandas (pyarrow, numpy) managed layer. Pinned; bump deliberately.
-layer = "arn:aws:lambda:us-west-2:336392948345:layer:AWSSDKPandas-Python313-Arm64:9"
+# duckdb + numpy layer published in this account (see README "Dependencies layer").
+# The AWS SDK for pandas managed layer cannot be used: its pyarrow lacks zstd, which
+# TITANS parquet needs. Pinned; bump deliberately.
+layer = {"Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:spotvista-exporter-deps:1"}
 
 template = {
     "AWSTemplateFormatVersion": "2010-09-09",

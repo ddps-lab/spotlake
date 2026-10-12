@@ -19,16 +19,15 @@ T3 합계 6개와 그날 마지막 값을 공개 버킷에 쓴다. SpotVista 브
 """
 import json
 import os
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, time, timedelta, timezone
 from itertools import groupby
 
 import boto3
+import duckdb
 import numpy as np
 from botocore.config import Config
-import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.parquet as pq
 
 SRC_BUCKET = os.environ.get("SRC_BUCKET", "titans-spotlake-data")
 DST_BUCKET = os.environ.get("DST_BUCKET", "spotlake-public-daily")
@@ -38,13 +37,7 @@ FIRST_DAY = date(2025, 2, 15)   # TITANS에 T3가 처음 나오는 날
 TICKS = 144                      # 하루의 10분 칸 수
 LOOKBACK = 7                     # 빠진 날을 다시 채우는 범위
 WRITERS = 32                     # 하루 약 1,400개 파일을 동시에 쓰는 수
-
-# 시기마다 없는 컬럼이 있다. T3는 2025-02 중순부터, Ceased는 그 뒤에 생겼다.
-COLUMNS = {
-    "InstanceType": pa.string(), "Region": pa.string(), "AZ": pa.string(),
-    "Time": pa.timestamp("us", "UTC"), "SPS": pa.int64(), "T3": pa.int64(),
-    "SpotPrice": pa.float64(), "Ceased": pa.bool_(),
-}
+VALUES = ("T3", "SPS", "SpotPrice")
 
 _clients = {}
 
@@ -91,56 +84,56 @@ def month_files(month, until):
     return keys
 
 
-def _read(key):
-    """파일 하나를 COLUMNS 모양으로 읽는다. 없는 컬럼은 null로 채운다."""
-    # 관리형 레이어의 pyarrow에는 S3FileSystem이 없다. 받아서 메모리에서 읽는다(월 파일도 수십 MB).
-    body = _s3().get_object(Bucket=SRC_BUCKET, Key=key)["Body"].read()
-    f = pq.ParquetFile(pa.BufferReader(body))
-    names = f.schema_arrow.names
-    t = f.read(columns=[c for c in COLUMNS if c in names])
-    return pa.table({c: t[c].cast(ty) if c in names else pa.nulls(len(t), ty)
-                     for c, ty in COLUMNS.items()})
-
-
-def _codes(col):
-    col = pc.fill_null(col, "")
-    values = pc.unique(col)
-    return pc.index_in(col, value_set=values).to_numpy().astype(np.int64), values.to_pylist()
-
-
 def load_month(month, until):
     """그 달 변경점을 (항목, 시각) 순으로 정렬한 배열로 돌려준다.
 
-    Ceased 행은 값이 0으로 기록돼 있으므로 NaN으로 바꾼다. 그 항목은 다음 정상 행
-    전까지 없는 것으로 본다.
+    TITANS parquet은 zstd로 압축돼 있어 DuckDB로 읽는다. 파일은 /tmp에 받았다가
+    끝나면 지운다(Lambda는 /tmp를 다음 호출에도 남긴다).
     """
-    t = pa.concat_tables([_read(k) for k in month_files(month, until)])
-    t = t.filter(pc.less_equal(t["Time"], pa.scalar(until, COLUMNS["Time"])))
+    keys = month_files(month, until)
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = []
+        for i, key in enumerate(keys):
+            # 이름의 순번은 중복 행 중 어느 것을 쓸지 정할 때 파일 순서로 쓰인다.
+            paths.append(os.path.join(tmp, f"{i:04d}.parquet").replace("\\", "/"))
+            _s3().download_file(SRC_BUCKET, key, paths[-1])
+        return read_changes(paths, until, tmp)
 
-    it, it_names = _codes(t["InstanceType"])
-    rg, rg_names = _codes(t["Region"])
-    az, az_names = _codes(t["AZ"])
-    raw = (it * len(rg_names) + rg) * len(az_names) + az
-    uniq, code = np.unique(raw, return_inverse=True)
-    names = [(it_names[u // (len(rg_names) * len(az_names))],
-              rg_names[u // len(az_names) % len(rg_names)],
-              az_names[u % len(az_names)]) for u in uniq.tolist()]
 
-    minute = t["Time"].cast(pa.int64()).to_numpy() // 60_000_000
-    ceased = t["Ceased"].fill_null(False).to_numpy(zero_copy_only=False)
-    vals = {}
-    for c in ("T3", "SPS", "SpotPrice"):
-        # to_numpy는 null이 없으면 읽기 전용 배열을 준다. 고치지 않고 새로 만든다.
-        vals[c] = np.where(ceased, np.nan, t[c].cast(pa.float64()).to_numpy(zero_copy_only=False))
-    del t
+def read_changes(paths, until, tmp):
+    """parquet 파일들의 변경점을 하나로 읽는다.
 
-    order = np.lexsort((minute, code))
-    code, minute = code[order], minute[order]
-    vals = {c: v[order] for c, v in vals.items()}
-    # 같은 항목·시각이 두 번 있으면 뒤의 것을 쓴다.
-    keep = np.r_[(code[1:] != code[:-1]) | (minute[1:] != minute[:-1]), True]
-    return {"names": names, "code": code[keep], "minute": minute[keep],
-            **{c: v[keep] for c, v in vals.items()}}
+    시기마다 없는 컬럼(T3, Ceased)은 NULL이다. Ceased 행은 값이 0으로 기록돼 있으므로
+    NULL로 바꾼다. 그 항목은 다음 정상 행 전까지 없는 것으로 본다. 같은 항목·시각이
+    여러 파일에 있으면 뒤 파일의 것을 쓴다.
+    """
+    con = duckdb.connect()
+    # 시각은 UTC 기준. 정렬이 메모리를 넘으면 쓰기 가능한 /tmp로 내린다.
+    con.execute(f"SET TimeZone='UTC'; SET temp_directory='{tmp}/spill'; "
+                "SET memory_limit='4GB'; SET threads=4")
+    files = "[" + ", ".join(f"'{p}'" for p in paths) + "]"
+    src = f"read_parquet({files}, union_by_name=true, filename=true)"
+    cols = {r[0] for r in con.execute(f"DESCRIBE SELECT * FROM {src}").fetchall()}
+    ceased = "coalesce(Ceased, false)" if "Ceased" in cols else "false"
+    vals = ", ".join(f"CASE WHEN {ceased} THEN NULL ELSE {c} END::DOUBLE AS {c}" if c in cols
+                     else f"NULL::DOUBLE AS {c}" for c in VALUES)
+    con.execute(f"""
+        CREATE TEMP TABLE m AS
+        SELECT dense_rank() OVER (ORDER BY InstanceType, Region, AZ) - 1 AS code,
+               InstanceType, Region, AZ, epoch_us(Time) // 60000000 AS minute, {vals}
+        FROM {src}
+        WHERE Time <= $until
+        QUALIFY row_number() OVER (PARTITION BY InstanceType, Region, AZ, epoch_us(Time) // 60000000
+                                   ORDER BY filename DESC) = 1
+    """, {"until": until})
+    names = [tuple(r[1:]) for r in con.execute(
+        "SELECT DISTINCT code, InstanceType, Region, AZ FROM m ORDER BY code").fetchall()]
+    arrays = con.execute(f"SELECT code, minute, {', '.join(VALUES)} FROM m ORDER BY code, minute").fetchnumpy()
+    con.close()
+    # NULL이 있는 컬럼은 masked array로 온다. NaN으로 채운다.
+    return {"names": names, "code": np.asarray(arrays["code"], dtype=np.int64),
+            "minute": np.asarray(arrays["minute"], dtype=np.int64),
+            **{c: np.ma.filled(np.ma.asarray(arrays[c], dtype=float), np.nan) for c in VALUES}}
 
 
 # ------------------------------------------------------------------ 계산

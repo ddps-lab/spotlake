@@ -30,7 +30,7 @@ jobs:
           python-version: '3.13'
       - name: Test exporter
         run: |
-          pip install numpy pyarrow boto3
+          pip install duckdb==1.5.6 numpy==2.5.4 boto3
           python -m unittest discover -s utility/spotvista_daily_exporter/tests -v
       - name: Render template
         run: python utility/spotvista_daily_exporter/render_template.py "$RUNNER_TEMP/spotvista-build"

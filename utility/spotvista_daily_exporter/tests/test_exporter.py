@@ -85,52 +85,53 @@ class SummarizeDayTest(unittest.TestCase):
         self.check(rows, 30)
 
 
-class ReadTest(unittest.TestCase):
-    def test_reads_s3_bytes_and_fills_missing_columns(self):
-        import io
-        import pyarrow as pa
-        import pyarrow.parquet as pq
-        from unittest.mock import MagicMock, patch
-
-        # T3·Ceased가 없던 시기의 파일
-        old = pa.table({"InstanceType": ["a"], "Region": ["r"], "AZ": ["z"],
-                        "Time": pa.array([0], pa.timestamp("us", "UTC")),
-                        "SPS": [3], "SpotPrice": [0.1], "IF": [1.0]})
-        buf = io.BytesIO()
-        pq.write_table(old, buf)
-        s3 = MagicMock()
-        s3.get_object.return_value = {"Body": io.BytesIO(buf.getvalue())}
-        with patch.object(exporter, "_s3", return_value=s3):
-            t = exporter._read("aws/2025-01_AP.parquet")
-        self.assertEqual(t.schema.names, list(exporter.COLUMNS))
-        self.assertEqual(t["T3"].null_count, 1)
-        self.assertEqual(t["Ceased"].null_count, 1)
-        self.assertEqual(t["SPS"].to_pylist(), [3])
+def write_fixtures(tmp):
+    """zstd로 압축한 두 파일. 앞은 T3·Ceased가 없던 시기 형식, 뒤는 지금 형식이다."""
+    import duckdb
+    old, new = (f"{tmp}/{n}.parquet".replace("\\", "/") for n in ("old", "new"))
+    con = duckdb.connect()
+    con.execute(f"""COPY (SELECT * FROM (VALUES
+        ('a', 'r', 'z1', TIMESTAMPTZ '2026-09-30 23:00:00+00', 3, 0.1, 1.0),
+        ('b', 'r', 'z2', TIMESTAMPTZ '2026-10-01 00:00:00+00', 2, 0.2, 1.0)
+      ) t(InstanceType, Region, AZ, Time, SPS, SpotPrice, IF))
+      TO '{old}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
+    con.execute(f"""COPY (SELECT * FROM (VALUES
+        ('a', 'r', 'z1', TIMESTAMPTZ '2026-10-01 00:10:00+00', 3, 50, 0.1, false),
+        ('a', 'r', 'z1', TIMESTAMPTZ '2026-10-01 00:20:00+00', 0, 0, 0.0, true),
+        ('b', 'r', 'z2', TIMESTAMPTZ '2026-10-01 00:00:00+00', 2, 5, 0.2, false),
+        ('a', 'r', 'z1', TIMESTAMPTZ '2026-10-02 00:00:00+00', 3, 45, 0.1, false)
+      ) t(InstanceType, Region, AZ, Time, SPS, T3, SpotPrice, Ceased))
+      TO '{new}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
+    con.close()
+    return old, new
 
 
 class LoadMonthTest(unittest.TestCase):
-    def test_ceased_rows_become_nan_and_entries_are_named(self):
-        import pyarrow as pa
-        from unittest.mock import patch
+    def test_reads_zstd_files_in_utc_with_missing_columns_ceased_and_duplicates(self):
+        import shutil
+        import tempfile
+        from unittest.mock import MagicMock, patch
 
-        ts = lambda m: datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp() * 1e6 + m * 60e6
-        # null이 없는 표는 pyarrow가 읽기 전용 배열로 넘긴다. 그 경우도 다뤄야 한다.
-        table = pa.table({
-            "InstanceType": ["a", "a", "b", "a"], "Region": ["r", "r", "r", "r"],
-            "AZ": ["z1", "z1", "z2", "z1"],
-            "Time": pa.array([ts(0), ts(10), ts(0), ts(10)], pa.int64()).cast(pa.timestamp("us", "UTC")),
-            "SPS": [3, 0, 2, 0], "T3": [50, 0, 5, 0], "SpotPrice": [0.1, 0.0, 0.2, 0.0],
-            "Ceased": [False, True, False, True],
-        })
         until = datetime(2026, 10, 1, 23, 50, tzinfo=timezone.utc)
-        with patch.object(exporter, "month_files", return_value=["k"]), \
-                patch.object(exporter, "_read", return_value=table), \
-                patch.object(exporter, "_s3"):
-            data = exporter.load_month(date(2026, 10, 1), until)
+        with tempfile.TemporaryDirectory() as fixtures:
+            files = dict(zip(("ap", "cp"), write_fixtures(fixtures)))
+            s3 = MagicMock()
+            s3.download_file.side_effect = lambda bucket, key, dest: shutil.copy(files[key], dest)
+            with patch.object(exporter, "month_files", return_value=["ap", "cp"]),                     patch.object(exporter, "_s3", return_value=s3):
+                data = exporter.load_month(date(2026, 10, 1), until)
+
+        minute = lambda *t: int(datetime(*t, tzinfo=timezone.utc).timestamp()) // 60
         self.assertEqual(data["names"], [("a", "r", "z1"), ("b", "r", "z2")])
-        self.assertEqual(data["code"].tolist(), [0, 0, 1])        # (a, 10분) 중복은 하나로
-        self.assertTrue(np.isnan(data["T3"][1]))                 # Ceased 행은 NaN
-        self.assertEqual(data["T3"][0], 50)
+        self.assertEqual(data["code"].tolist(), [0, 0, 0, 1])     # until 이후 행은 빠진다
+        # 이 테스트를 KST에서 돌려도 UTC 기준 분이어야 한다.
+        self.assertEqual(data["minute"].tolist(), [minute(2026, 9, 30, 23), minute(2026, 10, 1, 0, 10),
+                                                   minute(2026, 10, 1, 0, 20), minute(2026, 10, 1)])
+        t3 = data["T3"].tolist()
+        self.assertTrue(math.isnan(t3[0]))                       # T3 컬럼이 없던 파일
+        self.assertEqual(t3[1], 50)
+        self.assertTrue(math.isnan(t3[2]))                       # Ceased 행
+        self.assertEqual(t3[3], 5)                               # 두 파일에 있으면 뒤 파일
+        self.assertEqual(data["SPS"].tolist()[0], 3)
 
 
 if __name__ == "__main__":

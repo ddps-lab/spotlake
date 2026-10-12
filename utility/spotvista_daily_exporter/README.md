@@ -52,9 +52,25 @@ aws lambda invoke --function-name spotvista-daily-exporter \
 `.github/workflows/spotvista-daily-exporter-deploy.yml` runs on relevant changes merged
 to `main`, or a manual dispatch on main. Like the monthly citation updater it renders a
 self-contained CloudFormation template (inline code, no container or artifact bucket)
-and deploys stack `spotvista-daily-exporter` with the `SPOTRANK_*` secrets. pyarrow and
-numpy come from the AWS managed layer `AWSSDKPandas-Python313-Arm64`, pinned in
-`render_template.py`.
+and deploys stack `spotvista-daily-exporter` with the `SPOTRANK_*` secrets.
 
 The function role can read only the three TITANS prefixes above and write only under
 `spotlake-public-daily/spotvista/aws/`. Reserved concurrency is 1 so runs never overlap.
+
+## Dependencies layer
+
+TITANS parquet is zstd-compressed and is read with DuckDB (the AWS SDK for pandas managed
+layer ships a pyarrow without zstd). DuckDB and numpy live in the layer
+`spotvista-exporter-deps`, published once in this account and pinned by version in
+`render_template.py`. To change versions, build and publish a new version, then bump the
+pin and the versions in the workflow's test step:
+
+```bash
+pip install --platform manylinux_2_28_aarch64 --platform manylinux_2_17_aarch64 \
+  --only-binary=:all: --python-version 3.13 --implementation cp \
+  --target layer/python duckdb==1.5.6 numpy==2.5.4
+(cd layer && zip -qr9 ../layer.zip python -x '*/__pycache__/*')   # about 34 MB
+aws lambda publish-layer-version --layer-name spotvista-exporter-deps \
+  --compatible-runtimes python3.13 --compatible-architectures arm64 \
+  --zip-file fileb://layer.zip
+```

@@ -18,7 +18,7 @@ layer = {"Fn::Sub": "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:spotv
 
 template = {
     "AWSTemplateFormatVersion": "2010-09-09",
-    "Description": "SpotVista daily T3 aggregates from TITANS change points",
+    "Description": "SpotVista availability scores from TITANS change points",
     "Resources": {
         "LogGroup": {"Type": "AWS::Logs::LogGroup", "Properties": {
             "LogGroupName": "/aws/lambda/" + function_name, "RetentionInDays": 30}},
@@ -54,7 +54,7 @@ template = {
         # 01:00 UTC: TITANS has merged yesterday's 23:50 tick, and last month's
         # cold file (written ~00:14 on the 1st) exists.
         "DailyRule": {"Type": "AWS::Events::Rule", "Properties": {
-            "Name": function_name, "Description": "SpotVista daily T3 aggregates: every day 01:00 UTC",
+            "Name": function_name, "Description": "SpotVista availability scores: every day 01:00 UTC",
             "ScheduleExpression": "cron(0 1 * * ? *)", "State": "ENABLED",
             "Targets": [{"Id": "Exporter", "Arn": {"Fn::GetAtt": ["Function", "Arn"]}, "Input": "{}",
                          "RetryPolicy": {"MaximumRetryAttempts": 2, "MaximumEventAgeInSeconds": 21600}}]}},

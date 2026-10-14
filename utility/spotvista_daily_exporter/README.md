@@ -1,8 +1,10 @@
 # SpotVista daily exporter
 
-Lambda `spotvista-daily-exporter` runs **every day at 01:00 UTC** and publishes the
-daily T3 aggregates that the static SpotVista site uses to score spot instances.
-It replaces SpotVista's query Lambda (`POST /api/query`).
+Lambda `spotvista-daily-exporter` runs **every day at 01:00 UTC** and publishes, for
+each reference date, one JSON with the availability score of every spot instance. The
+static SpotVista site downloads that file, filters it by the selected instance types and
+regions, and applies only the cost score and weight. It replaces SpotVista's query Lambda
+(`POST /api/query`).
 
 ## Data flow
 
@@ -22,24 +24,41 @@ the next day. `Ceased` rows (recorded with zero values) mark the entry as absent
 its next normal row. Months recorded before the `Ceased` column existed cannot show
 removals, so the last value carries on.
 
+Each day's aggregates are combined with the six days before it into the
+availability score of the original query module (`calculate_score.py`): the area,
+standard deviation and slope of the 7-day T3 series only need the count, sum, sum of
+squares, `Σ x·y`, first and last value of each day.
+
 Output goes to `s3://spotlake-public-daily/spotvista/aws/`, served at
 `https://d2krkjqajp4l0e.cloudfront.net/spotvista/aws/`:
 
-- `daily/YYYY-MM-DD/{InstanceType}.json`: one row per AZ with six T3 aggregates
-  (`n`, `sum`, `sumsq`, `sum_iy`, `first`, `last`) and the day's last values
-  (`Time`, `SPS`, `T3`, last positive `SpotPrice`). The 10-minute curve itself is not
-  published; SpotVista combines seven days of aggregates into the same area, standard
-  deviation and slope that the original query module computed.
-- `daily/YYYY-MM-DD/_done`: written last; a day without it is rebuilt by the next run.
-- `index.json`: available date range and the InstanceType → Region list.
+- `scores/YYYY-MM-DD.json` (reference date R, window R-7 … R-1): every candidate whose
+  latest value in the window has `SPS > 0` and `SpotPrice > 0`, as
+  `rows[InstanceType][Region] = [[AZ, SPS, T3, SpotPrice, AvailabilityScore], …]`.
+  `SPS`, `T3` and `SpotPrice` are the latest values in the window; the score is rounded to
+  4 decimals. About 50,000 rows, 1.9 MB (about 0.5 MB compressed by CloudFront).
+  The cost score depends on which candidates are selected, so the browser computes it.
+- `index.json`: first and last reference date, and the InstanceType → Region list of the
+  latest reference date for the selectors.
+- `agg/YYYY-MM-DD.json`: that day's six T3 aggregates (`n`, `sum`, `sumsq`, `sum_iy`,
+  `first`, `last`) and last `SPS` and positive `SpotPrice` per (InstanceType, Region, AZ),
+  column-wise. Intermediate result read back to build the next seven reference dates.
+  The 10-minute curve itself is not published.
+- `agg/YYYY-MM-DD.done`: written after the scores and `index.json`; a day without it is
+  rebuilt by the next run.
 
-T3 exists from 2025-02-15, so that is the first day produced.
+When a day is (re)built, every reference date whose window contains it and whose
+previous day already exists is rewritten.
+
+T3 exists from 2025-02-15, so that is the first day aggregated and 2025-02-22 the first
+reference date scored.
 
 ## Invocation
 
-- `{}` (daily rule): yesterday, plus any of the last 7 days still missing `_done`.
+- `{}` (daily rule): yesterday, plus any of the last 7 days still missing `.done`.
 - `{"date": "YYYY-MM-DD"}`: rebuild one day.
-- `{"month": "YYYY-MM"}`: build every day of a month (backfill). Run months one by one:
+- `{"month": "YYYY-MM"}`: build every day of a month (backfill). Run months one by one,
+  oldest first, so each window finds the days before it:
 
 ```bash
 aws lambda invoke --function-name spotvista-daily-exporter \

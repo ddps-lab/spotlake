@@ -5,6 +5,7 @@ import os, argparse
 import pickle, gzip, json, yaml
 import pandas as pd
 from io import StringIO
+import hashlib
 import threading
 import concurrent.futures
 
@@ -136,6 +137,15 @@ def main():
         # ------ Check Workload Date Change (S3 방식, Spot Batch 호환) ------
         # S3에서 저장된 workload 날짜 읽기
         saved_workload_date = metadata["workload_date"]
+        if saved_workload_date and saved_workload_date > date:
+            raise ValueError("Older reservation cannot overwrite newer workload metadata")
+        workload_signature = hashlib.sha256(
+            json.dumps(workload, separators=(",", ":")).encode()
+        ).hexdigest()
+        if saved_workload_date == date and metadata.get("workload_signature"):
+            if metadata["workload_signature"] != workload_signature:
+                raise ValueError("Workload changed after credential allocation; stop for review")
+        metadata["workload_signature"] = workload_signature
 
         print(f"저장된 workload 날짜: '{saved_workload_date}', 현재 날짜: '{date}'")
 
@@ -206,31 +216,31 @@ def main():
         df_list = []
         
         if is_first_collection:
+            # A configuration quota error must stop this run. Never cycle accounts.
             # ------ 순차 실행 모드 (첫 수집) ------
             current_mapping = {}
             for idx, scenarios in enumerate(workload):
                 while True:
                     try:
+                        if not init_credential_index <= current_credential_index < credential_range_end:
+                            raise RuntimeError("Credential allocation exhausted; no account reuse")
                         credential = credentials.iloc[current_credential_index]
                         args = (credential, scenarios, target_capacity)
                         df = query_sps(args)
                         # 성공한 경우에만 매핑 기록 및 index 증가
                         current_mapping[idx] = current_credential_index
                         current_credential_index += 1
-                        if current_credential_index >= credential_range_end:
-                            current_credential_index = init_credential_index
+                        if current_credential_index > credential_range_end:
+                            raise RuntimeError("Credential allocation exceeded its daily range")
                         df_list.append(df)
                         break
                     except botocore.exceptions.ClientError as e:
-                        if e.response['Error']['Code'] == 'MaxConfigLimitExceeded':
-                            print(f"MaxConfigLimitExceeded for credential index {current_credential_index}. Retrying with next credential.")
-                            current_credential_index += 1
-                            if current_credential_index >= credential_range_end:
-                                current_credential_index = init_credential_index
-                            continue
-                        else:
-                            print(f"ClientError: {e}")
-                            raise e
+                        print(f"SPS request failed; stopping allocation: batch={idx}, "
+                              f"credential_index={current_credential_index}, target_capacity={target_capacity}, "
+                              f"code={e.response['Error'].get('Code')}, "
+                              f"message={e.response['Error'].get('Message')}, "
+                              f"request_id={e.response.get('ResponseMetadata', {}).get('RequestId')}")
+                        raise
                     except Exception as e:
                         print(f"Error in sequential processing: {e}")
                         raise e
@@ -343,8 +353,8 @@ def main():
     # ------ Monitoring for total execution time ------
     execution_time_end = datetime.now(timezone.utc)
     total_execution_time = (execution_time_end - execution_time_start).total_seconds()
-    if total_execution_time >= 600000:
-        message = f"sps 쿼리 시간이 10분을 초과하였습니다 : {total_execution_time} ms"
+    if total_execution_time >= 600:
+        message = f"sps 쿼리 시간이 10분을 초과하였습니다 : {total_execution_time} seconds"
         message += f"\n실행 시작 시간 (UTC) : {timestamp_utc}"
         send_slack_message(message)
         print(message)

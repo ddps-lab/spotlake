@@ -4,6 +4,9 @@ set -e
 export PYTHONUNBUFFERED=1
 
 TIMESTAMP=$1
+if [ "${AWS_COLLECTION_GUARD_HELD:-}" != "1" ]; then
+    exec python3 /app/collector/spot-dataset/aws/batch/collection_guard.py "$TIMESTAMP"
+fi
 
 # Capture start time
 START_TIME_READABLE=$(date "+%Y-%m-%d %H:%M:%S")
@@ -65,12 +68,12 @@ monitor_memory $PID_SPS $PID_IF $PID_PRICE "$MEMORY_FILE" &
 MONITOR_PID=$!
 
 # Wait for all background processes to finish
-wait $PID_SPS
-STATUS_SPS=$?
-wait $PID_IF
-STATUS_IF=$?
-wait $PID_PRICE
-STATUS_PRICE=$?
+STATUS_SPS=0
+STATUS_IF=0
+STATUS_PRICE=0
+wait "$PID_SPS" || STATUS_SPS=$?
+wait "$PID_IF" || STATUS_IF=$?
+wait "$PID_PRICE" || STATUS_PRICE=$?
 
 # Stop memory monitoring
 kill $MONITOR_PID 2>/dev/null || true

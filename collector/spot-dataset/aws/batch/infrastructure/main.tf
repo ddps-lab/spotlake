@@ -251,6 +251,10 @@ resource "aws_batch_job_definition" "collection_job" {
   name = "spotlake-aws-collection-job"
   type = "container"
 
+  timeout {
+    attempt_duration_seconds = 900
+  }
+
   container_properties = jsonencode({
     image = var.image_uri
     command = ["/bin/bash", "/app/collector/spot-dataset/aws/batch/scripts/run_collection.sh", "Ref::timestamp"]

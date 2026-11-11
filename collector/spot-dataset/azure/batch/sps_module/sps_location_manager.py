@@ -280,6 +280,16 @@ def record_location_result(
         )
 
 
+def exclude_location_for_job(location):
+    """Stop routing this job's requests to a location that cannot serve the SPS API."""
+    if location in SS_Resources.effective_excluded_locations:
+        return False
+    SS_Resources.effective_excluded_locations.add(location)
+    SS_Resources.fallback_locations.discard(location)
+    print(f"[SPS_LOCATION_HEALTH] action=exclude_for_job location={location}")
+    return True
+
+
 def check_and_add_available_locations(az):
     try:
         SS_Resources.available_locations = collect_available_locations()

@@ -16,7 +16,7 @@ usage() {
     echo "  -b: S3 Bucket Name (default: spotlake)"
     echo "  -t: TITANS Bucket Name (default: titans-spotlake-data)"
     echo "  -p: AWS Profile (optional, uses default if not set)"
-    echo "  -w: Slack Webhook URL (required; failure monitoring is always managed)"
+    echo "  -w: Slack Webhook URL (default: SSM parameter error_notification_slack_webhook_url)"
     exit 1
 }
 
@@ -89,11 +89,18 @@ TF_VARS=(
 # Failure monitoring is part of the managed production stack. Ownership of the
 # shared batch-failure-notifier Lambda is fixed in production.auto.tfvars.json
 # (the Azure stack creates it and the AWS stack reads it), so it is not auto-detected.
+# Without -w, use the SSM parameter the collectors already read for Slack alerts.
 if [ -z "$SLACK_WEBHOOK_URL" ]; then
-    echo "Error: Slack Webhook URL (-w) is required; without it Terraform would remove failure monitoring."
+    SLACK_WEBHOOK_URL=$(aws ssm get-parameter --name error_notification_slack_webhook_url \
+        --region "$AWS_REGION" --query Parameter.Value --output text 2>/dev/null || true)
+fi
+if [ -z "$SLACK_WEBHOOK_URL" ] || [ "$SLACK_WEBHOOK_URL" = "None" ]; then
+    echo "Error: Slack Webhook URL not found (-w or SSM error_notification_slack_webhook_url)."
+    echo "       Without it Terraform would remove failure monitoring."
     exit 1
 fi
-TF_VARS+=(-var "slack_webhook_url=$SLACK_WEBHOOK_URL")
+# Pass the webhook through the environment so it does not appear in process arguments.
+export TF_VAR_slack_webhook_url="$SLACK_WEBHOOK_URL"
 
 # Review the plan before applying. The plan file holds variable values, so keep it outside the repo.
 PLAN_FILE=$(mktemp -t spotlake-tfplan.XXXXXX)

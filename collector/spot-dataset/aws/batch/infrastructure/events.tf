@@ -36,9 +36,10 @@ resource "aws_iam_policy" "scheduler_policy" {
         Action = [
           "batch:SubmitJob"
         ]
+        # Any revision of these job definitions, so a deploy never waits on a policy update.
         Resource = [
-          aws_batch_job_definition.collection_job.arn,
-          aws_batch_job_definition.workload_job.arn,
+          "${aws_batch_job_definition.collection_job.arn_prefix}:*",
+          "${aws_batch_job_definition.workload_job.arn_prefix}:*",
           aws_batch_job_queue.spot_job_queue.arn
         ]
       },
@@ -68,6 +69,9 @@ resource "aws_cloudwatch_event_rule" "collection_schedule" {
   name                = "spotlake-collection-schedule"
   description         = "Triggers SpotLake Data Collection every 10 minutes"
   schedule_expression = "cron(0/10 * * * ? *)"
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_cloudwatch_event_target" "collection_target" {
@@ -93,6 +97,9 @@ resource "aws_cloudwatch_event_target" "collection_target" {
 }
 EOF
   }
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # 2. Workload Generation (Daily at 23:55 UTC)
@@ -100,6 +107,9 @@ resource "aws_cloudwatch_event_rule" "workload_schedule" {
   name                = "spotlake-workload-schedule"
   description         = "Trigger workload generation daily at 23:55 UTC"
   schedule_expression = "cron(55 23 * * ? *)"
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_cloudwatch_event_target" "workload_schedule" {
@@ -124,5 +134,8 @@ resource "aws_cloudwatch_event_target" "workload_schedule" {
   }
 }
 EOF
+  }
+  lifecycle {
+    prevent_destroy = true
   }
 }

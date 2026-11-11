@@ -36,6 +36,12 @@ variable "image_uri" {
   type        = string
 }
 
+variable "workload_image_uri" {
+  description = "Docker Image URI for the workload generation job (defaults to image_uri)"
+  type        = string
+  default     = null
+}
+
 variable "job_role_arn" {
   description = "IAM Role ARN for Batch Jobs (if existing)"
   type        = string

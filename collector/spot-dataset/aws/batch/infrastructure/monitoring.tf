@@ -4,7 +4,7 @@
 
 locals {
   # Enable monitoring only if webhook URL is provided
-  enable_monitoring = var.slack_webhook_url != null && var.slack_webhook_url != ""
+  enable_monitoring = nonsensitive(var.slack_webhook_url != null && var.slack_webhook_url != "")
   
   # Determine if we should create new Lambda or use existing
   create_lambda = local.enable_monitoring && !var.use_existing_lambda
@@ -42,6 +42,9 @@ resource "aws_iam_role" "batch_notifier_lambda_role" {
       }
     }]
   })
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
@@ -66,6 +69,9 @@ resource "aws_lambda_function" "batch_failure_notifier" {
   }
 
   source_code_hash = filebase64sha256("${path.module}/lambda/batch_failure_notifier.zip")
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # ------ EventBridge Rule (only if monitoring enabled) ------
@@ -83,6 +89,9 @@ resource "aws_cloudwatch_event_rule" "batch_job_failure" {
       jobQueue = [aws_batch_job_queue.spot_job_queue.arn]
     }
   })
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_cloudwatch_event_target" "batch_failure_to_lambda" {
@@ -90,6 +99,9 @@ resource "aws_cloudwatch_event_target" "batch_failure_to_lambda" {
   rule      = aws_cloudwatch_event_rule.batch_job_failure[0].name
   target_id = "BatchFailureNotifierLambda"
   arn       = local.lambda_arn
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_lambda_permission" "allow_eventbridge" {
@@ -99,4 +111,7 @@ resource "aws_lambda_permission" "allow_eventbridge" {
   function_name = local.lambda_function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.batch_job_failure[0].arn
+  lifecycle {
+    prevent_destroy = true
+  }
 }

@@ -41,6 +41,11 @@ FANOUT_CANCELLED = "FANOUT_CANCELLED"
 CONNECTION_MAX_RETRIES = 8
 CONNECTION_BACKOFF_MAX_SECONDS = 10
 SERVER_ERROR_MAX_RETRIES = 8
+# Azure can list a location for placementScores before the API is registered there.
+LOCATION_UNAVAILABLE_ERROR_CODES = frozenset(
+    {"NoRegisteredProviderFound", "LocationNotAvailableForResourceType"}
+)
+AUTHENTICATION_MAX_RETRIES = 1
 
 
 class SPSRequestStatus(str, Enum):
@@ -590,6 +595,14 @@ def build_sps_request_hash(request_body):
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _azure_error_code(error_message):
+    try:
+        error = json.loads(error_message).get("error")
+    except (TypeError, ValueError, AttributeError):
+        return None
+    return error.get("code") if isinstance(error, dict) else None
+
+
 def _record_location_health(location, *, outcome, elapsed_seconds, route_mode):
     try:
         with SS_Resources.location_lock:
@@ -609,6 +622,7 @@ def _record_location_health(location, *, outcome, elapsed_seconds, route_mode):
 def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_count, max_retries=12):
     retries = 0
     exhausted_reason = RETRY_EXHAUSTED
+    authentication_retries = 0
     while retries <= max_retries:
         timeout_metrics = getattr(SS_Resources, "timeout_metrics", None)
         collection_deadline = getattr(SS_Resources, "collection_deadline", None)
@@ -859,6 +873,47 @@ def execute_spot_placement_score_api(region_chunk, instance_type_chunk, desired_
                 SL_Manager.update_over_limit_locations(subscription_id, location)
                 retries = handle_retry(
                     "Too Many Requests(2)",
+                    retries,
+                    max_retries,
+                    collection_deadline=collection_deadline,
+                )
+
+            elif _azure_error_code(error_message) in LOCATION_UNAVAILABLE_ERROR_CODES:
+                # The request itself is valid; only this endpoint location cannot serve it.
+                print(
+                    f"[SPS_LOCATION_UNAVAILABLE] status_code={status_code} "
+                    f"elapsed_seconds={elapsed:.3f} attempt={retries + 1} "
+                    f"location={location} route_mode={route_mode} "
+                    f"desired_count={desired_count} "
+                    f"request_hash={request_hash} client_request_id={client_request_id} "
+                    f"azure_request_id={azure_request_id} "
+                    f"error={json.dumps(error_message[:300])}"
+                )
+                with SS_Resources.location_lock:
+                    SL_Manager.exclude_location_for_job(location)
+                retries = handle_retry(
+                    "LocationUnavailable",
+                    retries,
+                    max_retries,
+                    collection_deadline=collection_deadline,
+                )
+
+            elif (
+                status_code == 401
+                and authentication_retries < AUTHENTICATION_MAX_RETRIES
+            ):
+                authentication_retries += 1
+                print(
+                    f"[SPS_AUTH_RETRY] status_code={status_code} "
+                    f"elapsed_seconds={elapsed:.3f} attempt={retries + 1} "
+                    f"location={location} route_mode={route_mode} "
+                    f"desired_count={desired_count} "
+                    f"request_hash={request_hash} client_request_id={client_request_id} "
+                    f"azure_request_id={azure_request_id} "
+                    f"error={json.dumps(error_message[:300])}"
+                )
+                retries = handle_retry(
+                    "AuthenticationFailed",
                     retries,
                     max_retries,
                     collection_deadline=collection_deadline,

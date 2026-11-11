@@ -268,3 +268,19 @@ def test_malformed_exclusion_timestamp_does_not_disable_location_health(
         minutes=30
     )
     assert resources.effective_excluded_locations == {"slow"}
+
+
+def test_job_exclusion_keeps_requests_away_from_the_location(monkeypatch):
+    manager, resources = _load_location_manager(
+        monkeypatch,
+        subscriptions=["sub-a"],
+        locations=["taiwannorth", "healthy"],
+    )
+    now = datetime(2026, 11, 11, 5, 0, tzinfo=timezone.utc)
+    manager.prepare_location_routing(total_request_count=4, now=now)
+
+    assert manager.exclude_location_for_job("taiwannorth") is True
+    assert manager.exclude_location_for_job("taiwannorth") is False
+    assert resources.effective_excluded_locations == {"taiwannorth"}
+    picks = [manager.get_next_available_location(now=now)[1] for _ in range(4)]
+    assert picks == ["healthy"] * 4

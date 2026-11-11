@@ -949,3 +949,125 @@ def test_location_health_initialization_failure_keeps_fanout_available(
 
     assert result.empty
     assert resources.effective_excluded_locations == set()
+
+
+def _azure_error_response(status_code, code):
+    class ErrorResponse:
+        text = f'{{"error":{{"code":"{code}","message":"Azure rejected the request."}}}}'
+        headers = {"x-ms-request-id": f"azure-{status_code}"}
+
+        def raise_for_status(self):
+            raise requests.exceptions.HTTPError(response=self)
+
+    ErrorResponse.status_code = status_code
+    return ErrorResponse()
+
+
+class _SuccessfulResponse:
+    headers = {"x-ms-request-id": "azure-success"}
+
+    @staticmethod
+    def raise_for_status():
+        return None
+
+    @staticmethod
+    def json():
+        return {"placementScores": []}
+
+
+def test_unregistered_location_is_skipped_and_request_moves_on(monkeypatch, capsys):
+    load_sps, _ = _load_sps_module(monkeypatch)
+    monkeypatch.setattr(load_sps.time, "sleep", lambda _: None)
+    locations = iter(
+        [
+            ("subscription", "taiwannorth", "normal"),
+            ("subscription", "westus2", "normal"),
+        ]
+    )
+    monkeypatch.setattr(
+        load_sps.SL_Manager,
+        "get_next_available_location",
+        lambda: next(locations),
+    )
+    excluded = []
+    monkeypatch.setattr(
+        load_sps.SL_Manager,
+        "exclude_location_for_job",
+        excluded.append,
+        raising=False,
+    )
+    responses = iter(
+        [_azure_error_response(400, "NoRegisteredProviderFound"), _SuccessfulResponse()]
+    )
+    monkeypatch.setattr(load_sps.requests, "post", lambda *args, **kwargs: next(responses))
+
+    result = load_sps.execute_spot_placement_score_api(
+        ["region"], ["instance"], desired_count=15, max_retries=2
+    )
+
+    assert result.status is load_sps.SPSRequestStatus.SUCCESS
+    assert excluded == ["taiwannorth"]
+    output = capsys.readouterr().out
+    assert "[SPS_LOCATION_UNAVAILABLE]" in output
+    assert "location=taiwannorth" in output
+    assert "location=westus2" in output
+
+
+def test_unregistered_location_exhaustion_only_marks_request_unavailable(monkeypatch):
+    load_sps, _ = _load_sps_module(monkeypatch)
+    monkeypatch.setattr(load_sps.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        load_sps.SL_Manager, "exclude_location_for_job", lambda _: True, raising=False
+    )
+    call_count = 0
+
+    def unregistered(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _azure_error_response(400, "NoRegisteredProviderFound")
+
+    monkeypatch.setattr(load_sps.requests, "post", unregistered)
+
+    result = load_sps.execute_spot_placement_score_api(
+        ["region"], ["instance"], desired_count=15, max_retries=2
+    )
+
+    assert result.status is load_sps.SPSRequestStatus.UNAVAILABLE
+    assert result.reason == load_sps.RETRY_EXHAUSTED
+    assert call_count == 3
+
+
+def test_single_authentication_failure_is_retried_once(monkeypatch, capsys):
+    load_sps, _ = _load_sps_module(monkeypatch)
+    monkeypatch.setattr(load_sps.time, "sleep", lambda _: None)
+    responses = iter([_azure_error_response(401, "AuthenticationFailed"), _SuccessfulResponse()])
+    monkeypatch.setattr(load_sps.requests, "post", lambda *args, **kwargs: next(responses))
+
+    result = load_sps.execute_spot_placement_score_api(
+        ["region"], ["instance"], desired_count=40, max_retries=2
+    )
+
+    assert result.status is load_sps.SPSRequestStatus.SUCCESS
+    assert "[SPS_AUTH_RETRY]" in capsys.readouterr().out
+
+
+def test_repeated_authentication_failure_remains_fatal(monkeypatch):
+    load_sps, _ = _load_sps_module(monkeypatch)
+    monkeypatch.setattr(load_sps.time, "sleep", lambda _: None)
+    call_count = 0
+
+    def unauthorized(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _azure_error_response(401, "AuthenticationFailed")
+
+    monkeypatch.setattr(load_sps.requests, "post", unauthorized)
+
+    result = load_sps.execute_spot_placement_score_api(
+        ["region"], ["instance"], desired_count=40, max_retries=5
+    )
+
+    assert result.status is load_sps.SPSRequestStatus.FATAL
+    assert result.reason == load_sps.UNEXPECTED_ERROR
+    assert "HTTP 401" in result.error
+    assert call_count == 2

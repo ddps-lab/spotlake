@@ -237,6 +237,12 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
     aws_iam_role_policy_attachment.batch_service_role_policy,
     aws_iam_role_policy_attachment.batch_service_ecs_policy_attachment
   ]
+
+  lifecycle {
+    prevent_destroy = true
+    # Batch raises desired vCPUs while jobs run; an apply must not reset it to 0.
+    ignore_changes = [compute_resources[0].desired_vcpus]
+  }
 }
 
 resource "aws_batch_job_queue" "spot_job_queue" {
@@ -248,6 +254,10 @@ resource "aws_batch_job_queue" "spot_job_queue" {
     order              = 1
     compute_environment = aws_batch_compute_environment.spot_compute_env.arn
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # ------ Batch Job Definitions ------
@@ -256,6 +266,9 @@ resource "aws_batch_job_queue" "spot_job_queue" {
 resource "aws_batch_job_definition" "collection_job" {
   name = "spotlake-azure-collection-job"
   type = "container"
+
+  # Keep the previous revision ACTIVE so scheduled submissions never hit an INACTIVE revision during a deploy.
+  deregister_on_new_revision = false
 
   container_properties = jsonencode({
     image = var.image_uri

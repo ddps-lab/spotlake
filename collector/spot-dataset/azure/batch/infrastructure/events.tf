@@ -36,8 +36,9 @@ resource "aws_iam_policy" "scheduler_policy" {
         Action = [
           "batch:SubmitJob"
         ]
+        # Any revision of these job definitions, so a deploy never waits on a policy update.
         Resource = [
-          aws_batch_job_definition.collection_job.arn,
+          "${aws_batch_job_definition.collection_job.arn_prefix}:*",
           aws_batch_job_queue.spot_job_queue.arn
         ]
       },
@@ -67,6 +68,9 @@ resource "aws_cloudwatch_event_rule" "collection_schedule" {
   name                = "spotlake-azure-collection-schedule"
   description         = "Triggers SpotLake Azure Data Collection every 10 minutes"
   schedule_expression = "cron(0/10 * * * ? *)"
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_cloudwatch_event_target" "collection_target" {
@@ -91,5 +95,8 @@ resource "aws_cloudwatch_event_target" "collection_target" {
   }
 }
 EOF
+  }
+  lifecycle {
+    prevent_destroy = true
   }
 }

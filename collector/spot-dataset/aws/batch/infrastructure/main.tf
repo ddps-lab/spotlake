@@ -231,16 +231,26 @@ resource "aws_batch_compute_environment" "spot_compute_env" {
     aws_iam_role_policy_attachment.batch_service_role_policy,
     aws_iam_role_policy_attachment.batch_service_ecs_policy_attachment
   ]
+
+  lifecycle {
+    prevent_destroy = true
+    # Batch raises desired vCPUs while jobs run; an apply must not reset it to 0.
+    ignore_changes = [compute_resources[0].desired_vcpus]
+  }
 }
 
 resource "aws_batch_job_queue" "spot_job_queue" {
   name     = "spotlake-aws-job-queue"
   state    = "ENABLED"
   priority = 1
-  
+
   compute_environment_order {
     order              = 1
     compute_environment = aws_batch_compute_environment.spot_compute_env.arn
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
@@ -250,6 +260,9 @@ resource "aws_batch_job_queue" "spot_job_queue" {
 resource "aws_batch_job_definition" "collection_job" {
   name = "spotlake-aws-collection-job"
   type = "container"
+
+  # Keep the previous revision ACTIVE so scheduled submissions never hit an INACTIVE revision during a deploy.
+  deregister_on_new_revision = false
 
   timeout {
     attempt_duration_seconds = 900
@@ -262,7 +275,10 @@ resource "aws_batch_job_definition" "collection_job" {
     environment = [
       { name = "S3_BUCKET", value = var.s3_bucket },
       { name = "AWS_REGION", value = var.aws_region },
-      { name = "TITANS_ENABLED", value = var.titans_enabled }
+      { name = "TITANS_ENABLED", value = var.titans_enabled },
+      # Temporary SPS instrumentation in the running image (2026-09-17 build).
+      # Remove together with the image rebuild that drops the instrumentation.
+      { name = "SPOTLAKE_PASSIVE_METRICS", value = "1" }
     ]
     resourceRequirements = [
       { type = "VCPU", value = "1" },
@@ -280,8 +296,11 @@ resource "aws_batch_job_definition" "workload_job" {
   name = "spotlake-aws-workload-job"
   type = "container"
 
+  # Keep the previous revision ACTIVE so scheduled submissions never hit an INACTIVE revision during a deploy.
+  deregister_on_new_revision = false
+
   container_properties = jsonencode({
-    image = var.image_uri
+    image = coalesce(var.workload_image_uri, var.image_uri)
     command = ["python3", "collector/spot-dataset/aws/batch/workload/generate_workload.py", "--timestamp", "Ref::timestamp"]
     jobRoleArn = aws_iam_role.batch_job_role.arn
     environment = [
